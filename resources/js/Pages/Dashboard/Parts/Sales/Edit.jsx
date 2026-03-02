@@ -257,7 +257,7 @@ export default function Edit({ sale, customers = [], parts = [] }) {
                                 </div>
                             </div>
                             <div className="p-6">
-                                <div className="grid gap-6 md:grid-cols-2">
+                                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                                     <div>
                                         <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                                             Pelanggan <span className="text-red-500">*</span>
@@ -308,12 +308,14 @@ export default function Edit({ sale, customers = [], parts = [] }) {
                                         <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                                             Status Penjualan
                                         </label>
-                                        <input
-                                            type="text"
+                                        <select
                                             value={data.status}
-                                            readOnly
-                                            className="w-full h-12 px-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium cursor-not-allowed"
-                                        />
+                                            className="w-full h-12 px-4 rounded-xl border-2 border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 font-medium"
+                                        >
+                                            <option value="draft">📝 Draft</option>
+                                            <option value="confirmed">✅ Dikonfirmasi</option>
+                                            <option value="waiting_stock">📦 Menunggu Stok</option>
+                                        </select>
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Apps;
 use App\Exceptions\PaymentGatewayException;
 use App\Http\Controllers\Controller;
 use App\Models\Cart;
+use App\Models\BusinessProfile;
 use App\Models\Customer;
 use App\Models\PaymentSetting;
 use App\Models\Product;
@@ -556,9 +557,11 @@ class TransactionController extends Controller
     {
         //get transaction
         $transaction = Transaction::with(['details.product', 'details.service', 'details.part', 'cashier', 'customer', 'mechanic', 'vehicle'])->where('invoice', $invoice)->firstOrFail();
+        $businessProfile = BusinessProfile::first();
 
         return Inertia::render('Dashboard/Transactions/Print', [
             'transaction' => $transaction,
+            'businessProfile' => $businessProfile,
         ]);
     }
 

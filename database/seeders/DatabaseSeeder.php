@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             UserSeeder::class,
             PaymentSettingSeeder::class,
+            BusinessProfileSeeder::class,
             SampleDataSeeder::class,
             WorkshopSeeder::class,
             SupplierSeeder::class,

@@ -31,6 +31,7 @@ import {
     IconCalendar,
     IconPackage,
     IconAlertCircle,
+    IconBuildingStore,
 } from "@tabler/icons-react";
 import hasAnyPermission from "./Permission";
 import React from "react";
@@ -361,6 +362,13 @@ export default function Menu() {
                     href: route("settings.payments.edit"),
                     active: url === "/dashboard/settings/payments",
                     icon: <IconCreditCard size={20} strokeWidth={1.5} />,
+                    permissions: hasAnyPermission(["payment-settings-access"]),
+                },
+                {
+                    title: "Profil Bisnis",
+                    href: route("settings.business-profile.edit"),
+                    active: url === "/dashboard/settings/business-profile",
+                    icon: <IconBuildingStore size={20} strokeWidth={1.5} />,
                     permissions: hasAnyPermission(["payment-settings-access"]),
                 },
             ],

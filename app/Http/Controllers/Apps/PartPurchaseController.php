@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Apps;
 
 use App\Http\Controllers\Controller;
+use App\Models\BusinessProfile;
 use App\Models\Part;
 use App\Models\PartPurchase;
 use App\Models\PartPurchaseDetail;
@@ -202,6 +203,17 @@ class PartPurchaseController extends Controller
 
         return inertia('Dashboard/PartPurchases/Show', [
             'purchase' => $purchase,
+        ]);
+    }
+
+    public function print($id)
+    {
+        $purchase = PartPurchase::with(['supplier', 'details.part.category'])
+            ->findOrFail($id);
+
+        return inertia('Dashboard/PartPurchases/Print', [
+            'purchase' => $purchase,
+            'businessProfile' => BusinessProfile::first(),
         ]);
     }
 

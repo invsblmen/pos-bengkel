@@ -3,12 +3,26 @@ import { Head, Link, router } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import { IconArrowLeft, IconPrinter, IconPencil, IconEdit, IconCheck, IconX, IconCash, IconShoppingCart, IconReceipt, IconUser, IconDiscount } from '@tabler/icons-react';
 import toast from 'react-hot-toast';
+import { formatBusinessSocials } from '@/Utils/socialMediaFormatter';
 
 const statusColors = {
     confirmed: 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-100',
     draft: 'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/40 dark:text-yellow-100',
+    waiting_stock: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-100',
+    ready_to_notify: 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-100',
+    waiting_pickup: 'bg-cyan-100 text-cyan-700 border-cyan-200 dark:bg-cyan-900/40 dark:text-cyan-100',
     completed: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-100',
     cancelled: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-100',
+};
+
+const statusLabel = {
+    draft: '📝 Draft',
+    confirmed: '✅ Dikonfirmasi',
+    waiting_stock: '📦 Menunggu Stok',
+    ready_to_notify: '🔔 Siap Diberitahu',
+    waiting_pickup: '🛵 Menunggu Diambil',
+    completed: '🎯 Selesai',
+    cancelled: '❌ Dibatalkan',
 };
 
 const paymentColors = {
@@ -17,10 +31,13 @@ const paymentColors = {
     unpaid: 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-slate-800/60 dark:text-gray-100',
 };
 
-export default function Show({ sale }) {
+export default function Show({ sale, businessProfile }) {
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [newStatus, setNewStatus] = useState(sale.status || 'draft');
     const [updatingStatus, setUpdatingStatus] = useState(false);
+    const [showPrintModal, setShowPrintModal] = useState(false);
+    const [printMode, setPrintMode] = useState('invoice');
+    const [paperSize, setPaperSize] = useState('a4');
     const [paymentAmount, setPaymentAmount] = useState('');
     const [updatingPayment, setUpdatingPayment] = useState(false);
 
@@ -49,8 +66,19 @@ export default function Show({ sale }) {
     const grandTotal = sale.grand_total ?? subtotal - discountAmount + taxAmount;
     const paidAmount = sale.paid_amount || 0;
     const remainingAmount = sale.remaining_amount ?? (grandTotal - paidAmount);
+    const businessName = businessProfile?.business_name || 'POS BENGKEL';
+    const businessPhone = businessProfile?.business_phone || '';
+    const businessAddress = businessProfile?.business_address || '';
+    const businessSocials = formatBusinessSocials(businessProfile);
 
-    const handlePrint = () => window.print();
+    const handlePrint = () => setShowPrintModal(true);
+
+    const doPrint = (mode = 'invoice', size = 'a4') => {
+        setPrintMode(mode);
+        setPaperSize(size);
+        setShowPrintModal(false);
+        setTimeout(() => window.print(), 120);
+    };
 
     const canChangeStatus = () => !['completed', 'cancelled'].includes(sale.status);
 
@@ -131,20 +159,14 @@ export default function Show({ sale }) {
                                     <span className={`inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold border-2 shadow-lg ${
                                         statusColors[sale.status] || 'bg-white/10 text-white border-white/20'
                                     }`}>
-                                        {sale.status === 'confirmed'
-                                            ? '✅ Dikonfirmasi'
-                                            : sale.status === 'draft'
-                                                ? '📝 Draft'
-                                                : sale.status === 'completed'
-                                                    ? '🎯 Selesai'
-                                                    : '❌ Dibatalkan'}
+                                        {statusLabel[sale.status] || sale.status}
                                     </span>
-                                    <button
-                                        onClick={handlePrint}
+                                    <Link
+                                        href={route('part-sales.print', sale.id)}
                                         className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-emerald-700 shadow-xl hover:shadow-2xl hover:scale-105 transition-all"
                                     >
                                         <IconPrinter size={18} /> Cetak
-                                    </button>
+                                    </Link>
                                     {sale.status === 'draft' && (
                                         <Link
                                             href={route('part-sales.edit', sale.id)}
@@ -251,6 +273,14 @@ export default function Show({ sale }) {
                                         <div className="flex items-center justify-between py-3 border-b border-slate-200 dark:border-slate-800">
                                             <span className="text-slate-600 dark:text-slate-400 font-medium">Dibuat oleh</span>
                                             <span className="font-bold text-slate-900 dark:text-white">{sale.creator?.name || '-'}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between py-3 border-b border-slate-200 dark:border-slate-800">
+                                            <span className="text-slate-600 dark:text-slate-400 font-medium">Status Penjualan</span>
+                                            <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold border-2 shadow-sm ${
+                                                statusColors[sale.status] || 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-slate-800 dark:text-gray-200'
+                                            }`}>
+                                                {statusLabel[sale.status] || sale.status}
+                                            </span>
                                         </div>
                                         <div className="flex items-center justify-between py-3">
                                             <span className="text-slate-600 dark:text-slate-400 font-medium">Status Pembayaran</span>
@@ -379,88 +409,136 @@ export default function Show({ sale }) {
                     </div>
                 </div>
 
-                {/* Print View */}
-                <div className="hidden print:block">
-                    <div className="space-y-6 text-slate-900">
-                        <div className="flex items-start justify-between border-b border-slate-300 pb-4">
-                            <div>
-                                <h1 className="text-2xl font-bold">Invoice Penjualan Sparepart</h1>
-                                <p className="text-sm text-slate-600">{sale.sale_number}</p>
+                {/* Print View - Invoice */}
+                {printMode === 'invoice' && (
+                    <div className="hidden print:block">
+                        <div className="mx-auto max-w-[900px] text-slate-900 print:text-black">
+                            <div className="border-b-2 border-slate-300 pb-4 mb-4">
+                                <div className="flex items-start justify-between">
+                                    <div>
+                                        <h1 className="text-2xl font-bold tracking-wide">INVOICE PENJUALAN SPAREPART</h1>
+                                        <p className="text-sm text-slate-600">{sale.sale_number}</p>
+                                        <p className="text-sm text-slate-600 mt-1">{businessName}</p>
+                                        {businessPhone && <p className="text-xs text-slate-500">{businessPhone}</p>}
+                                        {businessAddress && <p className="text-xs text-slate-500">{businessAddress}</p>}
+                                        {businessSocials.map((social) => (
+                                            <p key={social.label} className="text-xs text-slate-500">
+                                                {social.label}: {social.value}
+                                            </p>
+                                        ))}
+                                    </div>
+                                    <div className="text-right text-sm text-slate-700">
+                                        <p><span className="font-semibold">Tanggal:</span> {formatDate(sale.sale_date || sale.created_at)}</p>
+                                        <p><span className="font-semibold">Status:</span> {statusLabel[sale.status] || sale.status}</p>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="text-sm text-slate-600">
-                                <p>Tanggal: {formatDate(sale.sale_date || sale.created_at)}</p>
-                                <p>Status: {sale.status}</p>
-                            </div>
-                        </div>
 
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                                <p className="font-semibold">Pelanggan</p>
-                                <p>{sale.customer?.name || '-'}</p>
+                            <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                                <div className="border border-slate-300 rounded-md p-3">
+                                    <p className="font-semibold mb-1">Pelanggan</p>
+                                    <p>{sale.customer?.name || '-'}</p>
+                                </div>
+                                <div className="border border-slate-300 rounded-md p-3 text-right">
+                                    <p className="font-semibold mb-1">Pembayaran</p>
+                                    <p>{sale.payment_status}</p>
+                                </div>
                             </div>
-                            <div className="text-right">
-                                <p className="font-semibold">Pembayaran</p>
-                                <p>{sale.payment_status}</p>
-                            </div>
-                        </div>
 
-                        <table className="w-full text-sm border border-slate-300">
-                            <thead className="bg-slate-100">
-                                <tr>
-                                    <th className="px-3 py-2 text-left border-b border-slate-300">Sparepart</th>
-                                    <th className="px-3 py-2 text-right border-b border-slate-300">Harga</th>
-                                    <th className="px-3 py-2 text-right border-b border-slate-300">Qty</th>
-                                    <th className="px-3 py-2 text-right border-b border-slate-300">Diskon</th>
-                                    <th className="px-3 py-2 text-right border-b border-slate-300">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {sale.details.map((detail) => (
-                                    <tr key={detail.id} className="border-b border-slate-200">
-                                        <td className="px-3 py-2">{detail.part?.name || '-'}</td>
-                                        <td className="px-3 py-2 text-right">{formatCurrency(detail.unit_price)}</td>
-                                        <td className="px-3 py-2 text-right">{detail.quantity}</td>
-                                        <td className="px-3 py-2 text-right">-{formatCurrency(calculateItemDiscount(detail))}</td>
-                                        <td className="px-3 py-2 text-right">{formatCurrency(calculateItemTotal(detail))}</td>
+                            <table className="w-full text-sm border border-slate-300">
+                                <thead className="bg-slate-100">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left border-b border-slate-300">Sparepart</th>
+                                        <th className="px-3 py-2 text-right border-b border-slate-300">Harga</th>
+                                        <th className="px-3 py-2 text-right border-b border-slate-300">Qty</th>
+                                        <th className="px-3 py-2 text-right border-b border-slate-300">Diskon</th>
+                                        <th className="px-3 py-2 text-right border-b border-slate-300">Total</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {sale.details.map((detail) => (
+                                        <tr key={detail.id} className="border-b border-slate-200">
+                                            <td className="px-3 py-2">{detail.part?.name || '-'}</td>
+                                            <td className="px-3 py-2 text-right">{formatCurrency(detail.unit_price)}</td>
+                                            <td className="px-3 py-2 text-right">{detail.quantity}</td>
+                                            <td className="px-3 py-2 text-right">-{formatCurrency(calculateItemDiscount(detail))}</td>
+                                            <td className="px-3 py-2 text-right">{formatCurrency(calculateItemTotal(detail))}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
 
-                        <div className="flex justify-end">
-                            <div className="w-72 space-y-2 text-sm">
-                                <div className="flex justify-between">
-                                    <span>Subtotal</span>
-                                    <span>{formatCurrency(subtotal)}</span>
+                            <div className="mt-4 flex justify-end">
+                                <div className="w-80 border border-slate-300 rounded-md p-3 space-y-2 text-sm">
+                                    <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
+                                    <div className="flex justify-between"><span>Diskon</span><span>-{formatCurrency(discountAmount)}</span></div>
+                                    <div className="flex justify-between"><span>Pajak</span><span>+{formatCurrency(taxAmount)}</span></div>
+                                    <div className="flex justify-between border-t border-slate-300 pt-2 font-semibold text-base"><span>Total</span><span>{formatCurrency(grandTotal)}</span></div>
                                 </div>
-                                <div className="flex justify-between">
-                                    <span>Diskon</span>
-                                    <span>-{formatCurrency(discountAmount)}</span>
+                            </div>
+
+                            {sale.notes && (
+                                <div className="mt-4 text-sm border border-slate-300 rounded-md p-3">
+                                    <p className="font-semibold">Catatan:</p>
+                                    <p>{sale.notes}</p>
                                 </div>
-                                <div className="flex justify-between">
-                                    <span>Pajak</span>
-                                    <span>+{formatCurrency(taxAmount)}</span>
-                                </div>
-                                <div className="flex justify-between border-t border-slate-300 pt-2 font-semibold">
-                                    <span>Total</span>
-                                    <span>{formatCurrency(grandTotal)}</span>
-                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Print View - POS */}
+                {printMode === 'pos' && (
+                    <div className="hidden print:block">
+                        <div className={`${paperSize === '58mm' ? 'mx-auto w-[58mm]' : 'mx-auto w-[80mm]'} text-[11px] leading-tight text-black`}>
+                            <div className="text-center border-b border-dashed border-black pb-2 mb-2">
+                                <p className="font-bold text-base">{businessName}</p>
+                                {businessPhone && <p>{businessPhone}</p>}
+                                {businessAddress && <p>{businessAddress}</p>}
+                                {businessSocials.map((social) => (
+                                    <p key={social.label}>{social.label}: {social.value}</p>
+                                ))}
+                                <p>{sale.sale_number}</p>
+                                <p>{formatDate(sale.sale_date || sale.created_at)}</p>
+                            </div>
+
+                            <div className="mb-2">
+                                <p>Pelanggan: {sale.customer?.name || '-'}</p>
+                                <p>Status: {statusLabel[sale.status] || sale.status}</p>
+                            </div>
+
+                            <div className="border-y border-dashed border-black py-2 space-y-2">
+                                {sale.details.map((detail) => (
+                                    <div key={detail.id}>
+                                        <p className="font-semibold">{detail.part?.name || '-'}</p>
+                                        <div className="flex justify-between">
+                                            <span>{detail.quantity} x {formatCurrency(detail.unit_price)}</span>
+                                            <span>{formatCurrency(calculateItemTotal(detail))}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="py-2 space-y-1 border-b border-dashed border-black">
+                                <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
+                                <div className="flex justify-between"><span>Diskon</span><span>-{formatCurrency(discountAmount)}</span></div>
+                                <div className="flex justify-between"><span>Pajak</span><span>+{formatCurrency(taxAmount)}</span></div>
+                                <div className="flex justify-between font-bold text-sm pt-1"><span>Total</span><span>{formatCurrency(grandTotal)}</span></div>
+                                <div className="flex justify-between"><span>Bayar</span><span>{formatCurrency(paidAmount)}</span></div>
+                                <div className="flex justify-between"><span>Sisa</span><span>{formatCurrency(remainingAmount)}</span></div>
+                            </div>
+
+                            <div className="pt-2 text-center">
+                                <p>Terima kasih atas kunjungan Anda</p>
                             </div>
                         </div>
-
-                        {sale.notes && (
-                            <div className="text-sm text-slate-700">
-                                <p className="font-semibold">Catatan:</p>
-                                <p>{sale.notes}</p>
-                            </div>
-                        )}
                     </div>
-                </div>
+                )}
 
                 {/* Status Update Modal */}
                 {showStatusModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
-                        <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border-2 border-slate-200 dark:border-slate-800 animate-slideUp">
+                        <div className="w-full max-w-md rounded-2xl overflow-hidden bg-white dark:bg-slate-900 shadow-2xl border-2 border-slate-200 dark:border-slate-800 animate-slideUp">
                             <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm">
@@ -487,6 +565,9 @@ export default function Show({ sale }) {
                                     >
                                         <option value="draft">📝 Draft</option>
                                         <option value="confirmed">✅ Dikonfirmasi</option>
+                                        <option value="waiting_stock">📦 Menunggu Stok</option>
+                                        <option value="ready_to_notify">🔔 Siap Diberitahu</option>
+                                        <option value="waiting_pickup">🛵 Menunggu Diambil</option>
                                         <option value="completed">🎯 Selesai</option>
                                         <option value="cancelled">❌ Dibatalkan</option>
                                     </select>
@@ -524,6 +605,45 @@ export default function Show({ sale }) {
                         </div>
                     </div>
                 )}
+
+                {/* Print Options Modal */}
+                {showPrintModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn print:hidden">
+                        <div className="w-full max-w-lg rounded-2xl overflow-hidden bg-white dark:bg-slate-900 shadow-2xl border-2 border-slate-200 dark:border-slate-800 animate-slideUp">
+                            <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 px-6 py-5 flex items-center justify-between">
+                                <h3 className="text-xl font-bold text-white">Pilih Format Cetak</h3>
+                                <button onClick={() => setShowPrintModal(false)} className="text-white hover:bg-white/10 rounded-xl w-10 h-10 inline-flex items-center justify-center">
+                                    <IconX size={20} />
+                                </button>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                <div className="grid gap-3">
+                                    <button type="button" onClick={() => doPrint('invoice', 'a4')} className="w-full text-left p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all">
+                                        <p className="font-bold text-slate-900 dark:text-white">Invoice A4</p>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">Layout lengkap untuk administrasi</p>
+                                    </button>
+                                    <button type="button" onClick={() => doPrint('pos', '80mm')} className="w-full text-left p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all">
+                                        <p className="font-bold text-slate-900 dark:text-white">POS Thermal 80mm</p>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">Struk kasir ukuran 80mm</p>
+                                    </button>
+                                    <button type="button" onClick={() => doPrint('pos', '58mm')} className="w-full text-left p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all">
+                                        <p className="font-bold text-slate-900 dark:text-white">POS Thermal 58mm</p>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">Struk kasir ukuran 58mm</p>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <style>{`
+                    @media print {
+                        @page {
+                            size: ${printMode === 'pos' ? `${paperSize} auto` : 'A4'};
+                            margin: ${printMode === 'pos' ? '4mm' : '12mm'};
+                        }
+                    }
+                `}</style>
             </div>
         </DashboardLayout>
     );

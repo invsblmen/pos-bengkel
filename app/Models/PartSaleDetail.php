@@ -14,6 +14,7 @@ class PartSaleDetail extends Model
         'part_sale_id',
         'part_id',
         'quantity',
+        'reserved_quantity',
         'unit_price',
         'subtotal',
         'discount_type',
@@ -27,6 +28,7 @@ class PartSaleDetail extends Model
 
     protected $casts = [
         'quantity' => 'integer',
+        'reserved_quantity' => 'integer',
         'unit_price' => 'integer',
         'subtotal' => 'integer',
         'discount_value' => 'float',

@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BusinessProfile;
 use App\Models\PartSale;
 use App\Models\PartSaleDetail;
 use App\Models\PartSalesOrder;
 use App\Models\Part;
 use App\Models\Customer;
 use App\Models\PartStockMovement;
+use App\Models\User;
+use App\Notifications\PartSaleOrderReadyNotification;
 use App\Services\DiscountTaxService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -26,6 +29,8 @@ class PartSaleController extends Controller
 
     public function index(Request $request)
     {
+        $this->syncWaitingStockOrders();
+
         $query = PartSale::with(['customer', 'creator', 'salesOrder'])
             ->orderBy('created_at', 'desc');
 
@@ -61,9 +66,7 @@ class PartSaleController extends Controller
     public function create(Request $request)
     {
         $customers = Customer::orderBy('name')->get();
-        $parts = Part::where('stock', '>', 0)
-            ->orderBy('name')
-            ->get();
+        $parts = Part::orderBy('name')->get();
 
         // If fulfilling from sales order
         $salesOrder = null;
@@ -95,7 +98,7 @@ class PartSaleController extends Controller
             'tax_type' => 'nullable|in:none,percent,fixed',
             'tax_value' => 'nullable|numeric|min:0',
             'paid_amount' => 'nullable|integer|min:0',
-            'status' => 'nullable|in:draft,confirmed,completed,cancelled',
+            'status' => 'nullable|in:draft,confirmed,waiting_stock,ready_to_notify,waiting_pickup,completed,cancelled',
             'notes' => 'nullable|string',
             'part_sales_order_id' => 'nullable|exists:part_sales_orders,id',
         ]);
@@ -104,8 +107,8 @@ class PartSaleController extends Controller
         try {
             $status = $request->status ?? 'confirmed';
 
-            // Check stock availability
-            if ($status !== 'draft') {
+            // Check stock availability (for direct-sale style statuses)
+            if (in_array($status, ['confirmed', 'ready_to_notify', 'waiting_pickup', 'completed'], true)) {
                 foreach ($request->items as $item) {
                     $part = Part::findOrFail($item['part_id']);
                     if ($part->stock < $item['quantity']) {
@@ -151,29 +154,14 @@ class PartSaleController extends Controller
 
                 $finalAmount = $subtotal - $discountAmount;
 
-                // Create detail
-                PartSaleDetail::create([
-                    'part_sale_id' => $sale->id,
-                    'part_id' => $part->id,
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $item['unit_price'],
-                    'subtotal' => $subtotal,
-                    'discount_type' => $discountType,
-                    'discount_value' => $discountValue,
-                    'discount_amount' => $discountAmount,
-                    'final_amount' => $finalAmount,
-                    'cost_price' => $part->buy_price ?? 0,
-                    'selling_price' => $item['unit_price'],
-                ]);
-
-                if ($status !== 'draft') {
+                // Reserve stock based on unified status flow
+                $reservedQty = 0;
+                if (in_array($status, ['confirmed', 'ready_to_notify', 'waiting_pickup', 'completed'], true)) {
                     $beforeStock = $part->stock;
                     $afterStock = max(0, $beforeStock - $item['quantity']);
-
-                    // Reduce stock
                     $part->update(['stock' => $afterStock]);
+                    $reservedQty = $item['quantity'];
 
-                    // Create stock movement
                     PartStockMovement::create([
                         'part_id' => $part->id,
                         'reference_type' => PartSale::class,
@@ -186,11 +174,56 @@ class PartSaleController extends Controller
                         'notes' => "Penjualan #{$sale->sale_number}",
                         'created_by' => Auth::id(),
                     ]);
+                } elseif ($status === 'waiting_stock' && $part->stock >= $item['quantity']) {
+                    // Full reserve for this line if stock available now; else wait for incoming stock
+                    $beforeStock = $part->stock;
+                    $afterStock = max(0, $beforeStock - $item['quantity']);
+                    $part->update(['stock' => $afterStock]);
+                    $reservedQty = $item['quantity'];
+
+                    PartStockMovement::create([
+                        'part_id' => $part->id,
+                        'reference_type' => PartSale::class,
+                        'reference_id' => $sale->id,
+                        'type' => 'out',
+                        'qty' => $item['quantity'],
+                        'before_stock' => $beforeStock,
+                        'after_stock' => $afterStock,
+                        'unit_price' => $item['unit_price'],
+                        'notes' => "Reservasi Pesanan #{$sale->sale_number}",
+                        'created_by' => Auth::id(),
+                    ]);
                 }
+
+                // Create detail
+                PartSaleDetail::create([
+                    'part_sale_id' => $sale->id,
+                    'part_id' => $part->id,
+                    'quantity' => $item['quantity'],
+                    'reserved_quantity' => $reservedQty,
+                    'unit_price' => $item['unit_price'],
+                    'subtotal' => $subtotal,
+                    'discount_type' => $discountType,
+                    'discount_value' => $discountValue,
+                    'discount_amount' => $discountAmount,
+                    'final_amount' => $finalAmount,
+                    'cost_price' => $part->buy_price ?? 0,
+                    'selling_price' => $item['unit_price'],
+                ]);
+
             }
 
             // Recalculate totals
             $sale->recalculateTotals()->save();
+
+            if ($sale->status === 'waiting_stock') {
+                $minDownPayment = (int) ceil($sale->grand_total * 0.5);
+                if ((int) $sale->paid_amount < $minDownPayment) {
+                    throw new \Exception("Pembayaran minimal untuk status pemesanan adalah 50% ({$minDownPayment}).");
+                }
+
+                $this->tryFulfillWaitingStock($sale);
+            }
 
             // If fulfilling a sales order, update SO status
             if ($request->filled('part_sales_order_id')) {
@@ -214,6 +247,8 @@ class PartSaleController extends Controller
 
     public function show(PartSale $partSale)
     {
+        $this->tryFulfillWaitingStock($partSale);
+
         $partSale->load([
             'customer',
             'salesOrder',
@@ -224,6 +259,23 @@ class PartSaleController extends Controller
 
         return Inertia::render('Dashboard/Parts/Sales/Show', [
             'sale' => $partSale,
+            'businessProfile' => BusinessProfile::first(),
+        ]);
+    }
+
+    public function print(PartSale $partSale)
+    {
+        $this->tryFulfillWaitingStock($partSale);
+
+        $partSale->load([
+            'customer',
+            'details.part',
+            'creator',
+        ]);
+
+        return Inertia::render('Dashboard/Parts/Sales/Print', [
+            'sale' => $partSale,
+            'businessProfile' => BusinessProfile::first(),
         ]);
     }
 
@@ -259,10 +311,14 @@ class PartSaleController extends Controller
             'items.*.part_id' => 'required|exists:parts,id',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.unit_price' => 'required|integer|min:0',
+            'items.*.discount_type' => 'nullable|in:none,percent,fixed',
+            'items.*.discount_value' => 'nullable|numeric|min:0',
             'discount_type' => 'nullable|in:none,percent,fixed',
             'discount_value' => 'nullable|numeric|min:0',
             'tax_type' => 'nullable|in:none,percent,fixed',
             'tax_value' => 'nullable|numeric|min:0',
+            'paid_amount' => 'nullable|integer|min:0',
+            'status' => 'nullable|in:draft,confirmed,waiting_stock,ready_to_notify,waiting_pickup,completed,cancelled',
             'notes' => 'nullable|string',
         ]);
 
@@ -272,6 +328,7 @@ class PartSaleController extends Controller
             $partSale->details()->delete();
 
             // Update sale
+            $status = $request->status ?? $partSale->status;
             $partSale->update([
                 'customer_id' => $request->customer_id,
                 'sale_date' => $request->sale_date,
@@ -279,6 +336,8 @@ class PartSaleController extends Controller
                 'discount_value' => $request->discount_value ?? 0,
                 'tax_type' => $request->tax_type ?? 'none',
                 'tax_value' => $request->tax_value ?? 0,
+                'paid_amount' => $request->paid_amount ?? $partSale->paid_amount,
+                'status' => $status,
                 'notes' => $request->notes,
             ]);
 
@@ -304,17 +363,33 @@ class PartSaleController extends Controller
                     'part_sale_id' => $partSale->id,
                     'part_id' => $item['part_id'],
                     'quantity' => $item['quantity'],
+                    'reserved_quantity' => 0,
                     'unit_price' => $item['unit_price'],
                     'subtotal' => $subtotal,
                     'discount_type' => $discountType,
                     'discount_value' => $discountValue,
                     'discount_amount' => $discountAmount,
                     'final_amount' => $finalAmount,
+                    'cost_price' => Part::find($item['part_id'])?->buy_price ?? 0,
+                    'selling_price' => $item['unit_price'],
                 ]);
             }
 
             // Recalculate totals
             $partSale->recalculateTotals()->save();
+
+            if ($status === 'waiting_stock') {
+                $minDownPayment = (int) ceil($partSale->grand_total * 0.5);
+                if ((int) $partSale->paid_amount < $minDownPayment) {
+                    throw new \Exception("Pembayaran minimal untuk status pemesanan adalah 50% ({$minDownPayment}).");
+                }
+            }
+
+            if (in_array($status, ['confirmed', 'ready_to_notify', 'waiting_pickup', 'completed'], true)) {
+                $this->reserveAllDetailsOrFail($partSale, "Konfirmasi Penjualan #{$partSale->sale_number}");
+            } elseif ($status === 'waiting_stock') {
+                $this->tryFulfillWaitingStock($partSale);
+            }
 
             DB::commit();
 
@@ -374,7 +449,7 @@ class PartSaleController extends Controller
     public function updateStatus(Request $request, PartSale $partSale)
     {
         $request->validate([
-            'status' => 'required|in:draft,confirmed,completed,cancelled',
+            'status' => 'required|in:draft,confirmed,waiting_stock,ready_to_notify,waiting_pickup,completed,cancelled',
         ]);
 
         $newStatus = $request->status;
@@ -392,65 +467,24 @@ class PartSaleController extends Controller
         try {
             $partSale->load('details.part');
 
-            if ($currentStatus === 'draft' && $newStatus !== 'draft') {
-                foreach ($partSale->details as $detail) {
-                    $part = $detail->part;
-
-                    if (!$part) {
-                        throw ValidationException::withMessages(['items' => ['Sparepart tidak ditemukan']]);
-                    }
-
-                    if ($part->stock < $detail->quantity) {
-                        throw ValidationException::withMessages([
-                            'items' => ["Stock {$part->name} tidak mencukupi. Tersedia: {$part->stock}, diminta: {$detail->quantity}"],
-                        ]);
-                    }
-
-                    $beforeStock = $part->stock;
-                    $afterStock = max(0, $beforeStock - $detail->quantity);
-
-                    $part->update(['stock' => $afterStock]);
-
-                    PartStockMovement::create([
-                        'part_id' => $part->id,
-                        'reference_type' => PartSale::class,
-                        'reference_id' => $partSale->id,
-                        'type' => 'out',
-                        'qty' => $detail->quantity,
-                        'before_stock' => $beforeStock,
-                        'after_stock' => $afterStock,
-                        'unit_price' => $detail->unit_price,
-                        'notes' => "Konfirmasi Penjualan #{$partSale->sale_number}",
-                        'created_by' => Auth::id(),
+            if ($newStatus === 'waiting_stock') {
+                $minDownPayment = (int) ceil($partSale->grand_total * 0.5);
+                if ((int) $partSale->paid_amount < $minDownPayment) {
+                    throw ValidationException::withMessages([
+                        'status' => ["Pembayaran minimal untuk status pemesanan adalah 50% ({$minDownPayment})."],
                     ]);
                 }
+
+                $this->releaseReservedStock($partSale, "Penyesuaian ke Waiting Stock #{$partSale->sale_number}");
+                $this->tryFulfillWaitingStock($partSale);
             }
 
-            if ($newStatus === 'cancelled' && $currentStatus !== 'draft') {
-                foreach ($partSale->details as $detail) {
-                    $part = $detail->part;
-                    if (!$part) {
-                        continue;
-                    }
+            if (in_array($newStatus, ['confirmed', 'ready_to_notify', 'waiting_pickup', 'completed'], true)) {
+                $this->reserveAllDetailsOrFail($partSale, "Update Status Penjualan #{$partSale->sale_number}");
+            }
 
-                    $beforeStock = $part->stock;
-                    $afterStock = $beforeStock + $detail->quantity;
-
-                    $part->update(['stock' => $afterStock]);
-
-                    PartStockMovement::create([
-                        'part_id' => $part->id,
-                        'reference_type' => PartSale::class,
-                        'reference_id' => $partSale->id,
-                        'type' => 'in',
-                        'qty' => $detail->quantity,
-                        'before_stock' => $beforeStock,
-                        'after_stock' => $afterStock,
-                        'unit_price' => $detail->unit_price,
-                        'notes' => "Pembatalan Penjualan #{$partSale->sale_number}",
-                        'created_by' => Auth::id(),
-                    ]);
-                }
+            if ($newStatus === 'cancelled') {
+                $this->releaseReservedStock($partSale, "Pembatalan Penjualan #{$partSale->sale_number}");
             }
 
             $partSale->update(['status' => $newStatus]);
@@ -460,6 +494,159 @@ class PartSaleController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withErrors(['error' => $e->getMessage()]);
+        }
+    }
+
+    private function syncWaitingStockOrders(): void
+    {
+        PartSale::query()
+            ->where('status', 'waiting_stock')
+            ->with('details.part')
+            ->orderBy('created_at')
+            ->get()
+            ->each(function (PartSale $sale) {
+                $this->tryFulfillWaitingStock($sale);
+            });
+    }
+
+    private function tryFulfillWaitingStock(PartSale $sale): void
+    {
+        if ($sale->status !== 'waiting_stock') {
+            return;
+        }
+
+        $sale->loadMissing('details.part', 'customer');
+
+        $allReserved = true;
+
+        foreach ($sale->details as $detail) {
+            $part = $detail->part;
+            if (!$part) {
+                continue;
+            }
+
+            $need = max(0, (int) $detail->quantity - (int) ($detail->reserved_quantity ?? 0));
+
+            if ($need <= 0) {
+                continue;
+            }
+
+            if ((int) $part->stock >= $need) {
+                $beforeStock = (int) $part->stock;
+                $afterStock = max(0, $beforeStock - $need);
+
+                $part->update(['stock' => $afterStock]);
+                $detail->update([
+                    'reserved_quantity' => ((int) ($detail->reserved_quantity ?? 0)) + $need,
+                ]);
+
+                PartStockMovement::create([
+                    'part_id' => $part->id,
+                    'reference_type' => PartSale::class,
+                    'reference_id' => $sale->id,
+                    'type' => 'out',
+                    'qty' => $need,
+                    'before_stock' => $beforeStock,
+                    'after_stock' => $afterStock,
+                    'unit_price' => $detail->unit_price,
+                    'notes' => "Reservasi Pesanan #{$sale->sale_number}",
+                    'created_by' => Auth::id() ?? $sale->created_by,
+                ]);
+            } else {
+                $allReserved = false;
+            }
+        }
+
+        $sale->refresh()->load('details');
+        foreach ($sale->details as $detail) {
+            if ((int) ($detail->reserved_quantity ?? 0) < (int) $detail->quantity) {
+                $allReserved = false;
+                break;
+            }
+        }
+
+        if ($allReserved && $sale->status === 'waiting_stock') {
+            $sale->update(['status' => 'ready_to_notify']);
+
+            $users = User::query()->get();
+            foreach ($users as $user) {
+                $user->notify(new PartSaleOrderReadyNotification($sale));
+            }
+        }
+    }
+
+    private function reserveAllDetailsOrFail(PartSale $sale, string $notePrefix): void
+    {
+        $sale->loadMissing('details.part');
+
+        foreach ($sale->details as $detail) {
+            $part = $detail->part;
+            if (!$part) {
+                throw ValidationException::withMessages(['items' => ['Sparepart tidak ditemukan']]);
+            }
+
+            $need = max(0, (int) $detail->quantity - (int) ($detail->reserved_quantity ?? 0));
+            if ($need <= 0) {
+                continue;
+            }
+
+            if ((int) $part->stock < $need) {
+                throw ValidationException::withMessages([
+                    'items' => ["Stock {$part->name} tidak mencukupi. Tersedia: {$part->stock}, dibutuhkan tambahan: {$need}"],
+                ]);
+            }
+
+            $beforeStock = (int) $part->stock;
+            $afterStock = max(0, $beforeStock - $need);
+
+            $part->update(['stock' => $afterStock]);
+            $detail->update(['reserved_quantity' => ((int) ($detail->reserved_quantity ?? 0)) + $need]);
+
+            PartStockMovement::create([
+                'part_id' => $part->id,
+                'reference_type' => PartSale::class,
+                'reference_id' => $sale->id,
+                'type' => 'out',
+                'qty' => $need,
+                'before_stock' => $beforeStock,
+                'after_stock' => $afterStock,
+                'unit_price' => $detail->unit_price,
+                'notes' => $notePrefix,
+                'created_by' => Auth::id() ?? $sale->created_by,
+            ]);
+        }
+    }
+
+    private function releaseReservedStock(PartSale $sale, string $notePrefix): void
+    {
+        $sale->loadMissing('details.part');
+
+        foreach ($sale->details as $detail) {
+            $part = $detail->part;
+            $reserved = (int) ($detail->reserved_quantity ?? 0);
+
+            if (!$part || $reserved <= 0) {
+                continue;
+            }
+
+            $beforeStock = (int) $part->stock;
+            $afterStock = $beforeStock + $reserved;
+
+            $part->update(['stock' => $afterStock]);
+            $detail->update(['reserved_quantity' => 0]);
+
+            PartStockMovement::create([
+                'part_id' => $part->id,
+                'reference_type' => PartSale::class,
+                'reference_id' => $sale->id,
+                'type' => 'in',
+                'qty' => $reserved,
+                'before_stock' => $beforeStock,
+                'after_stock' => $afterStock,
+                'unit_price' => $detail->unit_price,
+                'notes' => $notePrefix,
+                'created_by' => Auth::id() ?? $sale->created_by,
+            ]);
         }
     }
 

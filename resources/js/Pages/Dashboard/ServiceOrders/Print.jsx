@@ -13,8 +13,9 @@ import {
 } from "@tabler/icons-react";
 import ThermalReceipt, { ThermalReceipt58mm } from "@/Components/Receipt/ThermalReceipt";
 import { toDisplayDateTime } from "@/Utils/datetime";
+import { formatBusinessSocials } from "@/Utils/socialMediaFormatter";
 
-export default function Print({ order }) {
+export default function Print({ order, businessProfile }) {
     const [printMode, setPrintMode] = useState("invoice");
 
     const formatPrice = (price = 0) =>
@@ -56,6 +57,10 @@ export default function Print({ order }) {
     const discount = Number(order?.discount_amount) || 0;
     const tax = Number(order?.tax_amount) || 0;
     const grandTotal = Number(order?.grand_total ?? order?.total ?? 0);
+    const businessName = businessProfile?.business_name || "SERVICE";
+    const businessPhone = businessProfile?.business_phone || "";
+    const businessAddress = businessProfile?.business_address || "";
+    const businessSocials = formatBusinessSocials(businessProfile);
 
     const thermalPayload = useMemo(() => {
         return {
@@ -155,9 +160,20 @@ export default function Print({ order }) {
                         <div className="flex justify-center print:block">
                             <div className="bg-white rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl p-4 print:shadow-none print:border-0 print:p-0 print:rounded-none">
                                 {printMode === "thermal80" ? (
-                                    <ThermalReceipt transaction={thermalPayload} storeName="SERVICE" storePhone="08123456789" />
+                                    <ThermalReceipt
+                                        transaction={thermalPayload}
+                                        storeName={businessName}
+                                        storeAddress={businessAddress}
+                                        storePhone={businessPhone}
+                                        businessSocials={businessSocials}
+                                    />
                                 ) : (
-                                    <ThermalReceipt58mm transaction={thermalPayload} storeName="SERVICE" storePhone="08123456789" />
+                                    <ThermalReceipt58mm
+                                        transaction={thermalPayload}
+                                        storeName={businessName}
+                                        storePhone={businessPhone}
+                                        businessSocials={businessSocials}
+                                    />
                                 )}
                             </div>
                         </div>
@@ -177,6 +193,24 @@ export default function Print({ order }) {
                                         <p className="text-sm opacity-80 print:opacity-100 mt-1">{formatDateTime(order?.created_at)}</p>
                                     </div>
                                     <div className="text-right">
+                                        <p className="text-sm font-semibold print:text-slate-700">
+                                            {businessName}
+                                        </p>
+                                        {businessPhone && (
+                                            <p className="text-xs opacity-80 print:opacity-100 mt-1">
+                                                {businessPhone}
+                                            </p>
+                                        )}
+                                        {businessAddress && (
+                                            <p className="text-xs opacity-80 print:opacity-100 mt-1 max-w-xs">
+                                                {businessAddress}
+                                            </p>
+                                        )}
+                                        {businessSocials.map((social) => (
+                                            <p key={social.label} className="text-xs opacity-80 print:opacity-100 mt-1">
+                                                {social.label}: {social.value}
+                                            </p>
+                                        ))}
                                         <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full ${statusBadge.color}`}>
                                             {statusBadge.label}
                                         </span>

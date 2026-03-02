@@ -287,7 +287,7 @@ export default function Create({ parts = [], customers = [] }) {
                                 </div>
 
                                 {/* Details Grid */}
-                                <div className="grid gap-4 md:grid-cols-3">
+                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                                     {/* Tanggal */}
                                     <div className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/20 rounded-xl border border-emerald-200 dark:border-emerald-700/30">
                                         <label className="block text-xs font-bold text-emerald-700 dark:text-emerald-400 mb-2 uppercase tracking-wide">
@@ -322,9 +322,14 @@ export default function Create({ parts = [], customers = [] }) {
                                         >
                                             <option value="draft">📝 Draft</option>
                                             <option value="confirmed">✅ Dikonfirmasi</option>
+                                            <option value="waiting_stock">📦 Menunggu Stok</option>
                                         </select>
                                         <p className="text-xs text-purple-700 dark:text-purple-400 mt-2 font-medium">
-                                            {data.status === 'draft' ? '⚠️ Draft tidak mengurangi stok' : '✓ Konfirmasi akan mengurangi stok'}
+                                            {data.status === 'draft'
+                                                ? '⚠️ Draft tidak mengurangi stok'
+                                                : data.status === 'waiting_stock'
+                                                    ? 'ℹ️ Menunggu stok dengan syarat DP minimal 50%'
+                                                    : '✓ Konfirmasi akan mengurangi stok'}
                                         </p>
                                     </div>
 
@@ -346,7 +351,7 @@ export default function Create({ parts = [], customers = [] }) {
                         </div>
 
                         {/* Items Section */}
-                        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-visible">
                             <div className="bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 px-6 py-4 border-b border-purple-200 dark:border-purple-700/30">
                                 <div className="flex items-center gap-3">
                                     <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-purple-500 text-white shadow-lg shadow-purple-500/30">

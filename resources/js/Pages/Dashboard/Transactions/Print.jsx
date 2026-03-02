@@ -11,8 +11,9 @@ import ThermalReceipt, {
     ThermalReceipt58mm,
 } from "@/Components/Receipt/ThermalReceipt";
 import { toDisplayDateTime } from "@/Utils/datetime";
+import { formatBusinessSocials } from "@/Utils/socialMediaFormatter";
 
-export default function Print({ transaction }) {
+export default function Print({ transaction, businessProfile }) {
     const [printMode, setPrintMode] = useState("invoice"); // 'invoice' | 'thermal80' | 'thermal58'
 
     const formatPrice = (price = 0) =>
@@ -25,6 +26,10 @@ export default function Print({ transaction }) {
     const formatDateTime = (value) => toDisplayDateTime(value);
 
     const items = transaction?.details ?? [];
+    const businessName = businessProfile?.business_name || "TOKO ANDA";
+    const businessPhone = businessProfile?.business_phone || "";
+    const businessAddress = businessProfile?.business_address || "";
+    const businessSocials = formatBusinessSocials(businessProfile);
 
     const paymentLabels = {
         cash: "Tunai",
@@ -159,15 +164,17 @@ export default function Print({ transaction }) {
                                 {printMode === "thermal80" ? (
                                     <ThermalReceipt
                                         transaction={transaction}
-                                        storeName="TOKO ANDA"
-                                        storeAddress="Jl. Contoh No. 123"
-                                        storePhone="08123456789"
+                                        storeName={businessName}
+                                        storeAddress={businessAddress}
+                                        storePhone={businessPhone}
+                                        businessSocials={businessSocials}
                                     />
                                 ) : (
                                     <ThermalReceipt58mm
                                         transaction={transaction}
-                                        storeName="TOKO"
-                                        storePhone="08123456789"
+                                        storeName={businessName}
+                                        storePhone={businessPhone}
+                                        businessSocials={businessSocials}
                                     />
                                 )}
                             </div>
@@ -198,6 +205,24 @@ export default function Print({ transaction }) {
                                     </div>
 
                                     <div className="text-right">
+                                        <p className="text-sm font-semibold print:text-slate-700">
+                                            {businessName}
+                                        </p>
+                                        {businessPhone && (
+                                            <p className="text-xs opacity-80 print:opacity-100 mt-1">
+                                                {businessPhone}
+                                            </p>
+                                        )}
+                                        {businessAddress && (
+                                            <p className="text-xs opacity-80 print:opacity-100 mt-1 max-w-xs">
+                                                {businessAddress}
+                                            </p>
+                                        )}
+                                        {businessSocials.map((social) => (
+                                            <p key={social.label} className="text-xs opacity-80 print:opacity-100 mt-1">
+                                                {social.label}: {social.value}
+                                            </p>
+                                        ))}
                                         <span
                                             className={`inline-block px-3 py-1 text-xs font-semibold rounded-full ${paymentStatusColor}`}
                                         >

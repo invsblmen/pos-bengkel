@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Apps;
 
 use App\Http\Controllers\Controller;
+use App\Models\BusinessProfile;
 use App\Models\ServiceOrder;
 use App\Models\ServiceOrderDetail;
 use App\Models\ServiceOrderStatusHistory;
@@ -116,9 +117,11 @@ class ServiceOrderController extends Controller
     {
         $order = ServiceOrder::with('customer', 'vehicle', 'mechanic', 'details.service', 'details.part')
             ->findOrFail($id);
+        $businessProfile = BusinessProfile::first();
 
         return inertia('Dashboard/ServiceOrders/Print', [
             'order' => $order,
+            'businessProfile' => $businessProfile,
         ]);
     }
 

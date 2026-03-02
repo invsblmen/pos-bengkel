@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Apps\CategoryController;
+use App\Http\Controllers\Apps\BusinessProfileController;
 use App\Http\Controllers\Apps\CustomerController;
 use App\Http\Controllers\Apps\PaymentSettingController;
 use App\Http\Controllers\Apps\ProductController;
@@ -167,6 +168,7 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::get('/part-purchases/create', [PartPurchaseController::class, 'create'])->middleware('permission:part-purchases-create')->name('part-purchases.create');
     Route::post('/part-purchases', [PartPurchaseController::class, 'store'])->middleware('permission:part-purchases-create')->name('part-purchases.store');
     Route::get('/part-purchases/{id}', [PartPurchaseController::class, 'show'])->middleware('permission:part-purchases-access')->name('part-purchases.show');
+    Route::get('/part-purchases/{id}/print', [PartPurchaseController::class, 'print'])->middleware('permission:part-purchases-access')->name('part-purchases.print');
     Route::get('/part-purchases/{id}/edit', [PartPurchaseController::class, 'edit'])->middleware('permission:part-purchases-update')->name('part-purchases.edit');
     Route::put('/part-purchases/{id}', [PartPurchaseController::class, 'update'])->middleware('permission:part-purchases-update')->name('part-purchases.update');
     Route::post('/part-purchases/{id}/update-status', [PartPurchaseController::class, 'updateStatus'])->middleware('permission:part-purchases-update')->name('part-purchases.update-status');
@@ -183,6 +185,7 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::get('/part-sales/create', [PartSaleController::class, 'create'])->middleware('permission:part-sales-create')->name('part-sales.create');
     Route::post('/part-sales', [PartSaleController::class, 'store'])->middleware('permission:part-sales-create')->name('part-sales.store');
     Route::get('/part-sales/{partSale}', [PartSaleController::class, 'show'])->middleware('permission:part-sales-show')->name('part-sales.show');
+    Route::get('/part-sales/{partSale}/print', [PartSaleController::class, 'print'])->middleware('permission:part-sales-show')->name('part-sales.print');
     Route::get('/part-sales/{partSale}/edit', [PartSaleController::class, 'edit'])->middleware('permission:part-sales-edit')->name('part-sales.edit');
     Route::put('/part-sales/{partSale}', [PartSaleController::class, 'update'])->middleware('permission:part-sales-edit')->name('part-sales.update');
     Route::delete('/part-sales/{partSale}', [PartSaleController::class, 'destroy'])->middleware('permission:part-sales-delete')->name('part-sales.destroy');
@@ -278,6 +281,8 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
 
     Route::get('/settings/payments', [PaymentSettingController::class, 'edit'])->middleware('permission:payment-settings-access')->name('settings.payments.edit');
     Route::put('/settings/payments', [PaymentSettingController::class, 'update'])->middleware('permission:payment-settings-access')->name('settings.payments.update');
+    Route::get('/settings/business-profile', [BusinessProfileController::class, 'edit'])->middleware('permission:payment-settings-access')->name('settings.business-profile.edit');
+    Route::put('/settings/business-profile', [BusinessProfileController::class, 'update'])->middleware('permission:payment-settings-access')->name('settings.business-profile.update');
 
     //reports
     Route::get('/reports/sales', [SalesReportController::class, 'index'])->middleware('permission:reports-access')->name('reports.sales.index');

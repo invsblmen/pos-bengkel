@@ -16,6 +16,7 @@ export default function ThermalReceipt({
     storeName = "TOKO ANDA",
     storeAddress = "",
     storePhone = "",
+    businessSocials = [],
 }) {
     const formatPrice = (price = 0) => {
         return "Rp " + Number(price || 0).toLocaleString("id-ID");
@@ -54,6 +55,11 @@ export default function ThermalReceipt({
                 <p className="text-sm font-bold">{storeName}</p>
                 {storeAddress && <p className="text-xs">{storeAddress}</p>}
                 {storePhone && <p className="text-xs">Telp: {storePhone}</p>}
+                {businessSocials.map((social) => (
+                    <p key={social.label} className="text-xs">
+                        {social.icon ? `${social.icon} ` : ''}{social.value}
+                    </p>
+                ))}
             </div>
 
             <pre className="whitespace-pre-wrap">{line}</pre>
@@ -174,6 +180,7 @@ export function ThermalReceipt58mm({
     transaction,
     storeName = "TOKO",
     storePhone = "",
+    businessSocials = [],
 }) {
     const formatPrice = (price = 0) => {
         return "Rp" + Number(price || 0).toLocaleString("id-ID");
@@ -192,6 +199,11 @@ export function ThermalReceipt58mm({
             <div className="text-center">
                 <p className="font-bold">{storeName}</p>
                 {storePhone && <p>{storePhone}</p>}
+                {businessSocials.map((social) => (
+                    <p key={social.label} className="truncate text-xs">
+                        {social.icon ? `${social.icon} ` : ''}{social.value}
+                    </p>
+                ))}
             </div>
 
             <pre>{line}</pre>

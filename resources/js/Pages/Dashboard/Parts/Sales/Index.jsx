@@ -10,6 +10,10 @@ const defaultFilters = { search: '', status: '', payment_status: '', customer_id
 const statusColors = {
     confirmed: 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-100',
     draft: 'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/40 dark:text-yellow-100',
+    waiting_stock: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-100',
+    ready_to_notify: 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-100',
+    waiting_pickup: 'bg-cyan-100 text-cyan-700 border-cyan-200 dark:bg-cyan-900/40 dark:text-cyan-100',
+    completed: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-100',
     cancelled: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-100',
 };
 
@@ -17,6 +21,16 @@ const paymentColors = {
     paid: 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-100',
     partial: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-100',
     unpaid: 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-slate-800/60 dark:text-gray-100',
+};
+
+const statusLabel = {
+    draft: '📝 Draft',
+    confirmed: '✅ Dikonfirmasi',
+    waiting_stock: '📦 Menunggu Stok',
+    ready_to_notify: '🔔 Siap Diberitahu',
+    waiting_pickup: '🛵 Menunggu Diambil',
+    completed: '🎯 Selesai',
+    cancelled: '❌ Dibatalkan',
 };
 
 export default function Index({ sales, filters, customers = [] }) {
@@ -210,6 +224,10 @@ export default function Index({ sales, filters, customers = [] }) {
                                             <option value="">Semua Status</option>
                                             <option value="draft">📝 Draft</option>
                                             <option value="confirmed">✅ Dikonfirmasi</option>
+                                            <option value="waiting_stock">📦 Menunggu Stok</option>
+                                            <option value="ready_to_notify">🔔 Siap Diberitahu</option>
+                                            <option value="waiting_pickup">🛵 Menunggu Diambil</option>
+                                            <option value="completed">🎯 Selesai</option>
                                             <option value="cancelled">❌ Dibatalkan</option>
                                         </select>
                                     </div>
@@ -263,13 +281,7 @@ export default function Index({ sales, filters, customers = [] }) {
                                                 <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold border-2 shadow-sm ${
                                                     statusColors[sale.status] || 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-slate-800 dark:text-gray-200'
                                                 }`}>
-                                                    {sale.status === 'confirmed'
-                                                        ? '✅ Dikonfirmasi'
-                                                        : sale.status === 'draft'
-                                                            ? '📝 Draft'
-                                                            : sale.status === 'completed'
-                                                                ? '🎯 Selesai'
-                                                                : '❌ Dibatalkan'}
+                                                    {statusLabel[sale.status] || sale.status}
                                                 </span>
                                             </div>
                                             <div className="mt-3 space-y-2 text-sm">
@@ -353,13 +365,7 @@ export default function Index({ sales, filters, customers = [] }) {
                                                     <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold border-2 shadow-sm ${
                                                         statusColors[sale.status] || 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-slate-800 dark:text-gray-200'
                                                     }`}>
-                                                        {sale.status === 'confirmed'
-                                                            ? '✅ Dikonfirmasi'
-                                                            : sale.status === 'draft'
-                                                                ? '📝 Draft'
-                                                                : sale.status === 'completed'
-                                                                    ? '🎯 Selesai'
-                                                                    : '❌ Dibatalkan'}
+                                                        {statusLabel[sale.status] || sale.status}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-center">

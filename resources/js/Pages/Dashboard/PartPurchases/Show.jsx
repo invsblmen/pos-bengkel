@@ -69,9 +69,7 @@ export default function Show({ purchase }) {
         );
     };
 
-    const handlePrint = () => {
-        window.print();
-    };
+
     return (
         <>
             <div className="print:hidden">
@@ -106,14 +104,13 @@ export default function Show({ purchase }) {
                                         </div>
                                     </div>
                                     <div className="flex gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={handlePrint}
+                                        <Link
+                                            href={route('part-purchases.print', purchase.id)}
                                             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium transition-all duration-200 backdrop-blur-sm border border-white/20"
                                         >
                                             <IconPrinter size={18} />
                                             <span>Print</span>
-                                        </button>
+                                        </Link>
                                         {(purchase.status === 'pending' || purchase.status === 'ordered') && (
                                             <Link
                                                 href={route('part-purchases.edit', purchase.id)}
