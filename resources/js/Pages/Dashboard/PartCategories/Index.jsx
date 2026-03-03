@@ -38,18 +38,18 @@ function CategoryCard({ category }) {
     const IconComponent = getIconComponent(category.icon);
 
     return (
-        <div className="group bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden hover:shadow-lg hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200">
-            <div className="p-4 bg-gradient-to-br from-primary-50 to-slate-50 dark:from-primary-900/20 dark:to-slate-800 border-b border-slate-200 dark:border-slate-800 flex items-center justify-center h-32">
-                <IconComponent size={56} className="text-primary-600 dark:text-primary-400" strokeWidth={1.5} />
+        <div className="group bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200">
+            <div className="px-3 py-2 bg-gradient-to-br from-primary-50 to-slate-50 dark:from-primary-900/20 dark:to-slate-800 border-b border-slate-200 dark:border-slate-800 flex items-center justify-center h-20">
+                <IconComponent size={36} className="text-primary-600 dark:text-primary-400" strokeWidth={1.5} />
             </div>
-            <div className="p-4">
-                <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-1">{category.name}</h3>
-                {category.description && <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mb-3">{category.description}</p>}
-                <div className="flex gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-                    <Link href={route('part-categories.edit', category.id)} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-warning-100 text-warning-600 hover:bg-warning-200 dark:bg-warning-900/50 dark:text-warning-400 text-sm font-medium transition-colors">
-                        <IconPencilCog size={16} /> <span>Edit</span>
+            <div className="p-3">
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1 line-clamp-1">{category.name}</h3>
+                {category.description && <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mb-2">{category.description}</p>}
+                <div className="flex gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <Link href={route('part-categories.edit', category.id)} className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md bg-warning-100 text-warning-600 hover:bg-warning-200 dark:bg-warning-900/50 dark:text-warning-400 text-xs font-medium transition-colors">
+                        <IconPencilCog size={14} /> <span>Edit</span>
                     </Link>
-                    <Button type="delete" icon={<IconTrash size={16} />} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-danger-100 text-danger-600 hover:bg-danger-200 dark:bg-danger-900/50 dark:text-danger-400 text-sm font-medium" url={route('part-categories.destroy', category.id)} label="Hapus" />
+                    <Button type="delete" icon={<IconTrash size={14} />} className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md bg-danger-100 text-danger-600 hover:bg-danger-200 dark:bg-danger-900/50 dark:text-danger-400 text-xs font-medium" url={route('part-categories.destroy', category.id)} label="Hapus" />
                 </div>
             </div>
         </div>
@@ -86,6 +86,13 @@ function Index({ categories }) {
                             </button>
                         </div>
                         <Search route={route('part-categories.index')} />
+                        <Button
+                            type="link"
+                            href={route('parts.index')}
+                            icon={<IconList size={18} />}
+                            label="Back to Sparepart"
+                            className="bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-700"
+                        />
                         <Button type="link" href={route('part-categories.create')} icon={<IconCirclePlus size={18} />} label="Tambah Kategori" />
                     </div>
                 </div>
@@ -93,7 +100,7 @@ function Index({ categories }) {
                 {categories.data && categories.data.length > 0 ? (
                     <>
                         {viewMode === 'grid' ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                                 {categories.data.map((category) => (
                                     <CategoryCard key={category.id} category={category} />
                                 ))}

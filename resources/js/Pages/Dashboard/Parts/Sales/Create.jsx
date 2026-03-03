@@ -322,13 +322,13 @@ export default function Create({ parts = [], customers = [] }) {
                                         >
                                             <option value="draft">📝 Draft</option>
                                             <option value="confirmed">✅ Dikonfirmasi</option>
-                                            <option value="waiting_stock">📦 Menunggu Stok</option>
+                                            <option value="waiting_stock">📦 Pemesanan</option>
                                         </select>
                                         <p className="text-xs text-purple-700 dark:text-purple-400 mt-2 font-medium">
                                             {data.status === 'draft'
                                                 ? '⚠️ Draft tidak mengurangi stok'
                                                 : data.status === 'waiting_stock'
-                                                    ? 'ℹ️ Menunggu stok dengan syarat DP minimal 50%'
+                                                    ? 'ℹ️ Pemesanan dengan syarat DP minimal 50%'
                                                     : '✓ Konfirmasi akan mengurangi stok'}
                                         </p>
                                     </div>

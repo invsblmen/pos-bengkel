@@ -14,7 +14,7 @@ class VehicleController extends Controller
     {
         $sortBy = request('sort_by', 'created_at');
         $sortDirection = request('sort_direction', 'desc');
-        $perPage = request('per_page', 12);
+        $perPage = request('per_page', 8);
 
         $vehicles = Vehicle::with('customer')
             ->when(request('search'), function ($query) {

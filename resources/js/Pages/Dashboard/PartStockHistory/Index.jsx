@@ -112,10 +112,11 @@ export default function Index({ movements, parts, types, filters }) {
         switch (m.reference_type) {
             case 'App\\Models\\PartPurchase':
                 return route('part-purchases.show', m.reference_id);
-            case 'App\\Models\\PartSalesOrder':
-                return route('part-sales-orders.show', m.reference_id);
-            case 'App\\Models\\PartPurchaseOrder':
-                return route('part-purchase-orders.show', m.reference_id);
+            // Part Sales Orders and Part Purchase Orders are disabled
+            // case 'App\\Models\\PartSalesOrder':
+            //     return route('part-sales-orders.show', m.reference_id);
+            // case 'App\\Models\\PartPurchaseOrder':
+            //     return route('part-purchase-orders.show', m.reference_id);
             default:
                 return null;
         }

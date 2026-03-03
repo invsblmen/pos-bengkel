@@ -158,6 +158,22 @@ class PartController extends Controller
         ]);
     }
 
+    public function show($id)
+    {
+        $part = Part::with(['supplier', 'category'])->findOrFail($id);
+
+        // Get stock movements/history for this part
+        $stockHistory = \App\Models\PartStockMovement::where('part_id', $id)
+            ->with(['user'])
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
+
+        return Inertia::render('Dashboard/Parts/Show', [
+            'part' => $part,
+            'stock_history' => $stockHistory,
+        ]);
+    }
+
     public function destroy(Request $request, $id)
     {
         $part = Part::findOrFail($id);

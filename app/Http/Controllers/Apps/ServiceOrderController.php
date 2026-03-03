@@ -200,6 +200,11 @@ class ServiceOrderController extends Controller
 
         $this->calculateServiceOrderCosts($order, $request->items);
 
+        // If created with completed or paid status, deduct parts from inventory
+        if (in_array($order->status, ['completed', 'paid'])) {
+            $this->deductPartsFromInventory($order);
+        }
+
         return redirect()->route('service-orders.index')->with('success', 'Service order created.');
     }
 
@@ -312,8 +317,9 @@ class ServiceOrderController extends Controller
 
         $order->status = $request->status;
 
-        // When status changes to completed, deduct parts from inventory
-        if ($oldStatus !== 'completed' && $request->status === 'completed') {
+        // When status changes to completed or paid, deduct parts from inventory
+        // Only deduct if previous status was not completed or paid (to avoid double deduction)
+        if (!in_array($oldStatus, ['completed', 'paid']) && in_array($request->status, ['completed', 'paid'])) {
             $this->deductPartsFromInventory($order);
         }
 
@@ -459,6 +465,7 @@ class ServiceOrderController extends Controller
                         'reference_type' => ServiceOrder::class,
                         'reference_id' => $order->id,
                         'notes' => "Service Order: {$order->order_number}",
+                        'created_by' => auth()->id(),
                     ]);
                 }
             }

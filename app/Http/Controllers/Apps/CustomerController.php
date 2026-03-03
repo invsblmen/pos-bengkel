@@ -26,7 +26,7 @@ class CustomerController extends Controller
                       ->orWhere('phone', 'like', "%$search%")
                       ->orWhere('email', 'like', "%$search%");
                 });
-            })->latest()->paginate(request('per_page', 12));
+            })->latest()->paginate(request('per_page', 8));
 
         //return inertia
         return Inertia::render('Dashboard/Customers/Index', [

@@ -10,7 +10,7 @@ import Search from '@/Components/Dashboard/Search';
 export default function Index({ vehicles, filters }) {
     const [showFilters, setShowFilters] = useState(false);
     const [viewMode, setViewMode] = useState('grid');
-    const [perPage, setPerPage] = useState(filters?.per_page || 12);
+    const [perPage, setPerPage] = useState(filters?.per_page || 8);
     const [activeFilters, setActiveFilters] = useState({
         brand: filters?.brand || '',
         year: filters?.year || '',
@@ -20,7 +20,7 @@ export default function Index({ vehicles, filters }) {
 
     // Sync per_page with URL parameter
     useEffect(() => {
-        const newPerPage = filters?.per_page || 12;
+        const newPerPage = filters?.per_page || 8;
         setPerPage(newPerPage);
     }, [filters?.per_page]);
 

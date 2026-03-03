@@ -12,7 +12,6 @@ import {
     IconCreditCard,
     IconFileCertificate,
     IconFileDescription,
-    IconFileInvoice,
     IconFolder,
     IconHistory,
     IconLayout2,
@@ -100,7 +99,7 @@ export default function Menu() {
                 {
                     title: "Daftar Sparepart",
                     href: route("parts.index"),
-                    active: url === "/dashboard/parts" && !url.includes("/stock") && !url.includes("/sales") && !url.includes("/part-purchases") && !url.includes("/part-sales-orders") && !url.includes("/part-purchase-orders"),
+                    active: url === "/dashboard/parts" && !url.includes("/stock") && !url.includes("/sales") && !url.includes("/part-purchases"),
                     icon: <IconPackage size={20} strokeWidth={1.5} />,
                     permissions: hasAnyPermission(["parts-access"]),
                 },
@@ -112,13 +111,6 @@ export default function Menu() {
                     permissions: hasAnyPermission(["parts-access"]),
                 },
                 {
-                    title: "Kategori Sparepart",
-                    href: route("part-categories.index"),
-                    active: url === "/dashboard/part-categories" || url.startsWith("/dashboard/part-categories"),
-                    icon: <IconCategory size={20} strokeWidth={1.5} />,
-                    permissions: hasAnyPermission(["part-categories-access"]),
-                },
-                {
                     title: "Pembelian Sparepart",
                     href: route("part-purchases.index"),
                     active: url.includes("/dashboard/part-purchases"),
@@ -128,23 +120,9 @@ export default function Menu() {
                 {
                     title: "Penjualan Sparepart",
                     href: route("part-sales.index"),
-                    active: url.includes("/dashboard/part-sales") && !url.includes("/part-sales-orders"),
+                    active: url.includes("/dashboard/part-sales"),
                     icon: <IconArrowUp size={20} strokeWidth={1.5} />,
                     permissions: hasAnyPermission(["part-sales-access"]),
-                },
-                {
-                    title: "Purchase Orders",
-                    href: route("part-purchase-orders.index"),
-                    active: url.includes("/dashboard/part-purchase-orders"),
-                    icon: <IconFileInvoice size={20} strokeWidth={1.5} />,
-                    permissions: hasAnyPermission(["part-purchase-orders-access"]),
-                },
-                {
-                    title: "Sales Orders",
-                    href: route("part-sales-orders.index"),
-                    active: url.includes("/dashboard/part-sales-orders"),
-                    icon: <IconShoppingCart size={20} strokeWidth={1.5} />,
-                    permissions: hasAnyPermission(["part-sales-orders-access"]),
                 },
                 {
                     title: "Stock Movement",

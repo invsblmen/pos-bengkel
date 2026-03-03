@@ -127,7 +127,7 @@ function CustomerCard({ customer }) {
 export default function Index({ customers }) {
     const { roles, permissions, errors, url } = usePage().props;
     const [viewMode, setViewMode] = useState("grid");
-    const [perPage, setPerPage] = useState(customers.per_page || 12);
+    const [perPage, setPerPage] = useState(customers.per_page || 8);
 
     // Check if there's an active filter/search
     const hasActiveFilter = new URLSearchParams(window.location.search).has('search');
@@ -285,6 +285,7 @@ export default function Index({ customers }) {
                                         <Table.Th>Nama Pelanggan</Table.Th>
                                         <Table.Th className="hidden md:table-cell">Telepon</Table.Th>
                                         <Table.Th className="hidden lg:table-cell">Email</Table.Th>
+                                        <Table.Th className="hidden xl:table-cell">Alamat</Table.Th>
                                         <Table.Th className="hidden sm:table-cell text-center">Kendaraan</Table.Th>
                                         <Table.Th className="w-20 text-center">Aksi</Table.Th>
                                     </tr>
@@ -321,6 +322,11 @@ export default function Index({ customers }) {
                                             <Table.Td className="hidden lg:table-cell">
                                                 <span className="text-sm text-slate-600 dark:text-slate-400 truncate max-w-xs block">
                                                     {customer.email || "-"}
+                                                </span>
+                                            </Table.Td>
+                                            <Table.Td className="hidden xl:table-cell">
+                                                <span className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 max-w-xs">
+                                                    {customer.address || "-"}
                                                 </span>
                                             </Table.Td>
                                             <Table.Td className="hidden sm:table-cell">

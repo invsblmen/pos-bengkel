@@ -158,6 +158,7 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::get('/parts', [\App\Http\Controllers\Apps\PartController::class, 'index'])->middleware('permission:parts-access')->name('parts.index');
     Route::get('/parts/low-stock', [LowStockAlertController::class, 'index'])->middleware('permission:parts-access')->name('parts.low-stock');
     Route::get('/parts/create', [\App\Http\Controllers\Apps\PartController::class, 'create'])->middleware('permission:parts-create')->name('parts.create');
+    Route::get('/parts/{id}', [\App\Http\Controllers\Apps\PartController::class, 'show'])->middleware('permission:parts-access')->name('parts.show');
     Route::get('/parts/{id}/edit', [\App\Http\Controllers\Apps\PartController::class, 'edit'])->middleware('permission:parts-update')->name('parts.edit');
     Route::post('/parts', [\App\Http\Controllers\Apps\PartController::class, 'store'])->middleware('permission:parts-create')->name('parts.store');
     Route::patch('/parts/{id}', [\App\Http\Controllers\Apps\PartController::class, 'update'])->middleware('permission:parts-update')->name('parts.update');
@@ -173,12 +174,12 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::put('/part-purchases/{id}', [PartPurchaseController::class, 'update'])->middleware('permission:part-purchases-update')->name('part-purchases.update');
     Route::post('/part-purchases/{id}/update-status', [PartPurchaseController::class, 'updateStatus'])->middleware('permission:part-purchases-update')->name('part-purchases.update-status');
 
-    // Part Sales Orders
-    Route::get('/part-sales-orders', [PartSalesOrderController::class, 'index'])->middleware('permission:part-sales-orders-access')->name('part-sales-orders.index');
-    Route::get('/part-sales-orders/create', [PartSalesOrderController::class, 'create'])->middleware('permission:part-sales-orders-create')->name('part-sales-orders.create');
-    Route::post('/part-sales-orders', [PartSalesOrderController::class, 'store'])->middleware('permission:part-sales-orders-create')->name('part-sales-orders.store');
-    Route::get('/part-sales-orders/{id}', [PartSalesOrderController::class, 'show'])->middleware('permission:part-sales-orders-access')->name('part-sales-orders.show');
-    Route::post('/part-sales-orders/{id}/update-status', [PartSalesOrderController::class, 'updateStatus'])->middleware('permission:part-sales-orders-update')->name('part-sales-orders.update-status');
+    // Part Sales Orders - DISABLED
+    // Route::get('/part-sales-orders', [PartSalesOrderController::class, 'index'])->middleware('permission:part-sales-orders-access')->name('part-sales-orders.index');
+    // Route::get('/part-sales-orders/create', [PartSalesOrderController::class, 'create'])->middleware('permission:part-sales-orders-create')->name('part-sales-orders.create');
+    // Route::post('/part-sales-orders', [PartSalesOrderController::class, 'store'])->middleware('permission:part-sales-orders-create')->name('part-sales-orders.store');
+    // Route::get('/part-sales-orders/{id}', [PartSalesOrderController::class, 'show'])->middleware('permission:part-sales-orders-access')->name('part-sales-orders.show');
+    // Route::post('/part-sales-orders/{id}/update-status', [PartSalesOrderController::class, 'updateStatus'])->middleware('permission:part-sales-orders-update')->name('part-sales-orders.update-status');
 
     // Part Sales (Direct Sales & Invoices)
     Route::get('/part-sales', [PartSaleController::class, 'index'])->middleware('permission:part-sales-access')->name('part-sales.index');
@@ -193,12 +194,12 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::post('/part-sales/{partSale}/update-status', [PartSaleController::class, 'updateStatus'])->middleware('permission:part-sales-edit')->name('part-sales.update-status');
     Route::post('/part-sales/create-from-order', [PartSaleController::class, 'createFromOrder'])->middleware('permission:part-sales-create')->name('part-sales.create-from-order');
 
-    // Part Purchase Orders
-    Route::get('/part-purchase-orders', [PartPurchaseOrderController::class, 'index'])->middleware('permission:part-purchase-orders-access')->name('part-purchase-orders.index');
-    Route::get('/part-purchase-orders/create', [PartPurchaseOrderController::class, 'create'])->middleware('permission:part-purchase-orders-create')->name('part-purchase-orders.create');
-    Route::post('/part-purchase-orders', [PartPurchaseOrderController::class, 'store'])->middleware('permission:part-purchase-orders-create')->name('part-purchase-orders.store');
-    Route::get('/part-purchase-orders/{partPurchaseOrder}', [PartPurchaseOrderController::class, 'show'])->middleware('permission:part-purchase-orders-access')->name('part-purchase-orders.show');
-    Route::post('/part-purchase-orders/{partPurchaseOrder}/update-status', [PartPurchaseOrderController::class, 'updateStatus'])->middleware('permission:part-purchase-orders-update')->name('part-purchase-orders.update-status');
+    // Part Purchase Orders - DISABLED
+    // Route::get('/part-purchase-orders', [PartPurchaseOrderController::class, 'index'])->middleware('permission:part-purchase-orders-access')->name('part-purchase-orders.index');
+    // Route::get('/part-purchase-orders/create', [PartPurchaseOrderController::class, 'create'])->middleware('permission:part-purchase-orders-create')->name('part-purchase-orders.create');
+    // Route::post('/part-purchase-orders', [PartPurchaseOrderController::class, 'store'])->middleware('permission:part-purchase-orders-create')->name('part-purchase-orders.store');
+    // Route::get('/part-purchase-orders/{partPurchaseOrder}', [PartPurchaseOrderController::class, 'show'])->middleware('permission:part-purchase-orders-access')->name('part-purchase-orders.show');
+    // Route::post('/part-purchase-orders/{partPurchaseOrder}/update-status', [PartPurchaseOrderController::class, 'updateStatus'])->middleware('permission:part-purchase-orders-update')->name('part-purchase-orders.update-status');
 
     // Part Stock History
     Route::get('/part-stock-history', [PartStockHistoryController::class, 'index'])->middleware('permission:part-stock-history-access|parts-stock-access')->name('part-stock-history.index');

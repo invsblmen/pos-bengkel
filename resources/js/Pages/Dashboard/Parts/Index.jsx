@@ -214,6 +214,13 @@ export default function Index({ parts, filters, categories, suppliers }) {
                         <p className="text-sm text-slate-500 dark:text-slate-400">{parts?.total || 0} part tersedia</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                            type="link"
+                            href={route('part-categories.index')}
+                            icon={<IconCategory size={18} />}
+                            label="Kategori Sparepart"
+                            className="bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-700"
+                        />
                         <Button type="link" href={route('parts.create')} icon={<IconCirclePlus size={18} />} label="Tambah Part" className="bg-primary-500 hover:bg-primary-600 text-white shadow-lg shadow-primary-500/30" />
                     </div>
                 </div>
@@ -536,6 +543,9 @@ export default function Index({ parts, filters, categories, suppliers }) {
                                                     {visibleColumns.sell_price && <td className="px-4 py-4 text-right text-sm font-semibold text-slate-900 dark:text-white">{formatCurrency(p.sell_price || 0)}</td>}
                                                     <td className="px-4 py-4 text-center">
                                                         <div className="flex items-center justify-center gap-2">
+                                                            <Link href={route('parts.show', p.id)} className="inline-flex items-center justify-center p-2 rounded-lg text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 transition-colors" title="Lihat Detail">
+                                                                <IconEye size={16} />
+                                                            </Link>
                                                             <Link href={route('parts.edit', p.id)} className="inline-flex items-center justify-center p-2 rounded-lg text-warning-600 hover:bg-warning-50 dark:hover:bg-warning-900/30 transition-colors" title="Edit">
                                                                 <IconPencilCog size={16} />
                                                             </Link>
