@@ -113,7 +113,7 @@ export default function Index({ vehicles, filters }) {
     const handleClearFilter = () => {
         const params = new URLSearchParams(window.location.search);
         const hasActiveFilter = params.has('search');
-        
+
         if (hasActiveFilter) {
             router.get(route('vehicles.index'), {
                 per_page: perPage,
@@ -140,7 +140,7 @@ export default function Index({ vehicles, filters }) {
                     <div className="text-2xl font-bold text-white">
                         {vehicle.plate_number}
                     </div>
-                    
+
                     {/* Brand and Model */}
                     <div className="flex items-center gap-2">
                         <span className="inline-block rounded-lg bg-white/20 px-3 py-1 text-sm font-semibold text-white backdrop-blur-sm">
