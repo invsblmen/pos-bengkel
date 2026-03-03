@@ -14,6 +14,7 @@ class VehicleController extends Controller
     {
         $sortBy = request('sort_by', 'created_at');
         $sortDirection = request('sort_direction', 'desc');
+        $perPage = request('per_page', 12);
 
         $vehicles = Vehicle::with('customer')
             ->when(request('search'), function ($query) {
@@ -34,7 +35,7 @@ class VehicleController extends Controller
                 $query->where('transmission_type', request('transmission'));
             })
             ->orderBy($sortBy, $sortDirection)
-            ->paginate(15);
+            ->paginate($perPage);
 
         // Add service dates from latest service orders
         $vehicles->getCollection()->transform(function ($vehicle) {
@@ -68,6 +69,7 @@ class VehicleController extends Controller
                 'service_status' => request('service_status'),
                 'sort_by' => $sortBy,
                 'sort_direction' => $sortDirection,
+                'per_page' => $perPage,
             ],
         ]);
     }
