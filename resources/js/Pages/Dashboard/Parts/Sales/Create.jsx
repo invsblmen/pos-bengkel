@@ -527,9 +527,9 @@ export default function Create({ parts = [], customers = [] }) {
                                             <thead>
                                                 <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
                                                     <th className="px-3 py-2 text-left font-bold text-slate-700 dark:text-slate-300">Sparepart</th>
-                                                    <th className="px-3 py-2 text-center font-bold text-slate-700 dark:text-slate-300 w-20">Qty</th>
-                                                    <th className="px-3 py-2 text-right font-bold text-slate-700 dark:text-slate-300 w-28">Harga</th>
-                                                    <th className="px-3 py-2 text-right font-bold text-slate-700 dark:text-slate-300 w-32">Diskon</th>
+                                                    <th className="px-3 py-2 text-center font-bold text-slate-700 dark:text-slate-300 w-24">Qty</th>
+                                                    <th className="px-3 py-2 text-right font-bold text-slate-700 dark:text-slate-300 w-36">Harga</th>
+                                                    <th className="px-3 py-2 text-right font-bold text-slate-700 dark:text-slate-300 w-44">Diskon</th>
                                                     <th className="px-3 py-2 text-right font-bold text-slate-700 dark:text-slate-300 w-32">Total</th>
                                                     <th className="px-3 py-2 text-center font-bold text-slate-700 dark:text-slate-300 w-14">Aksi</th>
                                                 </tr>
@@ -554,7 +554,7 @@ export default function Create({ parts = [], customers = [] }) {
                                                                 min="1"
                                                                 value={item.quantity}
                                                                 onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 0)}
-                                                                className="w-12 h-7 px-2 text-center text-sm rounded-md border-2 border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white font-semibold focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                                                className="w-16 h-7 px-2 text-center text-sm rounded-md border-2 border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white font-semibold focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                                                             />
                                                         </td>
                                                         <td className="px-2 py-1.5 text-right">
@@ -563,7 +563,7 @@ export default function Create({ parts = [], customers = [] }) {
                                                                 min="0"
                                                                 value={item.unit_price}
                                                                 onChange={(e) => updateItem(index, 'unit_price', parseInt(e.target.value) || 0)}
-                                                                className="w-24 h-7 px-2 text-right text-sm rounded-md border-2 border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white font-semibold focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                                                className="w-32 h-7 px-2 text-right text-sm rounded-md border-2 border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white font-semibold focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                                                             />
                                                         </td>
                                                         <td className="px-2 py-1.5">
@@ -604,7 +604,7 @@ export default function Create({ parts = [], customers = [] }) {
                                                                         min="0"
                                                                         value={item.discount_value || 0}
                                                                         onChange={(e) => updateItem(index, 'discount_value', parseFloat(e.target.value) || 0)}
-                                                                        className={`w-24 h-7 rounded-md border-2 border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-[11px] font-semibold focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-right ${
+                                                                        className={`w-28 h-7 rounded-md border-2 border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-[11px] font-semibold focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-right ${
                                                                             item.discount_type === 'fixed' ? 'pl-6 pr-2' : 'px-2 pr-6'
                                                                         }`}
                                                                     />

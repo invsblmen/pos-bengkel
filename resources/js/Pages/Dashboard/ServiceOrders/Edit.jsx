@@ -736,31 +736,49 @@ export default function Edit({ order, customers, mechanics, services, parts, veh
                                                         </div>
 
                                                         <div className="md:col-span-12 grid gap-2 md:grid-cols-12 pt-2 border-t border-gray-200 dark:border-gray-500/50">
-                                                            <div className="md:col-span-4">
+                                                            <div className="md:col-span-8">
                                                                 <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Diskon Part</label>
-                                                                <select
-                                                                    value={part.discount_type}
-                                                                    onChange={(e) => handlePartChange(itemIndex, partIndex, 'discount_type', e.target.value)}
-                                                                    className="block w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-xs text-gray-900 transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                                                                >
-                                                                    <option value="none">Tidak Ada</option>
-                                                                    <option value="percent">Persen (%)</option>
-                                                                    <option value="fixed">Nilai Tetap</option>
-                                                                </select>
-                                                            </div>
-                                                            {part.discount_type !== 'none' && (
-                                                                <div className="md:col-span-4">
-                                                                    <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">{part.discount_type === 'percent' ? 'Nilai Diskon (%)' : 'Nilai Diskon (Rp)'}</label>
-                                                                    <input
-                                                                        type="number"
-                                                                        min="0"
-                                                                        value={part.discount_value}
-                                                                        onChange={(e) => handlePartChange(itemIndex, partIndex, 'discount_value', e.target.value)}
-                                                                        className="block w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-xs text-gray-900 transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                                                                    />
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="inline-flex h-9 rounded-lg border-2 border-slate-300 dark:border-slate-700 overflow-hidden">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handlePartChange(itemIndex, partIndex, 'discount_type', 'percent')}
+                                                                            className={`px-2 text-[10px] font-bold transition-all ${(part.discount_type || 'percent') === 'percent'
+                                                                                ? 'bg-purple-600 text-white'
+                                                                                : 'bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                                                                            }`}
+                                                                        >
+                                                                            %
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handlePartChange(itemIndex, partIndex, 'discount_type', 'fixed')}
+                                                                            className={`px-2 text-[10px] font-bold transition-all ${part.discount_type === 'fixed'
+                                                                                ? 'bg-emerald-600 text-white'
+                                                                                : 'bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                                                                            }`}
+                                                                        >
+                                                                            Rp
+                                                                        </button>
+                                                                    </div>
+                                                                    <div className="relative flex-1">
+                                                                        {part.discount_type === 'fixed' && (
+                                                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500">Rp</span>
+                                                                        )}
+                                                                        {part.discount_type !== 'fixed' && (
+                                                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500">%</span>
+                                                                        )}
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            value={part.discount_value || 0}
+                                                                            onChange={(e) => handlePartChange(itemIndex, partIndex, 'discount_value', e.target.value)}
+                                                                            className={`w-full h-9 rounded-lg border-2 border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-xs font-semibold focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-right ${part.discount_type === 'fixed' ? 'pl-6 pr-2' : 'px-2 pr-6'}`}
+                                                                        />
+                                                                    </div>
                                                                 </div>
-                                                            )}
-                                                            <div className={`${part.discount_type !== 'none' ? 'md:col-span-4' : 'md:col-span-8'} text-right self-center space-y-0.5`}>
+                                                            </div>
+                                                            <div className="md:col-span-4 text-right self-center space-y-0.5">
                                                                 {(() => {
                                                                     const base = (Number(part.price) || 0) * (Number(part.qty) || 0);
                                                                     const discount = calcDiscount(base, part.discount_type, part.discount_value);

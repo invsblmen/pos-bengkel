@@ -342,22 +342,50 @@ export default function ServiceGrid({
 
                                             {/* Part Discount */}
                                             <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
-                                                <label className="block text-xs font-semibold text-slate-900 dark:text-white mb-3">
+                                                <label className="block text-xs font-semibold text-slate-900 dark:text-white mb-2">
                                                     Diskon Part
                                                 </label>
-                                                <div className="flex gap-2 items-center">
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        value={part.discount_value || 0}
-                                                        onChange={(e) => handlePartDiscountChange(index, 'discount_value', e.target.value)}
-                                                        placeholder="0"
-                                                        className="flex-1 h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
-                                                    />
-                                                    <DiscountModeToggle
-                                                        mode={part.discount_mode || 'nominal'}
-                                                        onChange={(mode) => handlePartDiscountChange(index, 'discount_mode', mode)}
-                                                    />
+                                                <div className="flex items-center gap-2">
+                                                    <div className="inline-flex h-9 rounded-lg border-2 border-slate-300 dark:border-slate-700 overflow-hidden">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handlePartDiscountChange(index, 'discount_mode', 'percent')}
+                                                            className={`px-2 text-[10px] font-bold transition-all ${
+                                                                (part.discount_mode || 'nominal') === 'percent'
+                                                                    ? 'bg-purple-600 text-white'
+                                                                    : 'bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                                                            }`}
+                                                        >
+                                                            %
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handlePartDiscountChange(index, 'discount_mode', 'nominal')}
+                                                            className={`px-2 text-[10px] font-bold transition-all ${
+                                                                (part.discount_mode || 'nominal') === 'nominal'
+                                                                    ? 'bg-emerald-600 text-white'
+                                                                    : 'bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                                                            }`}
+                                                        >
+                                                            Rp
+                                                        </button>
+                                                    </div>
+                                                    <div className="relative flex-1">
+                                                        {(part.discount_mode || 'nominal') === 'nominal' && (
+                                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500">Rp</span>
+                                                        )}
+                                                        {(part.discount_mode || 'nominal') === 'percent' && (
+                                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500">%</span>
+                                                        )}
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            value={part.discount_value || 0}
+                                                            onChange={(e) => handlePartDiscountChange(index, 'discount_value', e.target.value)}
+                                                            placeholder="0"
+                                                            className={`w-full h-9 rounded-lg border-2 border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-xs font-semibold focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-right ${(part.discount_mode || 'nominal') === 'nominal' ? 'pl-6 pr-2' : 'px-2 pr-6'}`}
+                                                        />
+                                                    </div>
                                                 </div>
                                                 {part.part_id && (
                                                     <p className="text-xs text-slate-600 dark:text-slate-400 mt-2">
