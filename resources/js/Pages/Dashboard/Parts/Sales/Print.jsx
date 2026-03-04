@@ -3,10 +3,22 @@ import { Head, Link } from '@inertiajs/react';
 import { IconArrowLeft, IconPrinter, IconReceipt, IconFileInvoice } from '@tabler/icons-react';
 import ThermalReceipt, { ThermalReceipt58mm } from '@/Components/Receipt/ThermalReceipt';
 import { toDisplayDateTime } from '@/Utils/datetime';
-import { formatBusinessSocials } from '@/Utils/socialMediaFormatter';
+import { formatBusinessSocials, getCompactBusinessSocialDisplay, getGoogleBusinessQrUrl } from '@/Utils/socialMediaFormatter';
 
 export default function Print({ sale, businessProfile }) {
     const [printMode, setPrintMode] = useState('invoice');
+
+    const statusLabel = {
+        draft: '📝 Draft',
+        confirmed: '✅ Dikonfirmasi',
+        waiting_stock: '📦 Pemesanan',
+        ready_to_notify: '🔔 Siap Diberitahu',
+        waiting_pickup: '🛵 Menunggu Diambil',
+        completed: '🎯 Selesai',
+        cancelled: '❌ Dibatalkan',
+    };
+
+    const saleStatusLabel = statusLabel[sale?.status] || sale?.status || '-';
 
     const formatCurrency = (value = 0) =>
         new Intl.NumberFormat('id-ID', {
@@ -26,11 +38,15 @@ export default function Print({ sale, businessProfile }) {
     const businessName = businessProfile?.business_name || 'POS BENGKEL';
     const businessPhone = businessProfile?.business_phone || '';
     const businessAddress = businessProfile?.business_address || '';
+    const consumerNote = businessProfile?.receipt_note_part_sale || 'Simpan nota ini sebagai bukti pembelian sparepart. Garansi part mengikuti ketentuan produk.';
     const businessSocials = formatBusinessSocials(businessProfile);
+    const compactSocialInfo = useMemo(() => getCompactBusinessSocialDisplay(businessProfile), [businessProfile]);
+    const googleBusinessQrUrl = useMemo(() => getGoogleBusinessQrUrl(businessProfile?.google_my_business, 108), [businessProfile]);
 
     const thermalPayload = useMemo(() => ({
         invoice: sale?.sale_number,
         created_at: sale?.sale_date || sale?.created_at,
+        status: sale?.status,
         cashier: sale?.creator ? { name: sale.creator.name } : null,
         customer: sale?.customer ? { name: sale.customer.name } : null,
         details: (sale?.details || []).map((detail) => {
@@ -57,7 +73,7 @@ export default function Print({ sale, businessProfile }) {
             <Head title={`Cetak Penjualan ${sale?.sale_number || ''}`} />
 
             <div className="min-h-screen bg-slate-100 dark:bg-slate-950 py-8 px-4 print:bg-white print:p-0">
-                <div className="max-w-5xl mx-auto space-y-6">
+                <div className="max-w-5xl mx-auto space-y-6 print:max-w-none">
                     <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
                         <Link
                             href={route('part-sales.show', sale?.id)}
@@ -128,6 +144,9 @@ export default function Print({ sale, businessProfile }) {
                                         storeAddress={businessAddress}
                                         storePhone={businessPhone}
                                         businessSocials={businessSocials}
+                                        businessSocialInfo={compactSocialInfo}
+                                        googleBusinessQrUrl={googleBusinessQrUrl}
+                                        consumerNote={consumerNote}
                                     />
                                 ) : (
                                     <ThermalReceipt58mm
@@ -135,6 +154,9 @@ export default function Print({ sale, businessProfile }) {
                                         storeName={businessName}
                                         storePhone={businessPhone}
                                         businessSocials={businessSocials}
+                                        businessSocialInfo={compactSocialInfo}
+                                        googleBusinessQrUrl={googleBusinessQrUrl}
+                                        consumerNote={consumerNote}
                                     />
                                 )}
                             </div>
@@ -142,52 +164,51 @@ export default function Print({ sale, businessProfile }) {
                     )}
 
                     {printMode === 'invoice' && (
-                        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xl print:shadow-none print:border-slate-300">
-                            <div className="bg-gradient-to-r from-primary-500 to-primary-700 px-6 py-6 text-white print:bg-slate-100 print:text-slate-900">
-                                <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xl print:shadow-none print:border-slate-300 print:rounded-none">
+                            <div className="bg-gradient-to-r from-primary-500 to-primary-700 px-6 py-6 text-white print:bg-slate-100 print:text-slate-900 print:px-4 print:py-3">
+                                <div className="flex flex-wrap items-start justify-between gap-4 print:flex-nowrap print:gap-3">
                                     <div>
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <IconReceipt size={24} />
-                                            <span className="text-sm font-medium opacity-90 print:opacity-100">INVOICE PENJUALAN SPAREPART</span>
+                                        <div className="flex items-center gap-2 mb-2 print:mb-1">
+                                            <IconReceipt size={24} className="print:w-5 print:h-5" />
+                                            <span className="text-sm font-medium opacity-90 print:opacity-100 print:text-xs">INVOICE PENJUALAN SPAREPART</span>
                                         </div>
-                                        <p className="text-2xl font-bold">{sale?.sale_number}</p>
-                                        <p className="text-sm opacity-80 print:opacity-100 mt-1">
+                                        <p className="text-2xl font-bold print:text-lg">{sale?.sale_number}</p>
+                                        <p className="text-sm opacity-80 print:opacity-100 mt-1 print:mt-0.5 print:text-xs">
                                             {toDisplayDateTime(sale?.sale_date || sale?.created_at)}
                                         </p>
                                     </div>
 
                                     <div className="text-right max-w-sm">
-                                        <p className="text-sm font-semibold print:text-slate-700">{businessName}</p>
-                                        {businessPhone && <p className="text-xs opacity-80 print:opacity-100 mt-1">{businessPhone}</p>}
-                                        {businessAddress && <p className="text-xs opacity-80 print:opacity-100 mt-1">{businessAddress}</p>}
-                                        {businessSocials.map((social) => (
-                                            <p key={social.label} className="text-xs opacity-80 print:opacity-100 mt-1">
-                                                {social.icon ? `${social.icon} ` : ''}{social.value}
-                                            </p>
-                                        ))}
+                                        <p className="text-sm font-semibold print:text-slate-700 print:text-xs">{businessName}</p>
+                                        {businessPhone && <p className="text-xs opacity-80 print:opacity-100 mt-1 print:mt-0.5">{businessPhone}</p>}
+                                        {businessAddress && <p className="text-xs opacity-80 print:opacity-100 mt-1 print:mt-0.5">{businessAddress}</p>}
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="grid md:grid-cols-2 gap-6 px-6 py-6 border-b border-slate-100 dark:border-slate-800">
+                            <div className="grid md:grid-cols-3 print:grid-cols-3 gap-6 px-6 py-6 border-b border-slate-100 dark:border-slate-800 print:gap-3 print:px-4 print:py-3">
                                 <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Pelanggan</p>
-                                    <p className="text-base font-semibold text-slate-900 dark:text-white">{sale?.customer?.name || '-'}</p>
+                                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2 print:mb-1">Pelanggan</p>
+                                    <p className="text-base font-semibold text-slate-900 dark:text-white print:text-sm">{sale?.customer?.name || '-'}</p>
                                 </div>
                                 <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Kasir</p>
-                                    <p className="text-base font-semibold text-slate-900 dark:text-white">{sale?.creator?.name || '-'}</p>
+                                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2 print:mb-1">Kasir</p>
+                                    <p className="text-base font-semibold text-slate-900 dark:text-white print:text-sm">{sale?.creator?.name || '-'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2 print:mb-1">Status Penjualan</p>
+                                    <p className="text-base font-semibold text-slate-900 dark:text-white print:text-sm">{saleStatusLabel}</p>
                                 </div>
                             </div>
 
-                            <div className="px-6 py-6">
-                                <table className="w-full text-sm">
+                            <div className="px-6 py-6 print:px-4 print:py-3">
+                                <table className="w-full text-sm print:text-xs">
                                     <thead>
                                         <tr className="border-b border-slate-100 dark:border-slate-800">
-                                            <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Item</th>
-                                            <th className="pb-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Harga</th>
-                                            <th className="pb-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Qty</th>
-                                            <th className="pb-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Subtotal</th>
+                                            <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 print:pb-2">Item</th>
+                                            <th className="pb-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 print:pb-2">Harga</th>
+                                            <th className="pb-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 print:pb-2">Qty</th>
+                                            <th className="pb-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 print:pb-2">Subtotal</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -198,13 +219,13 @@ export default function Print({ sale, businessProfile }) {
 
                                             return (
                                                 <tr key={detail.id}>
-                                                    <td className="py-3">
-                                                        <p className="font-medium text-slate-900 dark:text-white">{detail.part?.name || '-'}</p>
-                                                        {detail.part?.part_number && <p className="text-xs text-slate-500 dark:text-slate-400">Kode: {detail.part.part_number}</p>}
+                                                    <td className="py-3 print:py-2">
+                                                        <p className="font-medium text-slate-900 dark:text-white print:text-xs">{detail.part?.name || '-'}</p>
+                                                        {detail.part?.part_number && <p className="text-xs text-slate-500 dark:text-slate-400 print:text-[10px]">Kode: {detail.part.part_number}</p>}
                                                     </td>
-                                                    <td className="py-3 text-right text-slate-600 dark:text-slate-400">{formatCurrency(unitPrice)}</td>
-                                                    <td className="py-3 text-center text-slate-600 dark:text-slate-400">{qty}</td>
-                                                    <td className="py-3 text-right font-semibold text-slate-900 dark:text-white">{formatCurrency(lineTotal)}</td>
+                                                    <td className="py-3 print:py-2 text-right text-slate-600 dark:text-slate-400">{formatCurrency(unitPrice)}</td>
+                                                    <td className="py-3 print:py-2 text-center text-slate-600 dark:text-slate-400">{qty}</td>
+                                                    <td className="py-3 print:py-2 text-right font-semibold text-slate-900 dark:text-white">{formatCurrency(lineTotal)}</td>
                                                 </tr>
                                             );
                                         })}
@@ -212,33 +233,59 @@ export default function Print({ sale, businessProfile }) {
                                 </table>
                             </div>
 
-                            <div className="bg-slate-50 dark:bg-slate-800/50 px-6 py-6">
-                                <div className="max-w-xs ml-auto space-y-2 text-sm">
-                                    <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                                        <span>Subtotal</span>
-                                        <span>{formatCurrency(subtotal)}</span>
-                                    </div>
-                                    <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                                        <span>Diskon</span>
-                                        <span>- {formatCurrency(discountAmount)}</span>
-                                    </div>
-                                    {taxAmount > 0 && (
-                                        <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                                            <span>Pajak</span>
-                                            <span>+ {formatCurrency(taxAmount)}</span>
+                            <div className="bg-slate-50 dark:bg-slate-800/50 px-6 py-6 print:px-4 print:py-2.5 border-t border-slate-100 dark:border-slate-800">
+                                <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-[1fr_280px] gap-4 print:gap-2 items-start">
+                                    <div className="space-y-2 print:space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+                                        {(compactSocialInfo.mergedLine || compactSocialInfo.socials.length > 0 || businessProfile?.google_my_business) && (
+                                            <div className="flex items-start justify-between gap-3 print:gap-2">
+                                                <div className="space-y-1">
+                                                    {compactSocialInfo.mergedLine && <p>{compactSocialInfo.mergedLine}</p>}
+                                                    {compactSocialInfo.socials.map((social) => (
+                                                        <p key={social.label}>{social.icon ? `${social.icon} ` : ''}{social.value}</p>
+                                                    ))}
+                                                </div>
+                                                {googleBusinessQrUrl && (
+                                                    <div className="text-center shrink-0">
+                                                        <img src={googleBusinessQrUrl} alt="QR Google Business" className="w-[70px] h-[70px] print:w-[58px] print:h-[58px]" />
+                                                        <p className="text-[10px] text-slate-500 mt-0.5">Yuk review {businessName} di Google</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        <div>
+                                            <p className="font-semibold">Catatan untuk Konsumen</p>
+                                            <p>{consumerNote}</p>
                                         </div>
-                                    )}
-                                    <div className="flex justify-between text-lg font-bold text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-700">
-                                        <span>Total</span>
-                                        <span>{formatCurrency(grandTotal)}</span>
+                                    </div>
+
+                                    <div className="w-full max-w-xs ml-auto space-y-1 text-sm print:text-xs">
+                                        <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                                            <span>Subtotal</span>
+                                            <span>{formatCurrency(subtotal)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                                            <span>Diskon</span>
+                                            <span>- {formatCurrency(discountAmount)}</span>
+                                        </div>
+                                        {taxAmount > 0 && (
+                                            <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                                                <span>Pajak</span>
+                                                <span>+ {formatCurrency(taxAmount)}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex justify-between text-lg font-bold text-slate-900 dark:text-white pt-1 border-t border-slate-200 dark:border-slate-700 print:text-sm">
+                                            <span>Total</span>
+                                            <span>{formatCurrency(grandTotal)}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             {sale?.notes && (
-                                <div className="px-6 py-4 text-sm text-slate-700 dark:text-slate-300 border-t border-slate-100 dark:border-slate-800">
-                                    <p className="font-semibold mb-1">Catatan</p>
-                                    <p className="whitespace-pre-line">{sale.notes}</p>
+                                <div className="px-6 py-4 text-sm text-slate-700 dark:text-slate-300 border-t border-slate-100 dark:border-slate-800 print:px-4 print:py-2 print:text-xs">
+                                    <p className="font-semibold mb-1 print:mb-0.5">Catatan</p>
+                                    <p className="whitespace-pre-line print:leading-tight">{sale.notes}</p>
                                 </div>
                             )}
                         </div>

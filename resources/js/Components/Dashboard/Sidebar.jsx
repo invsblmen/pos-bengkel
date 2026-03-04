@@ -13,7 +13,7 @@ export default function Sidebar({ sidebarOpen }) {
         <div
             className={`
             ${sidebarOpen ? "w-[260px]" : "w-[80px]"}
-            hidden md:flex flex-col min-h-screen
+            hidden md:flex flex-col h-screen
             border-r border-slate-200 dark:border-slate-800
             bg-white dark:bg-slate-900
             transition-all duration-300 ease-in-out
@@ -73,7 +73,7 @@ export default function Sidebar({ sidebarOpen }) {
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto py-3 scrollbar-thin">
+            <nav className="flex-1 overflow-y-auto py-3 scrollbar-sidebar">
                 {menuNavigation.map((section, index) => {
                     const hasPermission = section.details.some(
                         (detail) => detail.permissions === true

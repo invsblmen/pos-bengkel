@@ -202,6 +202,7 @@ export default function Create({ parts = [], customers = [] }) {
 
     const taxAmount = calculateTax();
     const totalAmount = afterDiscount + taxAmount;
+    const minimumDownPaymentReminder = Math.ceil(totalAmount * 0.5);
     const remainingAmount = Math.max(0, totalAmount - (Number(data.paid_amount) || 0));
     const paymentStatus = totalAmount === 0
         ? 'unpaid'
@@ -287,7 +288,7 @@ export default function Create({ parts = [], customers = [] }) {
                                 </div>
 
                                 {/* Details Grid */}
-                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                                     {/* Tanggal */}
                                     <div className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/20 rounded-xl border border-emerald-200 dark:border-emerald-700/30">
                                         <label className="block text-xs font-bold text-emerald-700 dark:text-emerald-400 mb-2 uppercase tracking-wide">
@@ -328,7 +329,7 @@ export default function Create({ parts = [], customers = [] }) {
                                             {data.status === 'draft'
                                                 ? '⚠️ Draft tidak mengurangi stok'
                                                 : data.status === 'waiting_stock'
-                                                    ? 'ℹ️ Pemesanan dengan syarat DP minimal 50%'
+                                                    ? 'ℹ️ Pengingat: untuk pemesanan, DP disarankan minimal 50% dari total.'
                                                     : '✓ Konfirmasi akan mengurangi stok'}
                                         </p>
                                     </div>
@@ -923,6 +924,11 @@ export default function Create({ parts = [], customers = [] }) {
                                             placeholder="0"
                                             className="w-full h-12 px-4 rounded-xl border-2 border-emerald-300 dark:border-emerald-700 dark:bg-slate-800 dark:text-white font-bold text-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                         />
+                                        {data.status === 'waiting_stock' && totalAmount > 0 && (
+                                            <p className="text-xs text-amber-700 dark:text-amber-400 mt-2 font-medium">
+                                                Pengingat pemesanan: DP disarankan minimal {formatCurrency(minimumDownPaymentReminder)} (50% dari total).
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div className="pt-4 space-y-3">

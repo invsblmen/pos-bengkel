@@ -41,6 +41,7 @@ class HandleInertiaRequests extends Middleware
             'lowStockAlerts' => $request->user()
                 ? [
                     'count' => LowStockAlert::where('is_read', false)->count(),
+                    'total_count' => LowStockAlert::count(),
                     'items' => LowStockAlert::with('part:id,name,part_number,rack_location')
                         ->latest()
                         ->take(5)
@@ -65,6 +66,7 @@ class HandleInertiaRequests extends Middleware
                 ]
                 : [
                     'count' => 0,
+                    'total_count' => 0,
                     'items' => [],
                 ],
             'notifications' => $request->user() && Schema::hasTable('notifications')
@@ -83,6 +85,7 @@ class HandleInertiaRequests extends Middleware
                                 'message' => $data['message'] ?? '',
                                 'reference' => $data['reference'] ?? null,
                                 'purchase_id' => $data['purchase_id'] ?? null,
+                                'sale_id' => $data['sale_id'] ?? null,
                                 'context' => $data['context'] ?? null,
                                 'read_at' => $notification->read_at,
                                 'created_at' => $notification->created_at?->diffForHumans(),

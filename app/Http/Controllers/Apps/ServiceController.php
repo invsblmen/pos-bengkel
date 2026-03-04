@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Apps;
 
 use App\Http\Controllers\Controller;
+use App\Models\Mechanic;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use Illuminate\Http\Request;
@@ -15,7 +16,7 @@ class ServiceController extends Controller
     {
         $q = $request->query('q', '');
 
-        $query = Service::with('category')->orderBy('title');
+        $query = Service::with(['category', 'priceAdjustments.triggerService', 'mechanicIncentives.mechanic'])->orderBy('title');
         if ($q) {
             $query->where(function ($sub) use ($q) {
                 $sub->where('code', 'like', "%{$q}%")
@@ -39,6 +40,24 @@ class ServiceController extends Controller
                 'service_category_id' => $service->service_category_id,
                 'category' => $service->category,
                 'required_tools' => $service->required_tools,
+                'incentive_mode' => $service->incentive_mode ?? 'same',
+                'default_incentive_percentage' => (float) ($service->default_incentive_percentage ?? 0),
+                'price_adjustments' => $service->priceAdjustments->map(function ($adjustment) {
+                    return [
+                        'id' => $adjustment->id,
+                        'trigger_service_id' => $adjustment->trigger_service_id,
+                        'trigger_service_name' => $adjustment->triggerService?->title,
+                        'discount_type' => $adjustment->discount_type,
+                        'discount_value' => (float) $adjustment->discount_value,
+                    ];
+                })->values(),
+                'mechanic_incentives' => $service->mechanicIncentives->map(function ($incentive) {
+                    return [
+                        'mechanic_id' => $incentive->mechanic_id,
+                        'mechanic_name' => $incentive->mechanic?->name,
+                        'incentive_percentage' => (float) $incentive->incentive_percentage,
+                    ];
+                })->values(),
                 'created_at' => $service->created_at,
                 'updated_at' => $service->updated_at,
             ];
@@ -49,6 +68,7 @@ class ServiceController extends Controller
         return Inertia::render('Dashboard/Services/Index', [
             'services' => $services,
             'categories' => $categories,
+            'mechanics' => Mechanic::orderBy('name')->get(['id', 'name']),
             'filters' => ['q' => $q],
         ]);
     }
@@ -57,6 +77,8 @@ class ServiceController extends Controller
     {
         return Inertia::render('Dashboard/Services/Create', [
             'categories' => ServiceCategory::orderBy('name')->get(),
+            'mechanics' => Mechanic::active()->orderBy('name')->get(['id', 'name']),
+            'services' => Service::active()->orderBy('title')->get(['id', 'title']),
         ]);
     }
 
@@ -71,6 +93,15 @@ class ServiceController extends Controller
             'complexity_level' => 'required|in:simple,medium,complex',
             'required_tools' => 'nullable|array',
             'status' => 'required|in:active,inactive',
+            'incentive_mode' => 'required|in:same,by_mechanic',
+            'default_incentive_percentage' => 'nullable|numeric|min:0|max:100',
+            'price_adjustments' => 'nullable|array',
+            'price_adjustments.*.trigger_service_id' => 'required|exists:services,id',
+            'price_adjustments.*.discount_type' => 'required|in:percent,fixed',
+            'price_adjustments.*.discount_value' => 'required|numeric|min:0',
+            'mechanic_incentives' => 'nullable|array',
+            'mechanic_incentives.*.mechanic_id' => 'required|exists:mechanics,id',
+            'mechanic_incentives.*.incentive_percentage' => 'required|numeric|min:0|max:100',
         ]);
 
         // Map form fields to database columns
@@ -81,12 +112,15 @@ class ServiceController extends Controller
             'price' => $validated['price'],
             'est_time_minutes' => $validated['duration'],
             'complexity_level' => $this->mapComplexityLevel($validated['complexity_level']),
-            'required_tools' => $validated['required_tools'] ? json_encode($validated['required_tools']) : null,
+            'required_tools' => $validated['required_tools'] ?? null,
             'status' => $validated['status'],
+            'incentive_mode' => $validated['incentive_mode'],
+            'default_incentive_percentage' => $validated['default_incentive_percentage'] ?? 0,
             'code' => 'SVC-' . strtoupper(Str::random(8)),
         ];
 
         $service = Service::create($data);
+        $this->syncPricingAndIncentives($service, $validated);
 
         return redirect()->route('services.index')->with('success', 'Layanan berhasil ditambahkan');
     }
@@ -104,6 +138,24 @@ class ServiceController extends Controller
             'status' => $service->status,
             'service_category_id' => $service->service_category_id,
             'required_tools' => $service->required_tools,
+            'incentive_mode' => $service->incentive_mode ?? 'same',
+            'default_incentive_percentage' => (float) ($service->default_incentive_percentage ?? 0),
+            'price_adjustments' => $service->priceAdjustments()->with('triggerService:id,title')->get()->map(function ($adjustment) {
+                return [
+                    'id' => $adjustment->id,
+                    'trigger_service_id' => $adjustment->trigger_service_id,
+                    'trigger_service_name' => $adjustment->triggerService?->title,
+                    'discount_type' => $adjustment->discount_type,
+                    'discount_value' => (float) $adjustment->discount_value,
+                ];
+            })->values(),
+            'mechanic_incentives' => $service->mechanicIncentives()->with('mechanic:id,name')->get()->map(function ($incentive) {
+                return [
+                    'mechanic_id' => $incentive->mechanic_id,
+                    'mechanic_name' => $incentive->mechanic?->name,
+                    'incentive_percentage' => (float) $incentive->incentive_percentage,
+                ];
+            })->values(),
             'created_at' => $service->created_at,
             'updated_at' => $service->updated_at,
         ];
@@ -111,6 +163,11 @@ class ServiceController extends Controller
         return Inertia::render('Dashboard/Services/Edit', [
             'service' => $transformedService,
             'categories' => ServiceCategory::orderBy('name')->get(),
+            'mechanics' => Mechanic::active()->orderBy('name')->get(['id', 'name']),
+            'services' => Service::active()
+                ->where('id', '!=', $service->id)
+                ->orderBy('title')
+                ->get(['id', 'title']),
         ]);
     }
 
@@ -125,6 +182,15 @@ class ServiceController extends Controller
             'complexity_level' => 'required|in:simple,medium,complex',
             'required_tools' => 'nullable|array',
             'status' => 'required|in:active,inactive',
+            'incentive_mode' => 'required|in:same,by_mechanic',
+            'default_incentive_percentage' => 'nullable|numeric|min:0|max:100',
+            'price_adjustments' => 'nullable|array',
+            'price_adjustments.*.trigger_service_id' => 'required|exists:services,id',
+            'price_adjustments.*.discount_type' => 'required|in:percent,fixed',
+            'price_adjustments.*.discount_value' => 'required|numeric|min:0',
+            'mechanic_incentives' => 'nullable|array',
+            'mechanic_incentives.*.mechanic_id' => 'required|exists:mechanics,id',
+            'mechanic_incentives.*.incentive_percentage' => 'required|numeric|min:0|max:100',
         ]);
 
         // Map form fields to database columns
@@ -135,11 +201,14 @@ class ServiceController extends Controller
             'price' => $validated['price'],
             'est_time_minutes' => $validated['duration'],
             'complexity_level' => $this->mapComplexityLevel($validated['complexity_level']),
-            'required_tools' => $validated['required_tools'] ? json_encode($validated['required_tools']) : null,
+            'required_tools' => $validated['required_tools'] ?? null,
             'status' => $validated['status'],
+            'incentive_mode' => $validated['incentive_mode'],
+            'default_incentive_percentage' => $validated['default_incentive_percentage'] ?? 0,
         ];
 
         $service->update($data);
+        $this->syncPricingAndIncentives($service, $validated);
 
         return redirect()->route('services.index')->with('success', 'Layanan berhasil diperbarui');
     }
@@ -167,5 +236,34 @@ class ServiceController extends Controller
             'complex' => 'hard',
         ];
         return $mapping[$level] ?? 'medium';
+    }
+
+    private function syncPricingAndIncentives(Service $service, array $validated): void
+    {
+        $service->priceAdjustments()->delete();
+        $service->mechanicIncentives()->delete();
+
+        foreach (($validated['price_adjustments'] ?? []) as $adjustment) {
+            if ((int) $adjustment['trigger_service_id'] === (int) $service->id) {
+                continue;
+            }
+
+            $service->priceAdjustments()->create([
+                'trigger_service_id' => $adjustment['trigger_service_id'],
+                'discount_type' => $adjustment['discount_type'],
+                'discount_value' => $adjustment['discount_value'],
+            ]);
+        }
+
+        if (($validated['incentive_mode'] ?? 'same') !== 'by_mechanic') {
+            return;
+        }
+
+        foreach (($validated['mechanic_incentives'] ?? []) as $incentive) {
+            $service->mechanicIncentives()->create([
+                'mechanic_id' => $incentive['mechanic_id'],
+                'incentive_percentage' => $incentive['incentive_percentage'],
+            ]);
+        }
     }
 }

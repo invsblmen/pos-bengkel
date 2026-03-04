@@ -19,7 +19,7 @@ class PartStockController extends Controller
         if ($request->filled('q')) {
             $q = $request->input('q');
             $query->whereHas('part', function ($q2) use ($q) {
-                $q2->where('name', 'like', "%{$q}%")->orWhere('sku', 'like', "%{$q}%");
+                $q2->where('name', 'like', "%{$q}%")->orWhere('part_number', 'like', "%{$q}%");
             });
         }
 

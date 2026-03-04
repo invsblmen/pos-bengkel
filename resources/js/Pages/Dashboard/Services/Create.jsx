@@ -4,7 +4,7 @@ import DashboardLayout from '@/Layouts/DashboardLayout';
 import { IconArrowLeft, IconDeviceFloppy } from '@tabler/icons-react';
 import toast from 'react-hot-toast';
 
-function Create({ auth, categories }) {
+function Create({ auth, categories, mechanics, services }) {
     const { data, setData, post, processing, errors } = useForm({
         service_category_id: '',
         name: '',
@@ -14,7 +14,45 @@ function Create({ auth, categories }) {
         complexity_level: 'simple',
         required_tools: '',
         status: 'active',
+        incentive_mode: 'same',
+        default_incentive_percentage: 0,
+        price_adjustments: [],
+        mechanic_incentives: [],
     });
+
+    const addPriceAdjustment = () => {
+        setData('price_adjustments', [
+            ...data.price_adjustments,
+            { trigger_service_id: '', discount_type: 'fixed', discount_value: 0 },
+        ]);
+    };
+
+    const removePriceAdjustment = (index) => {
+        setData('price_adjustments', data.price_adjustments.filter((_, i) => i !== index));
+    };
+
+    const updatePriceAdjustment = (index, field, value) => {
+        const next = [...data.price_adjustments];
+        next[index][field] = value;
+        setData('price_adjustments', next);
+    };
+
+    const addMechanicIncentive = () => {
+        setData('mechanic_incentives', [
+            ...data.mechanic_incentives,
+            { mechanic_id: '', incentive_percentage: 0 },
+        ]);
+    };
+
+    const removeMechanicIncentive = (index) => {
+        setData('mechanic_incentives', data.mechanic_incentives.filter((_, i) => i !== index));
+    };
+
+    const updateMechanicIncentive = (index, field, value) => {
+        const next = [...data.mechanic_incentives];
+        next[index][field] = value;
+        setData('mechanic_incentives', next);
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -32,6 +70,12 @@ function Create({ auth, categories }) {
             complexity_level: data.complexity_level,
             required_tools: toolsArray,
             status: data.status,
+            incentive_mode: data.incentive_mode,
+            default_incentive_percentage: data.default_incentive_percentage,
+            price_adjustments: data.price_adjustments.filter((item) => item.trigger_service_id),
+            mechanic_incentives: data.incentive_mode === 'by_mechanic'
+                ? data.mechanic_incentives.filter((item) => item.mechanic_id)
+                : [],
             preserveScroll: true,
             onSuccess: () => {
                 toast.success('Layanan berhasil ditambahkan!');
@@ -257,6 +301,120 @@ function Create({ auth, categories }) {
                                     )}
                                 </div>
                             </div>
+
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                                <div>
+                                    <label htmlFor="incentive_mode" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Mode Insentif Mekanik
+                                    </label>
+                                    <select
+                                        id="incentive_mode"
+                                        value={data.incentive_mode}
+                                        onChange={(e) => setData('incentive_mode', e.target.value)}
+                                        className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                                    >
+                                        <option value="same">Sama untuk semua mekanik</option>
+                                        <option value="by_mechanic">Berbeda per mekanik</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label htmlFor="default_incentive_percentage" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Persen Insentif Default (%)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        id="default_incentive_percentage"
+                                        min="0"
+                                        max="100"
+                                        step="0.01"
+                                        value={data.default_incentive_percentage}
+                                        onChange={(e) => setData('default_incentive_percentage', e.target.value)}
+                                        className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                                        placeholder="0"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Aturan Potongan Otomatis</h3>
+                                    <button type="button" onClick={addPriceAdjustment} className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-sm">
+                                        Tambah Aturan
+                                    </button>
+                                </div>
+                                {data.price_adjustments.map((rule, index) => (
+                                    <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                                        <select
+                                            value={rule.trigger_service_id}
+                                            onChange={(e) => updatePriceAdjustment(index, 'trigger_service_id', e.target.value)}
+                                            className="px-3 py-2 border rounded-lg bg-white dark:bg-gray-900"
+                                        >
+                                            <option value="">Pilih layanan pemicu</option>
+                                            {services.map((svc) => (
+                                                <option key={svc.id} value={svc.id}>{svc.title}</option>
+                                            ))}
+                                        </select>
+                                        <select
+                                            value={rule.discount_type}
+                                            onChange={(e) => updatePriceAdjustment(index, 'discount_type', e.target.value)}
+                                            className="px-3 py-2 border rounded-lg bg-white dark:bg-gray-900"
+                                        >
+                                            <option value="fixed">Nominal</option>
+                                            <option value="percent">Persen</option>
+                                        </select>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            value={rule.discount_value}
+                                            onChange={(e) => updatePriceAdjustment(index, 'discount_value', e.target.value)}
+                                            className="px-3 py-2 border rounded-lg bg-white dark:bg-gray-900"
+                                            placeholder="Nilai diskon"
+                                        />
+                                        <button type="button" onClick={() => removePriceAdjustment(index)} className="px-3 py-2 rounded-lg bg-red-100 text-red-700">
+                                            Hapus
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {data.incentive_mode === 'by_mechanic' && (
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Insentif Per Mekanik (%)</h3>
+                                        <button type="button" onClick={addMechanicIncentive} className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-sm">
+                                            Tambah Mekanik
+                                        </button>
+                                    </div>
+                                    {data.mechanic_incentives.map((rule, index) => (
+                                        <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                                            <select
+                                                value={rule.mechanic_id}
+                                                onChange={(e) => updateMechanicIncentive(index, 'mechanic_id', e.target.value)}
+                                                className="px-3 py-2 border rounded-lg bg-white dark:bg-gray-900"
+                                            >
+                                                <option value="">Pilih mekanik</option>
+                                                {mechanics.map((mechanic) => (
+                                                    <option key={mechanic.id} value={mechanic.id}>{mechanic.name}</option>
+                                                ))}
+                                            </select>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                step="0.01"
+                                                value={rule.incentive_percentage}
+                                                onChange={(e) => updateMechanicIncentive(index, 'incentive_percentage', e.target.value)}
+                                                className="px-3 py-2 border rounded-lg bg-white dark:bg-gray-900"
+                                                placeholder="Persen"
+                                            />
+                                            <button type="button" onClick={() => removeMechanicIncentive(index)} className="px-3 py-2 rounded-lg bg-red-100 text-red-700">
+                                                Hapus
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
 
                             {/* Buttons */}
                             <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">

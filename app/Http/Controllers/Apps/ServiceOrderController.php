@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Apps;
 
 use App\Http\Controllers\Controller;
 use App\Models\BusinessProfile;
+use App\Models\Mechanic;
 use App\Models\ServiceOrder;
 use App\Models\ServiceOrderDetail;
 use App\Models\ServiceOrderStatusHistory;
 use App\Services\DiscountTaxService;
+use App\Services\WorkshopPricingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
@@ -354,12 +356,36 @@ class ServiceOrderController extends Controller
         $materialCost = 0;
         $itemDiscountTotal = 0;
 
+        $selectedServiceIds = collect($items)
+            ->pluck('service_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $servicesById = \App\Models\Service::with(['priceAdjustments.triggerService', 'mechanicIncentives'])
+            ->whereIn('id', $selectedServiceIds)
+            ->get()
+            ->keyBy('id');
+
+        $mechanic = $order->mechanic_id ? Mechanic::find($order->mechanic_id) : null;
+
         foreach ($items as $item) {
             // Add service if exists
             if (!empty($item['service_id'])) {
-                $service = \App\Models\Service::find($item['service_id']);
+                $service = $servicesById->get((int) $item['service_id']);
                 $servicePrice = $service ? (int) $service->price : 0;
-                $serviceAmount = $servicePrice;
+
+                $autoDiscount = $service
+                    ? WorkshopPricingService::calculateAutoDiscount($service, $servicePrice, $selectedServiceIds)
+                    : [
+                        'discount_amount' => 0,
+                        'adjusted_price' => $servicePrice,
+                        'notes' => null,
+                    ];
+
+                $serviceAmount = (int) ($autoDiscount['adjusted_price'] ?? $servicePrice);
                 $serviceDiscountType = $item['service_discount_type'] ?? 'none';
                 $serviceDiscountValue = $item['service_discount_value'] ?? 0;
                 $serviceFinal = DiscountTaxService::calculateAmountWithDiscount(
@@ -369,6 +395,11 @@ class ServiceOrderController extends Controller
                 );
                 $serviceDiscountAmount = max(0, $serviceAmount - $serviceFinal);
 
+                $incentivePercentage = $service
+                    ? WorkshopPricingService::resolveIncentivePercentage($service, $mechanic)
+                    : 0;
+                $incentiveAmount = WorkshopPricingService::calculateIncentiveAmount($serviceFinal, $incentivePercentage);
+
                 $detail = ServiceOrderDetail::create([
                     'service_order_id' => $order->id,
                     'service_id' => $item['service_id'],
@@ -376,10 +407,15 @@ class ServiceOrderController extends Controller
                     'qty' => 1,
                     'price' => $servicePrice,
                     'amount' => $serviceAmount,
+                    'base_amount' => $servicePrice,
+                    'auto_discount_amount' => (int) ($autoDiscount['discount_amount'] ?? 0),
+                    'auto_discount_notes' => $autoDiscount['notes'] ?? null,
                     'discount_type' => $serviceDiscountType,
                     'discount_value' => $serviceDiscountValue,
                     'discount_amount' => $serviceDiscountAmount,
                     'final_amount' => $serviceFinal,
+                    'incentive_percentage' => $incentivePercentage,
+                    'incentive_amount' => $incentiveAmount,
                 ]);
 
                 $detail->calculateFinalAmount()->save();
@@ -410,10 +446,15 @@ class ServiceOrderController extends Controller
                         'qty' => $partQty,
                         'price' => $partPrice,
                         'amount' => $partAmount,
+                        'base_amount' => $partAmount,
+                        'auto_discount_amount' => 0,
+                        'auto_discount_notes' => null,
                         'discount_type' => $partDiscountType,
                         'discount_value' => $partDiscountValue,
                         'discount_amount' => $partDiscountAmount,
                         'final_amount' => $partFinal,
+                        'incentive_percentage' => 0,
+                        'incentive_amount' => 0,
                     ]);
 
                     $detail->calculateFinalAmount()->save();
@@ -465,7 +506,7 @@ class ServiceOrderController extends Controller
                         'reference_type' => ServiceOrder::class,
                         'reference_id' => $order->id,
                         'notes' => "Service Order: {$order->order_number}",
-                        'created_by' => auth()->id(),
+                        'created_by' => Auth::id(),
                     ]);
                 }
             }

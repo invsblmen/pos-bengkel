@@ -207,6 +207,54 @@ body {
   background: rgb(var(--color-slate-700));
 }
 
+/* Sidebar-specific scrollbar */
+.scrollbar-sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.dark .scrollbar-sidebar {
+  scrollbar-color: transparent transparent;
+}
+
+.scrollbar-sidebar:hover {
+  scrollbar-color: rgb(var(--color-slate-400)) transparent;
+}
+
+.dark .scrollbar-sidebar:hover {
+  scrollbar-color: rgb(var(--color-slate-600)) transparent;
+}
+
+.scrollbar-sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-sidebar::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.scrollbar-sidebar:hover::-webkit-scrollbar-thumb {
+  background: rgb(var(--color-slate-400));
+  background-clip: content-box;
+}
+
+.dark .scrollbar-sidebar::-webkit-scrollbar-thumb {
+  background: rgb(var(--color-slate-700));
+  background-clip: content-box;
+}
+
+.dark .scrollbar-sidebar:hover::-webkit-scrollbar-thumb {
+  background: rgb(var(--color-slate-600));
+  background-clip: content-box;
+}
+
 /* Hide scrollbar but keep functionality */
 .scrollbar-hide {
   -ms-overflow-style: none;

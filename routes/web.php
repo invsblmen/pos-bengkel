@@ -12,6 +12,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Reports\ProfitReportController;
 use App\Http\Controllers\Reports\PartSalesProfitReportController;
 use App\Http\Controllers\Reports\SalesReportController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserController;
 use Illuminate\Foundation\Application;
@@ -60,6 +61,11 @@ Route::get('/test-permissions', function () {
 })->middleware('auth');
 
 Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::post('/notifications/mark-read', [NotificationController::class, 'markRead'])->name('notifications.read');
+    Route::post('/notifications/delete', [NotificationController::class, 'destroy'])->name('notifications.destroy');
+
     Route::get('/', [DashboardController::class, 'index'])->middleware(['auth', 'verified', 'permission:dashboard-access'])->name('dashboard');
     Route::get('/permissions', [PermissionController::class, 'index'])->middleware('permission:permissions-access')->name('permissions.index');
     // roles route
@@ -294,6 +300,7 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     // Service Reports
     Route::get('/reports/service-revenue', [\App\Http\Controllers\Apps\ServiceReportController::class, 'revenue'])->middleware('permission:reports-access')->name('reports.service-revenue.index');
     Route::get('/reports/mechanic-productivity', [\App\Http\Controllers\Apps\ServiceReportController::class, 'mechanicProductivity'])->middleware('permission:reports-access')->name('reports.mechanic-productivity.index');
+    Route::get('/reports/mechanic-payroll', [\App\Http\Controllers\Apps\ServiceReportController::class, 'mechanicPayroll'])->middleware('permission:reports-access')->name('reports.mechanic-payroll.index');
     Route::get('/reports/parts-inventory', [\App\Http\Controllers\Apps\ServiceReportController::class, 'partsInventory'])->middleware('permission:reports-access')->name('reports.parts-inventory.index');
     Route::get('/reports/outstanding-payments', [\App\Http\Controllers\Apps\ServiceReportController::class, 'outstandingPayments'])->middleware('permission:reports-access')->name('reports.outstanding-payments.index');
     Route::get('/reports/export', [\App\Http\Controllers\Apps\ServiceReportController::class, 'exportCsv'])->middleware('permission:reports-access')->name('reports.export');

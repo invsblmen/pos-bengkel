@@ -170,6 +170,7 @@ export default function Edit({ sale, customers = [], parts = [] }) {
     })();
 
     const totalAmount = afterDiscount + taxAmount;
+    const minimumDownPaymentReminder = Math.ceil(totalAmount * 0.5);
     const remainingAmount = Math.max(0, totalAmount - (Number(data.paid_amount) || 0));
     const paymentStatus = totalAmount === 0
         ? 'unpaid'
@@ -256,77 +257,88 @@ export default function Edit({ sale, customers = [], parts = [] }) {
                                     </div>
                                 </div>
                             </div>
-                            <div className="p-6">
-                                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                                    <div>
-                                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                                            Pelanggan <span className="text-red-500">*</span>
-                                        </label>
-                                        <select
-                                            value={data.customer_id}
-                                            onChange={(e) => setData('customer_id', e.target.value)}
-                                            className={`w-full h-12 px-4 rounded-xl border-2 ${
-                                                errors.customer_id
-                                                    ? 'border-red-500 focus:ring-red-500'
-                                                    : 'border-slate-300 dark:border-slate-700 focus:ring-emerald-500 focus:border-emerald-500'
-                                            } dark:bg-slate-800 dark:text-white transition-all duration-200 font-medium`}
-                                        >
-                                            <option value="">Pilih pelanggan...</option>
-                                            {customers.map((customer) => (
-                                                <option key={customer.id} value={customer.id}>
-                                                    {customer.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        {errors.customer_id && (
-                                            <p className="text-xs text-red-500 mt-2 flex items-center gap-1">
-                                                <IconAlertCircle size={14} /> {errors.customer_id}
-                                            </p>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                                            Tanggal Penjualan <span className="text-red-500">*</span>
+                            <div className="p-6 space-y-4">
+                                <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl border border-blue-200 dark:border-blue-700/30">
+                                    <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 mb-2 uppercase tracking-wide">
+                                        👤 Pelanggan
+                                    </label>
+                                    <select
+                                        value={data.customer_id}
+                                        onChange={(e) => setData('customer_id', e.target.value)}
+                                        className={`w-full h-10 px-3 rounded-lg border-2 text-sm font-semibold ${
+                                            errors.customer_id
+                                                ? 'border-red-500 focus:ring-red-500'
+                                                : 'border-blue-300 dark:border-blue-700 focus:ring-blue-500 focus:border-blue-500'
+                                        } dark:bg-blue-900/30 dark:text-white transition-all duration-200`}
+                                    >
+                                        <option value="">Pilih pelanggan...</option>
+                                        {customers.map((customer) => (
+                                            <option key={customer.id} value={customer.id}>
+                                                {customer.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {errors.customer_id && (
+                                        <p className="text-xs text-red-600 dark:text-red-400 mt-2 flex items-center gap-1">
+                                            <IconAlertCircle size={14} /> {errors.customer_id}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                    <div className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/20 rounded-xl border border-emerald-200 dark:border-emerald-700/30">
+                                        <label className="block text-xs font-bold text-emerald-700 dark:text-emerald-400 mb-2 uppercase tracking-wide">
+                                            📅 Tanggal Penjualan
                                         </label>
                                         <input
                                             type="date"
                                             value={data.sale_date}
                                             onChange={(e) => setData('sale_date', e.target.value)}
-                                            className={`w-full h-12 px-4 rounded-xl border-2 ${
+                                            className={`w-full h-10 px-3 rounded-lg border-2 text-sm font-semibold ${
                                                 errors.sale_date
                                                     ? 'border-red-500 focus:ring-red-500'
-                                                    : 'border-slate-300 dark:border-slate-700 focus:ring-emerald-500 focus:border-emerald-500'
-                                            } dark:bg-slate-800 dark:text-white transition-all duration-200 font-medium`}
+                                                    : 'border-emerald-300 dark:border-emerald-700 focus:ring-emerald-500 focus:border-emerald-500'
+                                            } dark:bg-emerald-900/30 dark:text-white transition-all duration-200`}
                                         />
                                         {errors.sale_date && (
-                                            <p className="text-xs text-red-500 mt-2 flex items-center gap-1">
-                                                <IconAlertCircle size={14} /> {errors.sale_date}
+                                            <p className="text-xs text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
+                                                <IconAlertCircle size={12} /> {errors.sale_date}
                                             </p>
                                         )}
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                                            Status Penjualan
+
+                                    <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl border border-purple-200 dark:border-purple-700/30">
+                                        <label className="block text-xs font-bold text-purple-700 dark:text-purple-400 mb-2 uppercase tracking-wide">
+                                            ✓ Status Penjualan
                                         </label>
                                         <select
                                             value={data.status}
-                                            className="w-full h-12 px-4 rounded-xl border-2 border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 font-medium"
+                                            onChange={(e) => setData('status', e.target.value)}
+                                            className="w-full h-10 px-3 rounded-lg border-2 border-purple-300 dark:border-purple-700 dark:bg-purple-900/30 dark:text-white text-sm font-semibold focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
                                         >
                                             <option value="draft">📝 Draft</option>
                                             <option value="confirmed">✅ Dikonfirmasi</option>
-                                            <option value="waiting_stock">📦 Menunggu Stok</option>
+                                            <option value="waiting_stock">📦 Pemesanan</option>
                                         </select>
+                                        <p className="text-xs text-purple-700 dark:text-purple-400 mt-2 font-medium">
+                                            {data.status === 'draft'
+                                                ? '⚠️ Draft tidak mengurangi stok'
+                                                : data.status === 'waiting_stock'
+                                                    ? 'ℹ️ Pengingat: untuk pemesanan, DP disarankan minimal 50% dari total.'
+                                                    : '✓ Konfirmasi akan mengurangi stok'}
+                                        </p>
                                     </div>
-                                    <div className="md:col-span-2">
-                                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                                            Catatan (Opsional)
+
+                                    <div className="p-4 bg-gradient-to-br from-orange-50 to-orange-100/50 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl border border-orange-200 dark:border-orange-700/30">
+                                        <label className="block text-xs font-bold text-orange-700 dark:text-orange-400 mb-2 uppercase tracking-wide">
+                                            📝 Catatan
                                         </label>
                                         <input
                                             type="text"
                                             value={data.notes}
                                             onChange={(e) => setData('notes', e.target.value)}
-                                            placeholder="Catatan untuk transaksi ini..."
-                                            className="w-full h-12 px-4 rounded-xl border-2 border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200"
+                                            placeholder="Tambahkan catatan..."
+                                            className="w-full h-10 px-3 rounded-lg border-2 border-orange-300 dark:border-orange-700 dark:bg-orange-900/30 dark:text-white text-sm font-medium focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                                         />
                                     </div>
                                 </div>
@@ -670,6 +682,11 @@ export default function Edit({ sale, customers = [], parts = [] }) {
                                             placeholder="0"
                                             className="w-full h-12 px-4 rounded-xl border-2 border-emerald-300 dark:border-emerald-700 dark:bg-slate-800 dark:text-white font-bold text-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                         />
+                                        {data.status === 'waiting_stock' && totalAmount > 0 && (
+                                            <p className="text-xs text-amber-700 dark:text-amber-400 mt-2 font-medium">
+                                                Pengingat pemesanan: DP disarankan minimal {formatCurrency(minimumDownPaymentReminder)} (50% dari total).
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div className="pt-4 space-y-2">

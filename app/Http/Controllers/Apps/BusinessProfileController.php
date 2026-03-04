@@ -20,6 +20,10 @@ class BusinessProfileController extends Controller
             'tiktok' => null,
             'google_my_business' => null,
             'website' => null,
+            'receipt_note_transaction' => null,
+            'receipt_note_service_order' => null,
+            'receipt_note_part_sale' => null,
+            'receipt_note_part_purchase' => null,
         ]);
 
         return Inertia::render('Dashboard/Settings/BusinessProfile', [
@@ -38,6 +42,10 @@ class BusinessProfileController extends Controller
             'tiktok' => null,
             'google_my_business' => null,
             'website' => null,
+            'receipt_note_transaction' => null,
+            'receipt_note_service_order' => null,
+            'receipt_note_part_sale' => null,
+            'receipt_note_part_purchase' => null,
         ]);
 
         $data = $request->validate([
@@ -49,6 +57,10 @@ class BusinessProfileController extends Controller
             'tiktok' => ['nullable', 'string', 'max:120'],
             'google_my_business' => ['nullable', 'string', 'max:200'],
             'website' => ['nullable', 'string', 'max:200'],
+            'receipt_note_transaction' => ['nullable', 'string', 'max:500'],
+            'receipt_note_service_order' => ['nullable', 'string', 'max:500'],
+            'receipt_note_part_sale' => ['nullable', 'string', 'max:500'],
+            'receipt_note_part_purchase' => ['nullable', 'string', 'max:500'],
         ]);
 
         $profile->update($data);

@@ -53,7 +53,7 @@ class PartStockHistoryController extends Controller
                 $q->where('notes', 'like', "%{$search}%")
                     ->orWhereHas('part', function ($q2) use ($search) {
                         $q2->where('name', 'like', "%{$search}%")
-                            ->orWhere('sku', 'like', "%{$search}%");
+                            ->orWhere('part_number', 'like', "%{$search}%");
                     })
                     // Only search in valid model types (exclude deleted PartSale, Purchase)
                     ->orWhereHasMorph('reference', [
@@ -115,7 +115,7 @@ class PartStockHistoryController extends Controller
                 $q->where('notes', 'like', "%{$search}%")
                     ->orWhereHas('part', function ($q2) use ($search) {
                         $q2->where('name', 'like', "%{$search}%")
-                            ->orWhere('sku', 'like', "%{$search}%");
+                            ->orWhere('part_number', 'like', "%{$search}%");
                     });
             });
         }

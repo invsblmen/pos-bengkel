@@ -104,13 +104,6 @@ export default function Menu() {
                     permissions: hasAnyPermission(["parts-access"]),
                 },
                 {
-                    title: "Stok Minimal",
-                    href: route("parts.low-stock"),
-                    active: url.includes("/dashboard/parts/low-stock"),
-                    icon: <IconAlertCircle size={20} strokeWidth={1.5} />,
-                    permissions: hasAnyPermission(["parts-access"]),
-                },
-                {
                     title: "Pembelian Sparepart",
                     href: route("part-purchases.index"),
                     active: url.includes("/dashboard/part-purchases"),
@@ -276,6 +269,13 @@ export default function Menu() {
                             title: "Produktivitas Mekanik",
                             href: route("reports.mechanic-productivity.index"),
                             active: url.startsWith("/dashboard/reports/mechanic-productivity"),
+                            icon: <IconUserSquare size={20} strokeWidth={1.5} />,
+                            permissions: hasAnyPermission(["reports-access"]),
+                        },
+                        {
+                            title: "Gaji Mekanik",
+                            href: route("reports.mechanic-payroll.index"),
+                            active: url.startsWith("/dashboard/reports/mechanic-payroll"),
                             icon: <IconUserSquare size={20} strokeWidth={1.5} />,
                             permissions: hasAnyPermission(["reports-access"]),
                         },

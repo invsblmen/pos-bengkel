@@ -56,7 +56,7 @@ export default function Index({ mechanics, filters }) {
     // edit modal state
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [editId, setEditId] = useState(null);
-    const [editForm, setEditForm] = useState({ name: '', phone: '', employee_number: '', notes: '' });
+    const [editForm, setEditForm] = useState({ name: '', phone: '', employee_number: '', notes: '', hourly_rate: '', commission_percentage: '' });
     const [editing, setEditing] = useState(false);
 
     const [viewMode, setViewMode] = useState('grid');
@@ -65,7 +65,14 @@ export default function Index({ mechanics, filters }) {
 
     const openEdit = (m) => {
         setEditId(m.id);
-        setEditForm({ name: m.name || '', phone: m.phone || '', employee_number: m.employee_number || '', notes: m.notes || '' });
+        setEditForm({
+            name: m.name || '',
+            phone: m.phone || '',
+            employee_number: m.employee_number || '',
+            notes: m.notes || '',
+            hourly_rate: m.hourly_rate || '',
+            commission_percentage: m.commission_percentage || '',
+        });
         setEditModalOpen(true);
     };
 
@@ -78,7 +85,7 @@ export default function Index({ mechanics, filters }) {
             onSuccess: () => {
                 toast.success('Mekanik diperbarui');
                 setEditModalOpen(false);
-                setEditForm({ name: '', phone: '', employee_number: '', notes: '' });
+                setEditForm({ name: '', phone: '', employee_number: '', notes: '', hourly_rate: '', commission_percentage: '' });
             },
             onError: () => {
                 toast.error('Gagal memperbarui mekanik');
@@ -138,6 +145,8 @@ export default function Index({ mechanics, filters }) {
                                                 <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Nama</th>
                                                 <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kontak</th>
                                                 <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">No. Pegawai</th>
+                                                <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tarif/Jam</th>
+                                                <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Komisi</th>
                                                 <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Catatan</th>
                                                 <th className="px-4 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Aksi</th>
                                             </tr>
@@ -149,6 +158,8 @@ export default function Index({ mechanics, filters }) {
                                                     <td className="px-4 py-4 text-sm font-semibold text-slate-900 dark:text-white">{m.name}</td>
                                                     <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">{m.phone || '-'}</td>
                                                     <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">{m.employee_number || '-'}</td>
+                                                    <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">Rp {(m.hourly_rate || 0).toLocaleString('id-ID')}</td>
+                                                    <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">{Number(m.commission_percentage || 0).toLocaleString('id-ID')}%</td>
                                                     <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">{m.notes || '-'}</td>
                                                     <td className="px-4 py-4 text-right">
                                                         <div className="flex items-center justify-end gap-2">
@@ -190,6 +201,8 @@ export default function Index({ mechanics, filters }) {
                             <input placeholder="Nama" value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} className="w-full h-10 rounded-xl border px-3" />
                             <input placeholder="Phone" value={editForm.phone} onChange={(e) => setEditForm({...editForm, phone: e.target.value})} className="w-full h-10 rounded-xl border px-3" />
                             <input placeholder="Employee Number" value={editForm.employee_number} onChange={(e) => setEditForm({...editForm, employee_number: e.target.value})} className="w-full h-10 rounded-xl border px-3" />
+                            <input type="number" min="0" placeholder="Tarif per Jam (Rp)" value={editForm.hourly_rate} onChange={(e) => setEditForm({...editForm, hourly_rate: e.target.value})} className="w-full h-10 rounded-xl border px-3" />
+                            <input type="number" min="0" max="100" step="0.01" placeholder="Komisi Default (%)" value={editForm.commission_percentage} onChange={(e) => setEditForm({...editForm, commission_percentage: e.target.value})} className="w-full h-10 rounded-xl border px-3" />
                             <textarea placeholder="Notes" value={editForm.notes} onChange={(e) => setEditForm({...editForm, notes: e.target.value})} className="w-full rounded-xl border px-3 py-2" rows={3} />
 
                             <div className="flex justify-end gap-2">

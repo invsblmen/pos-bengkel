@@ -217,11 +217,6 @@ class PartSaleController extends Controller
             $sale->recalculateTotals()->save();
 
             if ($sale->status === 'waiting_stock') {
-                $minDownPayment = (int) ceil($sale->grand_total * 0.5);
-                if ((int) $sale->paid_amount < $minDownPayment) {
-                    throw new \Exception("Pembayaran minimal untuk status pemesanan adalah 50% ({$minDownPayment}).");
-                }
-
                 $this->tryFulfillWaitingStock($sale);
             }
 
@@ -378,13 +373,6 @@ class PartSaleController extends Controller
             // Recalculate totals
             $partSale->recalculateTotals()->save();
 
-            if ($status === 'waiting_stock') {
-                $minDownPayment = (int) ceil($partSale->grand_total * 0.5);
-                if ((int) $partSale->paid_amount < $minDownPayment) {
-                    throw new \Exception("Pembayaran minimal untuk status pemesanan adalah 50% ({$minDownPayment}).");
-                }
-            }
-
             if (in_array($status, ['confirmed', 'ready_to_notify', 'waiting_pickup', 'completed'], true)) {
                 $this->reserveAllDetailsOrFail($partSale, "Konfirmasi Penjualan #{$partSale->sale_number}");
             } elseif ($status === 'waiting_stock') {
@@ -468,13 +456,6 @@ class PartSaleController extends Controller
             $partSale->load('details.part');
 
             if ($newStatus === 'waiting_stock') {
-                $minDownPayment = (int) ceil($partSale->grand_total * 0.5);
-                if ((int) $partSale->paid_amount < $minDownPayment) {
-                    throw ValidationException::withMessages([
-                        'status' => ["Pembayaran minimal untuk status pemesanan adalah 50% ({$minDownPayment})."],
-                    ]);
-                }
-
                 $this->releaseReservedStock($partSale, "Penyesuaian ke Waiting Stock #{$partSale->sale_number}");
                 $this->tryFulfillWaitingStock($partSale);
             }

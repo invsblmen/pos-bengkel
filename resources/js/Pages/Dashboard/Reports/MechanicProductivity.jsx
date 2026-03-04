@@ -137,6 +137,28 @@ export default function MechanicProductivityReport({
                             </p>
                         </CardBody>
                     </Card>
+
+                    <Card>
+                        <CardBody>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                                Total Insentif
+                            </p>
+                            <p className="text-2xl font-bold">
+                                Rp {(summary.total_incentive || 0).toLocaleString("id-ID")}
+                            </p>
+                        </CardBody>
+                    </Card>
+
+                    <Card>
+                        <CardBody>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                                Total Gaji (Estimasi)
+                            </p>
+                            <p className="text-2xl font-bold">
+                                Rp {(summary.total_salary || 0).toLocaleString("id-ID")}
+                            </p>
+                        </CardBody>
+                    </Card>
                 </div>
 
                 {/* Mechanics Table */}
@@ -163,6 +185,15 @@ export default function MechanicProductivityReport({
                                         </th>
                                         <th className="text-right py-3 px-4 font-semibold">
                                             Rata-rata Pesanan
+                                        </th>
+                                        <th className="text-right py-3 px-4 font-semibold">
+                                            Auto Diskon
+                                        </th>
+                                        <th className="text-right py-3 px-4 font-semibold">
+                                            Insentif
+                                        </th>
+                                        <th className="text-right py-3 px-4 font-semibold">
+                                            Gaji Estimasi
                                         </th>
                                     </tr>
                                 </thead>
@@ -194,12 +225,21 @@ export default function MechanicProductivityReport({
                                                         "id-ID"
                                                     )}
                                                 </td>
+                                                <td className="py-3 px-4 text-right text-amber-600">
+                                                    Rp {(mechanic.total_auto_discount || 0).toLocaleString("id-ID")}
+                                                </td>
+                                                <td className="py-3 px-4 text-right text-green-600 font-semibold">
+                                                    Rp {(mechanic.total_incentive || 0).toLocaleString("id-ID")}
+                                                </td>
+                                                <td className="py-3 px-4 text-right font-bold">
+                                                    Rp {(mechanic.total_salary || 0).toLocaleString("id-ID")}
+                                                </td>
                                             </tr>
                                         ))
                                     ) : (
                                         <tr>
                                             <td
-                                                colSpan="5"
+                                                colSpan="8"
                                                 className="py-6 text-center text-gray-500"
                                             >
                                                 Tidak ada data

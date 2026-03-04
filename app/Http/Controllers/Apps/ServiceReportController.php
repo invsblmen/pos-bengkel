@@ -88,22 +88,46 @@ class ServiceReportController extends Controller
         $endDate = Carbon::parse($endDate)->endOfDay();
 
         $mechanics = Mechanic::with(['serviceOrders' => function ($query) use ($startDate, $endDate) {
-            $query->whereBetween('created_at', [$startDate, $endDate])->whereIn('status', ['completed', 'paid']);
+            $query->with('details.service')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->whereIn('status', ['completed', 'paid']);
         }])
         ->get()
         ->map(function ($mechanic) {
+            $serviceDetails = $mechanic->serviceOrders
+                ->flatMap(fn ($order) => $order->details)
+                ->filter(fn ($detail) => !is_null($detail->service_id))
+                ->values();
+
+            $estimatedMinutes = $serviceDetails
+                ->sum(fn ($detail) => (int) ($detail->service?->est_time_minutes ?? 0));
+
             $totalLaborCost = $mechanic->serviceOrders->sum('labor_cost');
             $totalMaterialCost = $mechanic->serviceOrders->sum('material_cost');
+            $totalServiceRevenue = $serviceDetails->sum('final_amount');
+            $totalAutoDiscount = $serviceDetails->sum('auto_discount_amount');
+            $totalIncentive = $serviceDetails->sum('incentive_amount');
+            $hourlyRate = (int) ($mechanic->hourly_rate ?? 0);
+            $baseSalary = (int) round(($estimatedMinutes / 60) * $hourlyRate);
+            $totalSalary = $baseSalary + (int) $totalIncentive;
 
             return [
                 'id' => $mechanic->id,
                 'name' => $mechanic->name,
-                'specialty' => $mechanic->specialty,
+                'specialty' => is_array($mechanic->specialization)
+                    ? implode(', ', $mechanic->specialization)
+                    : ($mechanic->specialization ?? '-'),
                 'total_orders' => $mechanic->serviceOrders->count(),
                 'total_revenue' => $mechanic->serviceOrders->sum('total'),
+                'service_revenue' => $totalServiceRevenue,
+                'total_auto_discount' => $totalAutoDiscount,
+                'total_incentive' => $totalIncentive,
+                'estimated_work_minutes' => $estimatedMinutes,
+                'hourly_rate' => $hourlyRate,
+                'base_salary' => $baseSalary,
+                'total_salary' => $totalSalary,
                 'total_labor_cost' => $totalLaborCost,
                 'total_material_cost' => $totalMaterialCost,
-                'total_labor_cost' => $mechanic->serviceOrders->sum('labor_cost'),
                 'average_order_value' => $mechanic->serviceOrders->count() > 0
                     ? round($mechanic->serviceOrders->sum('total') / $mechanic->serviceOrders->count())
                     : 0,
@@ -122,6 +146,57 @@ class ServiceReportController extends Controller
                 'total_mechanics' => $mechanics->count(),
                 'total_revenue' => $mechanics->sum('total_revenue'),
                 'total_orders' => $mechanics->sum('total_orders'),
+                'total_incentive' => $mechanics->sum('total_incentive'),
+                'total_salary' => $mechanics->sum('total_salary'),
+            ],
+        ]);
+    }
+
+    public function mechanicPayroll(Request $request)
+    {
+        $startDate = Carbon::parse($request->get('start_date', now()->firstOfMonth()))->startOfDay();
+        $endDate = Carbon::parse($request->get('end_date', now()))->endOfDay();
+
+        $mechanics = Mechanic::with(['serviceOrders' => function ($query) use ($startDate, $endDate) {
+            $query->with('details.service')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->whereIn('status', ['completed', 'paid']);
+        }])->get()->map(function ($mechanic) {
+            $serviceDetails = $mechanic->serviceOrders
+                ->flatMap(fn ($order) => $order->details)
+                ->filter(fn ($detail) => !is_null($detail->service_id))
+                ->values();
+
+            $estimatedMinutes = $serviceDetails->sum(fn ($detail) => (int) ($detail->service?->est_time_minutes ?? 0));
+            $hourlyRate = (int) ($mechanic->hourly_rate ?? 0);
+            $baseSalary = (int) round(($estimatedMinutes / 60) * $hourlyRate);
+            $incentiveAmount = (int) $serviceDetails->sum('incentive_amount');
+
+            return [
+                'id' => $mechanic->id,
+                'name' => $mechanic->name,
+                'employee_number' => $mechanic->employee_number,
+                'total_orders' => $mechanic->serviceOrders->count(),
+                'service_count' => $serviceDetails->count(),
+                'estimated_work_minutes' => $estimatedMinutes,
+                'hourly_rate' => $hourlyRate,
+                'base_salary' => $baseSalary,
+                'incentive_amount' => $incentiveAmount,
+                'take_home_pay' => $baseSalary + $incentiveAmount,
+            ];
+        })->sortByDesc('take_home_pay')->values();
+
+        return inertia('Dashboard/Reports/MechanicPayroll', [
+            'mechanics' => $mechanics,
+            'filters' => [
+                'start_date' => $startDate->format('Y-m-d'),
+                'end_date' => $endDate->format('Y-m-d'),
+            ],
+            'summary' => [
+                'total_mechanics' => $mechanics->count(),
+                'total_base_salary' => $mechanics->sum('base_salary'),
+                'total_incentive' => $mechanics->sum('incentive_amount'),
+                'total_take_home_pay' => $mechanics->sum('take_home_pay'),
             ],
         ]);
     }
@@ -212,8 +287,8 @@ class ServiceReportController extends Controller
     public function exportCsv(Request $request)
     {
         $type = $request->get('type', 'revenue');
-        $startDate = $request->get('start_date');
-        $endDate = $request->get('end_date');
+        $startDate = Carbon::parse($request->get('start_date', now()->firstOfMonth()))->startOfDay();
+        $endDate = Carbon::parse($request->get('end_date', now()))->endOfDay();
 
         $filename = $type . '_report_' . now()->format('Y-m-d_His') . '.csv';
 
@@ -227,7 +302,6 @@ class ServiceReportController extends Controller
 
             if ($type === 'revenue') {
                 fputcsv($file, ['Tanggal', 'Jumlah Pesanan', 'Pendapatan', 'Biaya Tenaga Kerja', 'Biaya Material']);
-                // Get revenue data
                 $data = ServiceOrder::whereIn('status', ['completed', 'paid'])
                     ->whereBetween('created_at', [$startDate, $endDate])
                     ->selectRaw('DATE(created_at) as date, COUNT(*) as count, SUM(total) as revenue, SUM(labor_cost) as labor_cost, SUM(material_cost) as material_cost')
@@ -236,6 +310,90 @@ class ServiceReportController extends Controller
 
                 foreach ($data as $row) {
                     fputcsv($file, [$row->date, $row->count, $row->revenue, $row->labor_cost, $row->material_cost]);
+                }
+            } elseif ($type === 'mechanic_productivity') {
+                fputcsv($file, [
+                    'Mekanik',
+                    'Total Order',
+                    'Total Revenue',
+                    'Auto Diskon',
+                    'Insentif',
+                    'Estimasi Menit Kerja',
+                    'Tarif per Jam',
+                    'Gaji Pokok',
+                    'Total Gaji',
+                ]);
+
+                $mechanics = Mechanic::with(['serviceOrders' => function ($query) use ($startDate, $endDate) {
+                    $query->with('details.service')
+                        ->whereBetween('created_at', [$startDate, $endDate])
+                        ->whereIn('status', ['completed', 'paid']);
+                }])->get();
+
+                foreach ($mechanics as $mechanic) {
+                    $serviceDetails = $mechanic->serviceOrders
+                        ->flatMap(fn ($order) => $order->details)
+                        ->filter(fn ($detail) => !is_null($detail->service_id))
+                        ->values();
+
+                    $estimatedMinutes = (int) $serviceDetails->sum(fn ($detail) => (int) ($detail->service?->est_time_minutes ?? 0));
+                    $hourlyRate = (int) ($mechanic->hourly_rate ?? 0);
+                    $baseSalary = (int) round(($estimatedMinutes / 60) * $hourlyRate);
+                    $incentive = (int) $serviceDetails->sum('incentive_amount');
+
+                    fputcsv($file, [
+                        $mechanic->name,
+                        $mechanic->serviceOrders->count(),
+                        (int) $mechanic->serviceOrders->sum('total'),
+                        (int) $serviceDetails->sum('auto_discount_amount'),
+                        $incentive,
+                        $estimatedMinutes,
+                        $hourlyRate,
+                        $baseSalary,
+                        $baseSalary + $incentive,
+                    ]);
+                }
+            } elseif ($type === 'mechanic_payroll') {
+                fputcsv($file, [
+                    'Mekanik',
+                    'No Pegawai',
+                    'Total Order',
+                    'Jumlah Layanan',
+                    'Estimasi Menit Kerja',
+                    'Tarif per Jam',
+                    'Gaji Pokok',
+                    'Insentif',
+                    'Take Home Pay',
+                ]);
+
+                $mechanics = Mechanic::with(['serviceOrders' => function ($query) use ($startDate, $endDate) {
+                    $query->with('details.service')
+                        ->whereBetween('created_at', [$startDate, $endDate])
+                        ->whereIn('status', ['completed', 'paid']);
+                }])->get();
+
+                foreach ($mechanics as $mechanic) {
+                    $serviceDetails = $mechanic->serviceOrders
+                        ->flatMap(fn ($order) => $order->details)
+                        ->filter(fn ($detail) => !is_null($detail->service_id))
+                        ->values();
+
+                    $estimatedMinutes = (int) $serviceDetails->sum(fn ($detail) => (int) ($detail->service?->est_time_minutes ?? 0));
+                    $hourlyRate = (int) ($mechanic->hourly_rate ?? 0);
+                    $baseSalary = (int) round(($estimatedMinutes / 60) * $hourlyRate);
+                    $incentive = (int) $serviceDetails->sum('incentive_amount');
+
+                    fputcsv($file, [
+                        $mechanic->name,
+                        $mechanic->employee_number,
+                        $mechanic->serviceOrders->count(),
+                        $serviceDetails->count(),
+                        $estimatedMinutes,
+                        $hourlyRate,
+                        $baseSalary,
+                        $incentive,
+                        $baseSalary + $incentive,
+                    ]);
                 }
             }
 

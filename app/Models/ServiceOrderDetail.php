@@ -12,13 +12,19 @@ class ServiceOrderDetail extends Model
 
     protected $fillable = [
         'service_order_id', 'service_id', 'part_id', 'qty', 'price', 'notes', 'amount',
-        'discount_type', 'discount_value', 'discount_amount', 'final_amount'
+        'base_amount', 'auto_discount_amount', 'auto_discount_notes',
+        'discount_type', 'discount_value', 'discount_amount', 'final_amount',
+        'incentive_percentage', 'incentive_amount'
     ];
 
     protected $casts = [
         'amount' => 'integer',
+        'base_amount' => 'integer',
+        'auto_discount_amount' => 'integer',
         'discount_amount' => 'integer',
         'final_amount' => 'integer',
+        'incentive_percentage' => 'decimal:2',
+        'incentive_amount' => 'integer',
     ];
 
     public function serviceOrder()

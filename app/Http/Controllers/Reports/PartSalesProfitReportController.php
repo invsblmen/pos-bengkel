@@ -98,7 +98,7 @@ class PartSalesProfitReportController extends Controller
                 AVG((COALESCE(selling_price, 0) - COALESCE(cost_price, 0)) / NULLIF(COALESCE(cost_price, 1), 0) * 100) as avg_margin
             ')
             ->whereIn('part_sale_id', $allSaleIds)
-            ->with('part:id,name,sku')
+            ->with('part:id,name,part_number')
             ->groupBy('part_id')
             ->orderByDesc('total_profit')
             ->limit(10)
@@ -106,7 +106,7 @@ class PartSalesProfitReportController extends Controller
             ->map(function ($item) {
                 return [
                     'part_name' => $item->part->name ?? 'Unknown',
-                    'part_sku' => $item->part->sku ?? 'N/A',
+                    'part_sku' => $item->part->part_number ?? 'N/A',
                     'total_quantity' => (int) $item->total_quantity,
                     'total_profit' => (int) $item->total_profit,
                     'avg_margin' => round($item->avg_margin, 2),

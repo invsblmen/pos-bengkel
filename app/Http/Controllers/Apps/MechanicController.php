@@ -42,9 +42,13 @@ class MechanicController extends Controller
             'phone' => 'nullable|string|max:50',
             'employee_number' => 'nullable|string|max:50',
             'notes' => 'nullable|string',
+            'hourly_rate' => 'nullable|integer|min:0',
+            'commission_percentage' => 'nullable|numeric|min:0|max:100',
         ]);
 
-        $mechanic = Mechanic::create($request->only(['name', 'phone', 'employee_number', 'notes']));
+        $mechanic = Mechanic::create($request->only([
+            'name', 'phone', 'employee_number', 'notes', 'hourly_rate', 'commission_percentage'
+        ]));
 
         return redirect()->back()->with([
             'success' => 'Mechanic created successfully.',
@@ -61,9 +65,13 @@ class MechanicController extends Controller
             'phone' => 'nullable|string|max:50',
             'employee_number' => 'nullable|string|max:50',
             'notes' => 'nullable|string',
+            'hourly_rate' => 'nullable|integer|min:0',
+            'commission_percentage' => 'nullable|numeric|min:0|max:100',
         ]);
 
-        $mechanic->update($request->only(['name', 'phone', 'employee_number', 'notes']));
+        $mechanic->update($request->only([
+            'name', 'phone', 'employee_number', 'notes', 'hourly_rate', 'commission_percentage'
+        ]));
 
         return redirect()->back()->with([
             'success' => 'Mechanic updated successfully.',

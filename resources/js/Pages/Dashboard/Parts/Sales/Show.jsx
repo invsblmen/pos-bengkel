@@ -18,7 +18,7 @@ const statusColors = {
 const statusLabel = {
     draft: '📝 Draft',
     confirmed: '✅ Dikonfirmasi',
-    waiting_stock: '📦 Menunggu Stok',
+    waiting_stock: '📦 Pemesanan',
     ready_to_notify: '🔔 Siap Diberitahu',
     waiting_pickup: '🛵 Menunggu Diambil',
     completed: '🎯 Selesai',
@@ -64,6 +64,7 @@ export default function Show({ sale, businessProfile }) {
     const discountAmount = sale.discount_amount || 0;
     const taxAmount = sale.tax_amount || 0;
     const grandTotal = sale.grand_total ?? subtotal - discountAmount + taxAmount;
+    const minimumDownPaymentReminder = Math.ceil(grandTotal * 0.5);
     const paidAmount = sale.paid_amount || 0;
     const remainingAmount = sale.remaining_amount ?? (grandTotal - paidAmount);
     const businessName = businessProfile?.business_name || 'POS BENGKEL';
@@ -565,12 +566,17 @@ export default function Show({ sale, businessProfile }) {
                                     >
                                         <option value="draft">📝 Draft</option>
                                         <option value="confirmed">✅ Dikonfirmasi</option>
-                                        <option value="waiting_stock">📦 Menunggu Stok</option>
+                                        <option value="waiting_stock">📦 Pemesanan</option>
                                         <option value="ready_to_notify">🔔 Siap Diberitahu</option>
                                         <option value="waiting_pickup">🛵 Menunggu Diambil</option>
                                         <option value="completed">🎯 Selesai</option>
                                         <option value="cancelled">❌ Dibatalkan</option>
                                     </select>
+                                    {newStatus === 'waiting_stock' && grandTotal > 0 && (
+                                        <p className="text-xs text-amber-700 dark:text-amber-400 mt-2 font-medium">
+                                            Pengingat pemesanan: DP disarankan minimal {formatCurrency(minimumDownPaymentReminder)} (50% dari total).
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                             <div className="flex items-center justify-end gap-3 px-6 py-5 border-t-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60">

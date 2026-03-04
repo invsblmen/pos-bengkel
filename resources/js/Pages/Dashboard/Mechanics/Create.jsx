@@ -12,6 +12,8 @@ export default function Create() {
         phone: '',
         employee_number: '',
         notes: '',
+        hourly_rate: '',
+        commission_percentage: '',
     });
 
     const submit = (e) => {
@@ -44,6 +46,8 @@ export default function Create() {
                             <Input label="Nama Mekanik" placeholder="Masukkan nama" value={data.name} onChange={(e) => setData('name', e.target.value)} errors={errors.name} />
                             <Input label="Phone" placeholder="No. phone" value={data.phone} onChange={(e) => setData('phone', e.target.value)} errors={errors.phone} />
                             <Input label="No. Pegawai" placeholder="No. pegawai" value={data.employee_number} onChange={(e) => setData('employee_number', e.target.value)} errors={errors.employee_number} />
+                            <Input label="Tarif per Jam (Rp)" type="number" placeholder="Contoh: 35000" value={data.hourly_rate} onChange={(e) => setData('hourly_rate', e.target.value)} errors={errors.hourly_rate} />
+                            <Input label="Komisi Default (%)" type="number" placeholder="Contoh: 10" value={data.commission_percentage} onChange={(e) => setData('commission_percentage', e.target.value)} errors={errors.commission_percentage} />
                             <Textarea label="Catatan" placeholder="Catatan" value={data.notes} onChange={(e) => setData('notes', e.target.value)} errors={errors.notes} rows={4} />
                         </div>
 

@@ -18,9 +18,9 @@ export default function AppLayout({ children }) {
     const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
     return (
-        <div className="min-h-screen flex bg-slate-100 dark:bg-slate-950 transition-colors duration-200">
+        <div className="h-screen overflow-hidden flex bg-slate-100 dark:bg-slate-950 transition-colors duration-200">
             <Sidebar sidebarOpen={sidebarOpen} />
-            <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
+            <div className="flex-1 flex flex-col h-screen overflow-hidden">
                 <Navbar
                     toggleSidebar={toggleSidebar}
                     themeSwitcher={themeSwitcher}

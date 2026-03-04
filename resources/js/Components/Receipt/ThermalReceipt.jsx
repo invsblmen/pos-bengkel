@@ -17,6 +17,9 @@ export default function ThermalReceipt({
     storeAddress = "",
     storePhone = "",
     businessSocials = [],
+    businessSocialInfo = null,
+    googleBusinessQrUrl = "",
+    consumerNote = "Simpan nota ini sebagai bukti transaksi.",
 }) {
     const formatPrice = (price = 0) => {
         return "Rp " + Number(price || 0).toLocaleString("id-ID");
@@ -41,9 +44,22 @@ export default function ThermalReceipt({
     const paymentMethod =
         paymentLabels[transaction?.payment_method?.toLowerCase()] || "TUNAI";
 
+    const thermalStatusMap = {
+        draft: 'DRAFT',
+        confirmed: 'DIKONFIRMASI',
+        waiting_stock: 'PEMESANAN',
+        ready_to_notify: 'SIAP DIBERITAHU',
+        waiting_pickup: 'MENUNGGU DIAMBIL',
+        completed: 'SELESAI',
+        cancelled: 'DIBATALKAN',
+    };
+    const statusLabel = thermalStatusMap[transaction?.status] || (transaction?.status || '-');
+
     // Line separator
     const line = "=".repeat(32);
     const dashLine = "-".repeat(32);
+    const mergedSocialLine = businessSocialInfo?.mergedLine || '';
+    const footerSocials = businessSocialInfo?.socials || businessSocials;
 
     return (
         <div
@@ -55,11 +71,6 @@ export default function ThermalReceipt({
                 <p className="text-sm font-bold">{storeName}</p>
                 {storeAddress && <p className="text-xs">{storeAddress}</p>}
                 {storePhone && <p className="text-xs">Telp: {storePhone}</p>}
-                {businessSocials.map((social) => (
-                    <p key={social.label} className="text-xs">
-                        {social.icon ? `${social.icon} ` : ''}{social.value}
-                    </p>
-                ))}
             </div>
 
             <pre className="whitespace-pre-wrap">{line}</pre>
@@ -81,6 +92,10 @@ export default function ThermalReceipt({
                 <div className="flex justify-between">
                     <span>Pelanggan:</span>
                     <span>{transaction?.customer?.name || "Umum"}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span>Status:</span>
+                    <span>{statusLabel}</span>
                 </div>
             </div>
 
@@ -149,6 +164,23 @@ export default function ThermalReceipt({
 
             {/* Footer */}
             <div className="text-center mt-2">
+                {(mergedSocialLine || footerSocials.length > 0) && (
+                    <>
+                        {mergedSocialLine && <p className="text-xs">{mergedSocialLine}</p>}
+                        {footerSocials.map((social) => (
+                            <p key={social.label} className="text-xs truncate">
+                                {social.icon ? `${social.icon} ` : ''}{social.value}
+                            </p>
+                        ))}
+                    </>
+                )}
+                {googleBusinessQrUrl && (
+                    <div className="flex flex-col items-center mt-1">
+                        <img src={googleBusinessQrUrl} alt="QR Google Business" className="w-[72px] h-[72px]" />
+                        <p className="text-[10px] text-center">Yuk review {storeName} di Google</p>
+                    </div>
+                )}
+                <p className="text-xs mt-1">{consumerNote}</p>
                 <p className="text-xs">Terima kasih</p>
                 <p className="text-xs">Barang yang sudah dibeli</p>
                 <p className="text-xs">tidak dapat ditukar/dikembalikan</p>
@@ -181,15 +213,30 @@ export function ThermalReceipt58mm({
     storeName = "TOKO",
     storePhone = "",
     businessSocials = [],
+    businessSocialInfo = null,
+    googleBusinessQrUrl = "",
+    consumerNote = "Simpan nota sebagai bukti transaksi.",
 }) {
     const formatPrice = (price = 0) => {
         return "Rp" + Number(price || 0).toLocaleString("id-ID");
     };
 
     const formatTime = (value) => toDisplayDateTime(value);
+    const thermalStatusMap = {
+        draft: 'DRAFT',
+        confirmed: 'DIKONFIRMASI',
+        waiting_stock: 'PEMESANAN',
+        ready_to_notify: 'SIAP DIBERITAHU',
+        waiting_pickup: 'MENUNGGU DIAMBIL',
+        completed: 'SELESAI',
+        cancelled: 'DIBATALKAN',
+    };
+    const statusLabel = thermalStatusMap[transaction?.status] || (transaction?.status || '-');
 
     const items = transaction?.details ?? [];
     const line = "-".repeat(24);
+    const mergedSocialLine = businessSocialInfo?.mergedLine || '';
+    const footerSocials = businessSocialInfo?.socials || businessSocials;
 
     return (
         <div
@@ -199,16 +246,12 @@ export function ThermalReceipt58mm({
             <div className="text-center">
                 <p className="font-bold">{storeName}</p>
                 {storePhone && <p>{storePhone}</p>}
-                {businessSocials.map((social) => (
-                    <p key={social.label} className="truncate text-xs">
-                        {social.icon ? `${social.icon} ` : ''}{social.value}
-                    </p>
-                ))}
             </div>
 
             <pre>{line}</pre>
             <p>#{transaction?.invoice}</p>
             <p>{formatTime(transaction?.created_at)}</p>
+            <p>Status: {statusLabel}</p>
             <pre>{line}</pre>
 
             {items.map((item, i) => (
@@ -235,6 +278,23 @@ export function ThermalReceipt58mm({
                 <span>{formatPrice(transaction?.change)}</span>
             </div>
             <pre>{line}</pre>
+            {(mergedSocialLine || footerSocials.length > 0) && (
+                <div className="text-center mb-1">
+                    {mergedSocialLine && <p className="text-[10px] truncate">{mergedSocialLine}</p>}
+                    {footerSocials.map((social) => (
+                        <p key={social.label} className="truncate text-[10px]">
+                            {social.icon ? `${social.icon} ` : ''}{social.value}
+                        </p>
+                    ))}
+                </div>
+            )}
+            {googleBusinessQrUrl && (
+                <div className="flex flex-col items-center mb-1">
+                    <img src={googleBusinessQrUrl} alt="QR Google Business" className="w-[58px] h-[58px]" />
+                    <p className="text-[9px] text-center">Review {storeName}</p>
+                </div>
+            )}
+            <p className="text-center text-[9px]">{consumerNote}</p>
             <p className="text-center">Terima kasih!</p>
 
             <style>{`

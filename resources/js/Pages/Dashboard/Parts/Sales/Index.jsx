@@ -26,7 +26,7 @@ const paymentColors = {
 const statusLabel = {
     draft: '📝 Draft',
     confirmed: '✅ Dikonfirmasi',
-    waiting_stock: '📦 Menunggu Stok',
+    waiting_stock: '📦 Pemesanan',
     ready_to_notify: '🔔 Siap Diberitahu',
     waiting_pickup: '🛵 Menunggu Diambil',
     completed: '🎯 Selesai',
@@ -224,7 +224,7 @@ export default function Index({ sales, filters, customers = [] }) {
                                             <option value="">Semua Status</option>
                                             <option value="draft">📝 Draft</option>
                                             <option value="confirmed">✅ Dikonfirmasi</option>
-                                            <option value="waiting_stock">📦 Menunggu Stok</option>
+                                            <option value="waiting_stock">📦 Pemesanan</option>
                                             <option value="ready_to_notify">🔔 Siap Diberitahu</option>
                                             <option value="waiting_pickup">🛵 Menunggu Diambil</option>
                                             <option value="completed">🎯 Selesai</option>

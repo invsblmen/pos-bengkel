@@ -17,6 +17,10 @@ export default function BusinessProfile({ profile }) {
         tiktok: profile?.tiktok ?? "",
         google_my_business: profile?.google_my_business ?? "",
         website: profile?.website ?? "",
+        receipt_note_transaction: profile?.receipt_note_transaction ?? "",
+        receipt_note_service_order: profile?.receipt_note_service_order ?? "",
+        receipt_note_part_sale: profile?.receipt_note_part_sale ?? "",
+        receipt_note_part_purchase: profile?.receipt_note_part_purchase ?? "",
     });
 
     useEffect(() => {
@@ -130,6 +134,85 @@ export default function BusinessProfile({ profile }) {
                             errors={errors?.website}
                             placeholder="Contoh: https://bengkelmajujaya.com"
                         />
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">
+                            Catatan Nota per Tipe Transaksi
+                        </h3>
+                        <div className="grid gap-4">
+                            <div>
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
+                                    Catatan Nota Kasir
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    value={data.receipt_note_transaction}
+                                    onChange={(e) => setData("receipt_note_transaction", e.target.value)}
+                                    className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                                    placeholder="Contoh: Simpan nota ini sebagai bukti transaksi. Komplain/retur sesuai kebijakan toko."
+                                />
+                                {errors?.receipt_note_transaction && (
+                                    <small className="text-xs text-danger-500 mt-1 block">
+                                        {errors.receipt_note_transaction}
+                                    </small>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
+                                    Catatan Nota Service Order
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    value={data.receipt_note_service_order}
+                                    onChange={(e) => setData("receipt_note_service_order", e.target.value)}
+                                    className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                                    placeholder="Contoh: Simpan nota ini untuk klaim garansi service sesuai ketentuan bengkel."
+                                />
+                                {errors?.receipt_note_service_order && (
+                                    <small className="text-xs text-danger-500 mt-1 block">
+                                        {errors.receipt_note_service_order}
+                                    </small>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
+                                    Catatan Nota Penjualan Part
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    value={data.receipt_note_part_sale}
+                                    onChange={(e) => setData("receipt_note_part_sale", e.target.value)}
+                                    className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                                    placeholder="Contoh: Simpan nota ini sebagai bukti pembelian sparepart."
+                                />
+                                {errors?.receipt_note_part_sale && (
+                                    <small className="text-xs text-danger-500 mt-1 block">
+                                        {errors.receipt_note_part_sale}
+                                    </small>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
+                                    Catatan Nota Pembelian Part
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    value={data.receipt_note_part_purchase}
+                                    onChange={(e) => setData("receipt_note_part_purchase", e.target.value)}
+                                    className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                                    placeholder="Contoh: Simpan nota ini sebagai arsip pembelian part."
+                                />
+                                {errors?.receipt_note_part_purchase && (
+                                    <small className="text-xs text-danger-500 mt-1 block">
+                                        {errors.receipt_note_part_purchase}
+                                    </small>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
 

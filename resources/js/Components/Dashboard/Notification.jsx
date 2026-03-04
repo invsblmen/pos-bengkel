@@ -8,6 +8,26 @@ export default function Notification() {
     const purchaseNotifications = notifications?.items || [];
     const unreadCount = (lowStockAlerts?.count || 0) + (notifications?.count || 0);
 
+    const getAction = (notification) => {
+        if (notification.purchase_id) {
+            return {
+                label: 'Lihat Pembelian',
+                href: route('part-purchases.show', notification.purchase_id),
+                className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+            };
+        }
+
+        if (notification.sale_id) {
+            return {
+                label: 'Lihat Part Sale',
+                href: route('part-sales.show', notification.sale_id),
+                className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+            };
+        }
+
+        return null;
+    };
+
     // define state isMobile
     const [isMobile, setIsMobile] = useState(false);
     // define state isOpen
@@ -75,10 +95,15 @@ export default function Notification() {
                                     {purchaseNotifications.length === 0 && alerts.length === 0 && (
                                         <div className='text-sm text-gray-500 dark:text-gray-400'>Tidak ada notifikasi</div>
                                     )}
-                                    {purchaseNotifications.map((notification) => (
-                                        <Link
+                                    {purchaseNotifications.map((notification) => {
+                                        const action = getAction(notification);
+                                        const Wrapper = action ? Link : 'div';
+                                        const wrapperProps = action ? { href: action.href } : {};
+
+                                        return (
+                                        <Wrapper
                                             key={notification.id}
-                                            href={notification.purchase_id ? route('part-purchases.show', notification.purchase_id) : '#'}
+                                            {...wrapperProps}
                                             className='flex items-center justify-between w-full p-4 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-900'
                                         >
                                             <div className='flex items-center gap-4'>
@@ -96,6 +121,11 @@ export default function Notification() {
                                                             <span className='text-gray-400'> · Ref: {notification.reference}</span>
                                                         )}
                                                     </div>
+                                                    {action && (
+                                                        <div className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-semibold mt-1 ${action.className}`}>
+                                                            {action.label}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                             {notification.read_at ? (
@@ -103,8 +133,9 @@ export default function Notification() {
                                             ) : (
                                                 <IconCircleCheck size={20} strokeWidth={1.5} className='text-gray-500 dark:text-gray-400' />
                                             )}
-                                        </Link>
-                                    ))}
+                                        </Wrapper>
+                                        );
+                                    })}
                                     {alerts.map((alert) => (
                                         <div className='flex items-center justify-between w-full p-4 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-900' key={alert.id}>
                                             <div className='flex items-center gap-4'>
@@ -126,8 +157,9 @@ export default function Notification() {
                                         </div>
                                     ))}
                                 </div>
-                                <div className='mt-3 text-right'>
-                                    <Link className='text-sm font-medium text-primary-600 hover:text-primary-700' href={route('parts.low-stock')}>Lihat semua</Link>
+                                <div className='mt-3 flex items-center justify-between'>
+                                    <Link className='text-sm font-medium text-primary-600 hover:text-primary-700' href={route('parts.low-stock')}>Stok minimal ({lowStockAlerts?.total_count || lowStockAlerts?.count || 0})</Link>
+                                    <Link className='text-sm font-medium text-primary-600 hover:text-primary-700' href={route('notifications.index')}>Kelola notifikasi</Link>
                                 </div>
                             </div>
                         </Menu.Items>
@@ -153,10 +185,15 @@ export default function Notification() {
                                 {purchaseNotifications.length === 0 && alerts.length === 0 && (
                                     <div className='text-sm text-gray-500 dark:text-gray-400'>Tidak ada notifikasi</div>
                                 )}
-                                {purchaseNotifications.map((notification) => (
-                                    <Link
+                                {purchaseNotifications.map((notification) => {
+                                    const action = getAction(notification);
+                                    const Wrapper = action ? Link : 'div';
+                                    const wrapperProps = action ? { href: action.href } : {};
+
+                                    return (
+                                    <Wrapper
                                         key={notification.id}
-                                        href={notification.purchase_id ? route('part-purchases.show', notification.purchase_id) : '#'}
+                                        {...wrapperProps}
                                         className='flex items-center justify-between w-full p-4 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-900'
                                     >
                                         <div className='flex items-center gap-4'>
@@ -174,6 +211,11 @@ export default function Notification() {
                                                         <span className='text-gray-400'> · Ref: {notification.reference}</span>
                                                     )}
                                                 </div>
+                                                {action && (
+                                                    <div className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-semibold mt-1 ${action.className}`}>
+                                                        {action.label}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                         {notification.read_at ? (
@@ -181,8 +223,9 @@ export default function Notification() {
                                         ) : (
                                             <IconCircleCheck size={20} strokeWidth={1.5} className='text-gray-500 dark:text-gray-400' />
                                         )}
-                                    </Link>
-                                ))}
+                                    </Wrapper>
+                                    );
+                                })}
                                 {alerts.map((alert) => (
                                     <div className='flex items-center justify-between w-full p-4 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-900' key={alert.id}>
                                         <div className='flex items-center gap-4'>
@@ -203,7 +246,10 @@ export default function Notification() {
                                         )}
                                     </div>
                                 ))}
-                                <Link className='text-sm font-medium text-primary-600 hover:text-primary-700' href={route('parts.low-stock')}>Lihat semua</Link>
+                                <div className='flex items-center justify-between w-full py-2'>
+                                    <Link className='text-sm font-medium text-primary-600 hover:text-primary-700' href={route('parts.low-stock')}>Stok minimal ({lowStockAlerts?.total_count || lowStockAlerts?.count || 0})</Link>
+                                    <Link className='text-sm font-medium text-primary-600 hover:text-primary-700' href={route('notifications.index')}>Kelola notifikasi</Link>
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -31,6 +31,11 @@ class Mechanic extends Model
         return $this->hasMany(Appointment::class);
     }
 
+    public function serviceIncentives()
+    {
+        return $this->hasMany(ServiceMechanicIncentive::class);
+    }
+
     public function getDisplayAttribute()
     {
         return $this->employee_number ? $this->name . ' (' . $this->employee_number . ')' : $this->name;

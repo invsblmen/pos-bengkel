@@ -11,7 +11,11 @@ import ThermalReceipt, {
     ThermalReceipt58mm,
 } from "@/Components/Receipt/ThermalReceipt";
 import { toDisplayDateTime } from "@/Utils/datetime";
-import { formatBusinessSocials } from "@/Utils/socialMediaFormatter";
+import {
+    formatBusinessSocials,
+    getCompactBusinessSocialDisplay,
+    getGoogleBusinessQrUrl,
+} from "@/Utils/socialMediaFormatter";
 
 export default function Print({ transaction, businessProfile }) {
     const [printMode, setPrintMode] = useState("invoice"); // 'invoice' | 'thermal80' | 'thermal58'
@@ -29,7 +33,15 @@ export default function Print({ transaction, businessProfile }) {
     const businessName = businessProfile?.business_name || "TOKO ANDA";
     const businessPhone = businessProfile?.business_phone || "";
     const businessAddress = businessProfile?.business_address || "";
+    const consumerNote =
+        businessProfile?.receipt_note_transaction ||
+        "Simpan nota ini sebagai bukti transaksi. Komplain atau retur dilayani sesuai kebijakan toko.";
     const businessSocials = formatBusinessSocials(businessProfile);
+    const compactSocialInfo = getCompactBusinessSocialDisplay(businessProfile);
+    const googleBusinessQrUrl = getGoogleBusinessQrUrl(
+        businessProfile?.google_my_business,
+        108
+    );
 
     const paymentLabels = {
         cash: "Tunai",
@@ -75,7 +87,7 @@ export default function Print({ transaction, businessProfile }) {
             <Head title="Invoice Penjualan" />
 
             <div className="min-h-screen bg-slate-100 dark:bg-slate-950 py-8 px-4 print:bg-white print:p-0">
-                <div className="max-w-4xl mx-auto space-y-6">
+                <div className="max-w-4xl mx-auto space-y-6 print:max-w-none">
                     {/* Action Bar */}
                     <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
                         <Link
@@ -168,6 +180,9 @@ export default function Print({ transaction, businessProfile }) {
                                         storeAddress={businessAddress}
                                         storePhone={businessPhone}
                                         businessSocials={businessSocials}
+                                        businessSocialInfo={compactSocialInfo}
+                                        googleBusinessQrUrl={googleBusinessQrUrl}
+                                        consumerNote={consumerNote}
                                     />
                                 ) : (
                                     <ThermalReceipt58mm
@@ -175,6 +190,9 @@ export default function Print({ transaction, businessProfile }) {
                                         storeName={businessName}
                                         storePhone={businessPhone}
                                         businessSocials={businessSocials}
+                                        businessSocialInfo={compactSocialInfo}
+                                        googleBusinessQrUrl={googleBusinessQrUrl}
+                                        consumerNote={consumerNote}
                                     />
                                 )}
                             </div>
@@ -186,7 +204,7 @@ export default function Print({ transaction, businessProfile }) {
                         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xl print:shadow-none print:border-slate-300">
                             {/* Header */}
                             <div className="bg-gradient-to-r from-primary-500 to-primary-700 px-6 py-6 text-white print:bg-slate-100 print:text-slate-900">
-                                <div className="flex flex-wrap items-start justify-between gap-4">
+                                <div className="flex flex-wrap items-start justify-between gap-4 print:flex-nowrap print:gap-3">
                                     <div>
                                         <div className="flex items-center gap-2 mb-2">
                                             <IconReceipt size={24} />
@@ -218,11 +236,6 @@ export default function Print({ transaction, businessProfile }) {
                                                 {businessAddress}
                                             </p>
                                         )}
-                                        {businessSocials.map((social) => (
-                                            <p key={social.label} className="text-xs opacity-80 print:opacity-100 mt-1">
-                                                {social.label}: {social.value}
-                                            </p>
-                                        ))}
                                         <span
                                             className={`inline-block px-3 py-1 text-xs font-semibold rounded-full ${paymentStatusColor}`}
                                         >
@@ -236,7 +249,7 @@ export default function Print({ transaction, businessProfile }) {
                             </div>
 
                             {/* Info Grid */}
-                            <div className="grid md:grid-cols-2 gap-6 px-6 py-6 border-b border-slate-100 dark:border-slate-800">
+                            <div className="grid md:grid-cols-2 print:grid-cols-2 gap-6 px-6 py-6 border-b border-slate-100 dark:border-slate-800 print:gap-3 print:px-4 print:py-3">
                                 <div>
                                     <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
                                         Pelanggan
@@ -326,58 +339,68 @@ export default function Print({ transaction, businessProfile }) {
                                 </table>
                             </div>
 
-                            {/* Summary */}
-                            <div className="bg-slate-50 dark:bg-slate-800/50 px-6 py-6">
-                                <div className="max-w-xs ml-auto space-y-2 text-sm">
-                                    <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                                        <span>Subtotal</span>
-                                        <span>
-                                            {formatPrice(
-                                                transaction.grand_total +
-                                                    (transaction.discount || 0)
-                                            )}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                                        <span>Diskon</span>
-                                        <span>
-                                            -{" "}
-                                            {formatPrice(transaction.discount)}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between text-lg font-bold text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-700">
-                                        <span>Total</span>
-                                        <span>
-                                            {formatPrice(
-                                                transaction.grand_total
-                                            )}
-                                        </span>
-                                    </div>
-                                    {paymentMethodKey === "cash" && (
-                                        <>
-                                            <div className="flex justify-between text-slate-600 dark:text-slate-400 pt-2">
-                                                <span>Tunai</span>
-                                                <span>
-                                                    {formatPrice(
-                                                        transaction.cash
-                                                    )}
-                                                </span>
+                            <div className="bg-slate-50 dark:bg-slate-800/50 px-6 py-6 print:px-4 print:py-2.5 border-t border-slate-100 dark:border-slate-800">
+                                <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-[1fr_280px] gap-4 print:gap-2 items-start">
+                                    <div className="space-y-2 print:space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+                                        {(compactSocialInfo.mergedLine || compactSocialInfo.socials.length > 0 || businessProfile?.google_my_business) && (
+                                            <div className="flex items-start justify-between gap-3 print:gap-2">
+                                                <div className="space-y-1">
+                                                    {compactSocialInfo.mergedLine && <p>{compactSocialInfo.mergedLine}</p>}
+                                                    {compactSocialInfo.socials.map((social) => (
+                                                        <p key={social.label}>{social.label}: {social.value}</p>
+                                                    ))}
+                                                </div>
+                                                {googleBusinessQrUrl && (
+                                                    <div className="text-center shrink-0">
+                                                        <img src={googleBusinessQrUrl} alt="QR Google Business" className="w-[70px] h-[70px] print:w-[58px] print:h-[58px]" />
+                                                        <p className="text-[10px] text-slate-500 mt-0.5">Yuk review {businessName} di Google</p>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div className="flex justify-between text-success-600 dark:text-success-400 font-medium">
-                                                <span>Kembali</span>
-                                                <span>
-                                                    {formatPrice(
-                                                        transaction.change
-                                                    )}
-                                                </span>
-                                            </div>
-                                        </>
-                                    )}
+                                        )}
+
+                                        <div>
+                                            <p className="font-semibold">Catatan untuk Konsumen</p>
+                                            <p>{consumerNote}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="w-full max-w-xs ml-auto space-y-1 text-sm print:text-xs">
+                                        <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                                            <span>Subtotal</span>
+                                            <span>
+                                                {formatPrice(
+                                                    transaction.grand_total +
+                                                        (transaction.discount || 0)
+                                                )}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                                            <span>Diskon</span>
+                                            <span>- {formatPrice(transaction.discount)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-lg font-bold text-slate-900 dark:text-white pt-1 border-t border-slate-200 dark:border-slate-700 print:text-sm">
+                                            <span>Total</span>
+                                            <span>{formatPrice(transaction.grand_total)}</span>
+                                        </div>
+                                        {paymentMethodKey === "cash" && (
+                                            <>
+                                                <div className="flex justify-between text-slate-600 dark:text-slate-400 pt-1">
+                                                    <span>Tunai</span>
+                                                    <span>{formatPrice(transaction.cash)}</span>
+                                                </div>
+                                                <div className="flex justify-between text-success-600 dark:text-success-400 font-medium">
+                                                    <span>Kembali</span>
+                                                    <span>{formatPrice(transaction.change)}</span>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Footer */}
-                            <div className="px-6 py-4 text-center border-t border-slate-100 dark:border-slate-800">
+                            <div className="px-6 py-4 print:px-4 print:py-2 text-center border-t border-slate-100 dark:border-slate-800">
                                 <p className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                                     Terima kasih telah berbelanja
                                 </p>

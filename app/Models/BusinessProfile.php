@@ -18,5 +18,9 @@ class BusinessProfile extends Model
         'tiktok',
         'google_my_business',
         'website',
+        'receipt_note_transaction',
+        'receipt_note_service_order',
+        'receipt_note_part_sale',
+        'receipt_note_part_purchase',
     ];
 }
