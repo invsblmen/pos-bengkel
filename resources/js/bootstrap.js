@@ -3,17 +3,6 @@ window.axios = axios;
 
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 
-// Setup axios interceptor to add CSRF token on every request
-window.axios.interceptors.request.use(function (config) {
-    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    if (token) {
-        config.headers['X-CSRF-TOKEN'] = token;
-    }
-    return config;
-}, function (error) {
-    return Promise.reject(error);
-});
-
 /**
  * Echo exposes an expressive API for subscribing to channels and listening
  * for events that are broadcast by Laravel. Echo and event broadcasting

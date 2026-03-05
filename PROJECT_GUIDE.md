@@ -15,6 +15,7 @@ Panduan terpusat untuk setup, pengembangan, testing, dan referensi fitur utama.
 9. [9. Testing Cepat](#9-testing-cepat)
 10. [10. Konvensi Penamaan](#10-konvensi-penamaan)
 11. [11. Checklist Singkat Harian](#11-checklist-singkat-harian)
+12. [12. Catatan Stabilitas Lokal](#12-catatan-stabilitas-lokal)
 
 ## 1. Ringkasan Proyek
 
@@ -299,5 +300,95 @@ php artisan config:clear
 php artisan reverb:start
 npm run dev
 ```
+
+## 12. Catatan Stabilitas Lokal
+
+Bagian ini merangkum masalah lokal yang sempat terjadi beserta konfigurasi/fix yang terbukti stabil.
+
+### 12.1 Domain Herd dan APP_URL
+
+1. Gunakan domain tanpa underscore: `pos-bengkel.test`
+2. Hindari `pos_bengkel.test` karena rawan `ERR_UNSAFE_REDIRECT`
+3. Jika domain lama masih aktif karena parked path:
+
+```bash
+cd ..
+herd forget
+cd pos_bengkel
+herd unlink pos_bengkel
+herd link pos-bengkel
+```
+
+### 12.2 Reverb WebSocket Lokal
+
+Untuk local development yang stabil:
+
+```env
+APP_URL=http://pos-bengkel.test
+REVERB_HOST=pos-bengkel.test
+REVERB_PORT=8080
+REVERB_SCHEME=http
+```
+
+Jalankan:
+
+```bash
+php artisan config:clear
+php artisan reverb:start
+npm run dev
+```
+
+Jika site sebelumnya di-HTTPS Herd dan handshake gagal, nonaktifkan HTTPS lokal:
+
+```bash
+herd unsecure pos-bengkel
+```
+
+### 12.3 CSRF 419 (Login/Logout)
+
+Masalah 419 dapat muncul setelah transisi HTTPS/HTTP karena cookie lama.
+
+Rekomendasi:
+
+```env
+SESSION_DOMAIN=pos-bengkel.test
+SESSION_SECURE_COOKIE=false
+SESSION_COOKIE=posbengkel_session_http
+```
+
+Lalu jalankan:
+
+```bash
+php artisan config:clear
+php artisan cache:clear
+```
+
+Dan jika masih 419, hapus cookie browser untuk `pos-bengkel.test` lalu login ulang.
+
+Catatan frontend:
+1. Jangan override CSRF header pakai meta token statis di interceptor Axios.
+2. Biarkan Axios/Laravel memakai cookie `XSRF-TOKEN` bawaan.
+
+### 12.4 Favicon Unsafe Redirect
+
+Jika browser memunculkan `favicon.ico ... ERR_UNSAFE_REDIRECT`, gunakan fallback favicon inline di head:
+
+```html
+<link rel="icon" href="data:,">
+<link rel="shortcut icon" href="data:,">
+```
+
+Lalu jalankan:
+
+```bash
+php artisan view:clear
+```
+
+### 12.5 Default Product Image 404
+
+Jika muncul `GET /storage/products/default.jpg 404`:
+1. Tambahkan file default image di `storage/app/public/products/default.jpg`, atau
+2. Ubah fallback path image di kode sesuai asset yang tersedia.
+
 
 Dokumen ini menggantikan catatan teknis terpisah yang sebelumnya tersebar di banyak file markdown.
