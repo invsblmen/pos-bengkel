@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Apps;
 use App\Http\Controllers\Controller;
 use App\Models\Part;
 use App\Models\Supplier;
+use App\Events\PartCreated;
+use App\Events\PartUpdated;
+use App\Events\PartDeleted;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -124,6 +127,20 @@ class PartController extends Controller
         $part = Part::create($data);
         $part->load('supplier', 'category');
 
+        event(new PartCreated([
+            'id' => $part->id,
+            'name' => $part->name,
+            'part_number' => $part->part_number,
+            'barcode' => $part->barcode,
+            'part_category_id' => $part->part_category_id,
+            'supplier_id' => $part->supplier_id,
+            'buy_price' => $part->buy_price,
+            'sell_price' => $part->sell_price,
+            'stock' => $part->stock,
+            'minimal_stock' => $part->minimal_stock,
+            'rack_location' => $part->rack_location,
+        ]));
+
         // Return JSON response dengan part data
         return response()->json([
             'success' => true,
@@ -152,6 +169,20 @@ class PartController extends Controller
 
         $part->update($data);
 
+        event(new PartUpdated([
+            'id' => $part->id,
+            'name' => $part->name,
+            'part_number' => $part->part_number,
+            'barcode' => $part->barcode,
+            'part_category_id' => $part->part_category_id,
+            'supplier_id' => $part->supplier_id,
+            'buy_price' => $part->buy_price,
+            'sell_price' => $part->sell_price,
+            'stock' => $part->stock,
+            'minimal_stock' => $part->minimal_stock,
+            'rack_location' => $part->rack_location,
+        ]));
+
         return redirect()->back()->with([
             'success' => 'Part updated successfully.',
             'flash' => ['part' => $part]
@@ -177,7 +208,10 @@ class PartController extends Controller
     public function destroy(Request $request, $id)
     {
         $part = Part::findOrFail($id);
+        $partId = $part->id;
         $part->delete();
+
+        event(new PartDeleted($partId));
 
         return redirect()->back()->with('success', 'Part deleted successfully.');
     }

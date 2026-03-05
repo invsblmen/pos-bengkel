@@ -11,6 +11,7 @@ export default function Index({ vehicles, filters }) {
     const [showFilters, setShowFilters] = useState(false);
     const [viewMode, setViewMode] = useState('grid');
     const [perPage, setPerPage] = useState(filters?.per_page || 8);
+    const [liveItems, setLiveItems] = useState(vehicles?.data || []);
     const [activeFilters, setActiveFilters] = useState({
         brand: filters?.brand || '',
         year: filters?.year || '',
@@ -23,6 +24,41 @@ export default function Index({ vehicles, filters }) {
         const newPerPage = filters?.per_page || 8;
         setPerPage(newPerPage);
     }, [filters?.per_page]);
+
+    // Real-time Echo listeners
+    useEffect(() => {
+        if (!window.Echo) return;
+        const channel = window.Echo.channel('workshop.vehicles');
+        
+        channel.listen('.vehicle.created', (event) => {
+            const incoming = event?.vehicle;
+            if (!incoming?.id) return;
+            setLiveItems(prev => {
+                if (prev.some(i => i.id === incoming.id)) return prev;
+                return [incoming, ...prev];
+            });
+        });
+        
+        channel.listen('.vehicle.updated', (event) => {
+            const updated = event?.vehicle;
+            if (!updated?.id) return;
+            setLiveItems(prev => {
+                const index = prev.findIndex(i => i.id === updated.id);
+                if (index === -1) return prev;
+                const newArr = [...prev];
+                newArr[index] = updated;
+                return newArr;
+            });
+        });
+        
+        channel.listen('.vehicle.deleted', (event) => {
+            const id = event?.vehicleId;
+            if (!id) return;
+            setLiveItems(prev => prev.filter(i => i.id !== id));
+        });
+        
+        return () => window.Echo.leaveChannel('workshop.vehicles');
+    }, []);
 
     const handleSort = (column) => {
         const currentSort = filters?.sort_by;
@@ -467,12 +503,12 @@ export default function Index({ vehicles, filters }) {
                 </div>
 
                 {/* Content */}
-                {vehicles.data && vehicles.data.length > 0 ? (
+                {liveItems && liveItems.length > 0 ? (
                     <div>
                         {/* Grid View */}
                         {viewMode === 'grid' && (
                             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                {vehicles.data.map((vehicle) => (
+                                {liveItems.map((vehicle) => (
                                     <VehicleCard key={vehicle.id} vehicle={vehicle} />
                                 ))}
                             </div>
@@ -524,7 +560,7 @@ export default function Index({ vehicles, filters }) {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-900">
-                                            {vehicles.data.map((vehicle) => (
+                                            {liveItems.map((vehicle) => (
                                                 <tr
                                                     key={vehicle.id}
                                                     className="transition hover:bg-slate-50 dark:hover:bg-slate-800/50"

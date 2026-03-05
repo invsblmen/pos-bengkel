@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Apps;
 
+use App\Events\VehicleCreated;
+use App\Events\VehicleUpdated;
+use App\Events\VehicleDeleted;
 use App\Http\Controllers\Controller;
 use App\Models\Vehicle;
 use App\Models\Customer;
@@ -134,7 +137,26 @@ class VehicleController extends Controller
             'previous_owner' => $request->previous_owner,
         ]);
 
-        // Return with flash data for quick create modals
+        event(new VehicleCreated([
+            'id' => $vehicle->id,
+            'customer_id' => $vehicle->customer_id,
+            'plate_number' => $vehicle->plate_number,
+            'brand' => $vehicle->brand,
+            'model' => $vehicle->model,
+            'year' => $vehicle->year,
+            'color' => $vehicle->color,
+        ]));
+
+        // For AJAX/modal requests, return JSON
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Kendaraan berhasil ditambahkan!',
+                'vehicle' => $vehicle
+            ]);
+        }
+
+        // For regular form submissions, redirect to vehicles list
         return redirect()->route('vehicles.index')->with([
             'success' => 'Kendaraan berhasil ditambahkan!',
             'vehicle' => $vehicle
@@ -277,13 +299,28 @@ class VehicleController extends Controller
             'previous_owner' => $request->previous_owner,
         ]);
 
+        // Broadcast vehicle updated event
+        event(new VehicleUpdated([
+            'id' => $vehicle->id,
+            'customer_id' => $vehicle->customer_id,
+            'plate_number' => $vehicle->plate_number,
+            'brand' => $vehicle->brand,
+            'model' => $vehicle->model,
+            'year' => $vehicle->year,
+            'color' => $vehicle->color,
+        ]));
+
         return redirect()->route('vehicles.index')->with('success', 'Kendaraan berhasil diperbarui!');
     }
 
     public function destroy($id)
     {
         $vehicle = Vehicle::findOrFail($id);
+        $vehicleId = $vehicle->id;
         $vehicle->delete();
+
+        // Broadcast vehicle deleted event
+        event(new VehicleDeleted($vehicleId));
 
         return redirect()->route('vehicles.index')->with('success', 'Kendaraan berhasil dihapus!');
     }

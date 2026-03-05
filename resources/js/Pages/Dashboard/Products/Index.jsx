@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import { Head, usePage, Link } from "@inertiajs/react";
 import Button from "@/Components/Dashboard/Button";
@@ -127,6 +127,79 @@ function ProductCard({ product, index, currentPage, perPage }) {
 export default function Index({ products }) {
     const { roles, permissions, errors } = usePage().props;
     const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'list'
+    const [liveProducts, setLiveProducts] = useState(products?.data || []);
+
+    // Real-time listener for products
+    useEffect(() => {
+        if (!window.Echo) {
+            console.warn('Echo not available - real-time updates disabled');
+            return;
+        }
+
+        const channel = window.Echo.channel('workshop.products');
+
+        channel.listen('.product.created', (event) => {
+            console.log('Product created event received:', event);
+            const incomingProduct = event?.product;
+
+            if (!incomingProduct?.id) {
+                console.warn('Invalid product data received');
+                return;
+            }
+
+            setLiveProducts(prev => {
+                const exists = prev.some(p => p.id === incomingProduct.id);
+                if (exists) {
+                    console.log('Product already in list, skipping');
+                    return prev;
+                }
+                console.log('Adding new product:', incomingProduct.title);
+                return [incomingProduct, ...prev];
+            });
+        });
+
+        channel.listen('.product.deleted', (event) => {
+            console.log('Product deleted event received:', event);
+            const deletedProductId = event?.productId;
+
+            if (!deletedProductId) {
+                console.warn('Invalid product ID received');
+                return;
+            }
+
+            setLiveProducts(prev => {
+                const filtered = prev.filter(p => p.id !== deletedProductId);
+                console.log('Removed product with ID:', deletedProductId);
+                return filtered;
+            });
+        });
+
+        channel.listen('.product.updated', (event) => {
+            console.log('Product updated event received:', event);
+            const updatedProduct = event?.product;
+
+            if (!updatedProduct?.id) {
+                console.warn('Invalid product data received');
+                return;
+            }
+
+            setLiveProducts(prev => {
+                const index = prev.findIndex(p => p.id === updatedProduct.id);
+                if (index === -1) {
+                    console.log('Product not found in list, skipping update');
+                    return prev;
+                }
+                const updated = [...prev];
+                updated[index] = updatedProduct;
+                console.log('Updated product:', updatedProduct.title);
+                return updated;
+            });
+        });
+
+        return () => {
+            window.Echo.leaveChannel('workshop.products');
+        };
+    }, []);
 
     return (
         <>
@@ -140,7 +213,7 @@ export default function Index({ products }) {
                             Produk
                         </h1>
                         <p className="text-sm text-slate-500 dark:text-slate-400">
-                            {products.total} produk terdaftar
+                            {liveProducts?.length || 0} produk terdaftar
                         </p>
                     </div>
                     <Button
@@ -190,11 +263,11 @@ export default function Index({ products }) {
             </div>
 
             {/* Content */}
-            {products.data.length > 0 ? (
+            {liveProducts.length > 0 ? (
                 viewMode === "grid" ? (
                     /* Grid View */
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                        {products.data.map((product, i) => (
+                        {liveProducts.map((product, i) => (
                             <ProductCard
                                 key={product.id}
                                 product={product}
@@ -220,7 +293,7 @@ export default function Index({ products }) {
                                 </tr>
                             </Table.Thead>
                             <Table.Tbody>
-                                {products.data.map((product, i) => (
+                                {liveProducts.map((product, i) => (
                                     <tr
                                         className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                                         key={product.id}

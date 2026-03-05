@@ -9,6 +9,7 @@ import QuickCreateVehicleModal from "@/Components/Dashboard/QuickCreateVehicleMo
 
 export default function VehicleSelect({
     vehicles = [],
+    customers = [],
     selected,
     onSelect,
     placeholder = "Pilih kendaraan...",
@@ -276,6 +277,7 @@ export default function VehicleSelect({
             <QuickCreateVehicleModal
                 isOpen={showAddModal}
                 onClose={() => setShowAddModal(false)}
+                customers={customers}
                 onSuccess={handleAddVehicleSuccess}
             />
         </>

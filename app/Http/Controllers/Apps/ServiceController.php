@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Apps;
 
+use App\Events\ServiceCreated;
+use App\Events\ServiceDeleted;
+use App\Events\ServiceUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Mechanic;
 use App\Models\Service;
@@ -122,6 +125,19 @@ class ServiceController extends Controller
         $service = Service::create($data);
         $this->syncPricingAndIncentives($service, $validated);
 
+        // Broadcast service created event
+        event(new ServiceCreated([
+            'id' => $service->id,
+            'name' => $service->title,
+            'description' => $service->description,
+            'price' => $service->price,
+            'duration' => $service->est_time_minutes,
+            'complexity_level' => $service->complexity_level,
+            'status' => $service->status,
+            'service_category_id' => $service->service_category_id,
+            'category' => $service->category,
+        ]));
+
         return redirect()->route('services.index')->with('success', 'Layanan berhasil ditambahkan');
     }
 
@@ -210,6 +226,22 @@ class ServiceController extends Controller
         $service->update($data);
         $this->syncPricingAndIncentives($service, $validated);
 
+        // Refresh service to broadcast updated data with relationships
+        $service->refresh();
+
+        // Broadcast service updated event
+        event(new ServiceUpdated([
+            'id' => $service->id,
+            'name' => $service->title,
+            'description' => $service->description,
+            'price' => $service->price,
+            'duration' => $service->est_time_minutes,
+            'complexity_level' => $service->complexity_level,
+            'status' => $service->status,
+            'service_category_id' => $service->service_category_id,
+            'category' => $service->category,
+        ]));
+
         return redirect()->route('services.index')->with('success', 'Layanan berhasil diperbarui');
     }
 
@@ -220,7 +252,11 @@ class ServiceController extends Controller
             return back()->withErrors(['error' => 'Cannot delete service that is used in service orders']);
         }
 
+        $serviceId = $service->id;
         $service->delete();
+
+        // Broadcast service deleted event
+        event(new ServiceDeleted($serviceId));
 
         return back()->with('success', 'Service deleted successfully');
     }

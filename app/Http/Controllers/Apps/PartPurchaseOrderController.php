@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Apps;
 
+use App\Events\PartPurchaseOrderCreated;
 use App\Http\Controllers\Controller;
 use App\Models\Part;
 use App\Models\PartPurchaseOrder;
@@ -104,6 +105,8 @@ class PartPurchaseOrderController extends Controller
             }
 
             DB::commit();
+
+            PartPurchaseOrderCreated::dispatch($order->load(['supplier', 'details.part'])->toArray());
 
             return redirect()->route('part-purchase-orders.show', $order->id)
                 ->with('success', 'Purchase order created successfully');

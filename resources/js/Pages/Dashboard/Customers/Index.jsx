@@ -128,6 +128,7 @@ export default function Index({ customers }) {
     const { roles, permissions, errors, url } = usePage().props;
     const [viewMode, setViewMode] = useState("grid");
     const [perPage, setPerPage] = useState(customers.per_page || 8);
+    const [liveItems, setLiveItems] = useState(customers?.data || []);
 
     // Check if there's an active filter/search
     const hasActiveFilter = new URLSearchParams(window.location.search).has('search');
@@ -138,6 +139,41 @@ export default function Index({ customers }) {
             setPerPage(customers.per_page);
         }
     }, [customers.per_page]);
+
+    // Real-time Echo listeners
+    useEffect(() => {
+        if (!window.Echo) return;
+        const channel = window.Echo.channel('workshop.customers');
+        
+        channel.listen('.customer.created', (event) => {
+            const incoming = event?.customer;
+            if (!incoming?.id) return;
+            setLiveItems(prev => {
+                if (prev.some(i => i.id === incoming.id)) return prev;
+                return [incoming, ...prev];
+            });
+        });
+        
+        channel.listen('.customer.updated', (event) => {
+            const updated = event?.customer;
+            if (!updated?.id) return;
+            setLiveItems(prev => {
+                const index = prev.findIndex(i => i.id === updated.id);
+                if (index === -1) return prev;
+                const newArr = [...prev];
+                newArr[index] = updated;
+                return newArr;
+            });
+        });
+        
+        channel.listen('.customer.deleted', (event) => {
+            const id = event?.customerId;
+            if (!id) return;
+            setLiveItems(prev => prev.filter(i => i.id !== id));
+        });
+        
+        return () => window.Echo.leaveChannel('workshop.customers');
+    }, []);
 
     // Enable real-time updates
     useVisibilityRealtime({
@@ -179,7 +215,7 @@ export default function Index({ customers }) {
                             </h1>
                         </div>
                         <p className="text-base text-slate-600 dark:text-slate-400 ml-15">
-                            Total <span className="font-bold text-slate-900 dark:text-slate-200 bg-primary-100 dark:bg-primary-900/30 px-2.5 py-1 rounded-lg">{customers.total || customers.data?.length || 0}</span> pelanggan terdaftar di sistem
+                            Total <span className="font-bold text-slate-900 dark:text-slate-200 bg-primary-100 dark:bg-primary-900/30 px-2.5 py-1 rounded-lg">{liveItems.length}</span> pelanggan terdaftar di sistem
                         </p>
                     </div>
                     <Button
@@ -263,11 +299,11 @@ export default function Index({ customers }) {
             </div>
 
             {/* Content */}
-            {customers.data.length > 0 ? (
+            {liveItems.length > 0 ? (
                 viewMode === "grid" ? (
                     /* Grid View */
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                        {customers.data.map((customer) => (
+                        {liveItems.map((customer) => (
                             <CustomerCard
                                 key={customer.id}
                                 customer={customer}
@@ -291,7 +327,7 @@ export default function Index({ customers }) {
                                     </tr>
                                 </Table.Thead>
                                 <Table.Tbody>
-                                    {customers.data.map((customer, i) => (
+                                    {liveItems.map((customer, i) => (
                                         <tr
                                             className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                                             key={customer.id}

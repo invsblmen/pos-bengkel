@@ -28,6 +28,7 @@ export default function Index({ purchases, suppliers, filters }) {
     });
     const [showFilters, setShowFilters] = useState(false);
     const [viewMode, setViewMode] = useState('card'); // 'card' or 'table'
+    const [liveItems, setLiveItems] = useState(purchases.data || []);
 
     useEffect(() => {
         setFilterData({
@@ -35,6 +36,28 @@ export default function Index({ purchases, suppliers, filters }) {
             ...(typeof filters !== 'undefined' ? filters : {}),
         });
     }, [filters]);
+
+    useEffect(() => {
+        setLiveItems(purchases.data || []);
+    }, [purchases.data]);
+
+    useEffect(() => {
+        const channel = window.Echo.channel('workshop.partpurchases');
+        
+        channel.listen('.partpurchase.created', (data) => {
+            setLiveItems((prevItems) => [data.purchase, ...prevItems]);
+        });
+
+        channel.listen('.partpurchase.updated', (data) => {
+            setLiveItems((prevItems) =>
+                prevItems.map((item) => (item.id === data.purchase.id ? data.purchase : item))
+            );
+        });
+
+        return () => {
+            window.Echo.leaveChannel('workshop.partpurchases');
+        };
+    }, []);
 
     const handleChange = (field, value) => {
         setFilterData((prev) => ({ ...prev, [field]: value }));
@@ -88,7 +111,7 @@ export default function Index({ purchases, suppliers, filters }) {
                             <div className="hidden lg:flex items-center gap-4">
                                 <div className="text-right">
                                     <p className="text-amber-100 text-sm font-medium">Total Pembelian</p>
-                                    <p className="text-3xl font-bold text-white">{purchases?.total || 0}</p>
+                                    <p className="text-3xl font-bold text-white">{liveItems.length}</p>
                                 </div>
                             </div>
                         </div>
@@ -231,12 +254,12 @@ export default function Index({ purchases, suppliers, filters }) {
                 )}
 
                 {/* Purchase List */}
-                {purchases.data && purchases.data.length > 0 ? (
+                {liveItems && liveItems.length > 0 ? (
                     <>
                         {/* Card View */}
                         {viewMode === 'card' && (
                             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                                {purchases.data.map((p, idx) => (
+                                {liveItems.map((p, idx) => (
                                 <div key={p.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:border-amber-300 dark:hover:border-amber-700 transition-all duration-200 overflow-hidden shadow-lg">
                                     {/* Card Header */}
                                     <div className="bg-gradient-to-r from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700 px-6 py-4">
@@ -351,7 +374,7 @@ export default function Index({ purchases, suppliers, filters }) {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                                            {purchases.data.map((p, idx) => (
+                                            {liveItems.map((p, idx) => (
                                                 <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                                     <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400 font-medium">
                                                         {idx + 1 + ((purchases.current_page || 1) - 1) * (purchases.per_page || purchases.data.length)}

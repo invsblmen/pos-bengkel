@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Apps;
 
 use App\Http\Controllers\Controller;
 use App\Models\Mechanic;
+use App\Events\MechanicCreated;
+use App\Events\MechanicUpdated;
+use App\Events\MechanicDeleted;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -50,6 +53,16 @@ class MechanicController extends Controller
             'name', 'phone', 'employee_number', 'notes', 'hourly_rate', 'commission_percentage'
         ]));
 
+        event(new MechanicCreated([
+            'id' => $mechanic->id,
+            'name' => $mechanic->name,
+            'phone' => $mechanic->phone,
+            'employee_number' => $mechanic->employee_number,
+            'notes' => $mechanic->notes,
+            'hourly_rate' => $mechanic->hourly_rate,
+            'commission_percentage' => $mechanic->commission_percentage,
+        ]));
+
         return redirect()->back()->with([
             'success' => 'Mechanic created successfully.',
             'flash' => ['mechanic' => $mechanic]
@@ -73,6 +86,16 @@ class MechanicController extends Controller
             'name', 'phone', 'employee_number', 'notes', 'hourly_rate', 'commission_percentage'
         ]));
 
+        event(new MechanicUpdated([
+            'id' => $mechanic->id,
+            'name' => $mechanic->name,
+            'phone' => $mechanic->phone,
+            'employee_number' => $mechanic->employee_number,
+            'notes' => $mechanic->notes,
+            'hourly_rate' => $mechanic->hourly_rate,
+            'commission_percentage' => $mechanic->commission_percentage,
+        ]));
+
         return redirect()->back()->with([
             'success' => 'Mechanic updated successfully.',
             'flash' => ['mechanic' => $mechanic]
@@ -82,7 +105,10 @@ class MechanicController extends Controller
     public function destroy(Request $request, $id)
     {
         $mechanic = Mechanic::findOrFail($id);
+        $mechanicId = $mechanic->id;
         $mechanic->delete();
+
+        event(new MechanicDeleted($mechanicId));
 
         return redirect()->back()->with('success', 'Mechanic deleted successfully.');
     }

@@ -1,6 +1,7 @@
 <?php
 namespace App\Http\Controllers\Apps;
 
+use App\Events\CustomerCreated;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\Transaction;
@@ -70,6 +71,14 @@ class CustomerController extends Controller
             'address' => $validated['address'] ?? null,
         ]);
 
+        event(new CustomerCreated([
+            'id' => $customer->id,
+            'name' => $customer->name,
+            'phone' => $customer->phone,
+            'email' => $customer->email,
+            'address' => $customer->address,
+        ]));
+
         //redirect with flash data
         return to_route('customers.index')->with('flash', [
             'customer' => $customer
@@ -118,6 +127,14 @@ class CustomerController extends Controller
                 'email'   => $validated['email'] ?? null,
                 'address' => $validated['address'] ?? null,
             ]);
+
+            event(new CustomerCreated([
+                'id' => $customer->id,
+                'name' => $customer->name,
+                'phone' => $customer->phone,
+                'email' => $customer->email,
+                'address' => $customer->address,
+            ]));
 
             return response()->json([
                 'success'  => true,
@@ -185,6 +202,15 @@ class CustomerController extends Controller
             'address' => $validated['address'] ?? null,
         ]);
 
+        // Broadcast customer updated event
+        event(new CustomerUpdated([
+            'id' => $customer->id,
+            'name' => $customer->name,
+            'phone' => $customer->phone,
+            'email' => $customer->email,
+            'address' => $customer->address,
+        ]));
+
         //redirect
         return to_route('customers.index');
     }
@@ -200,8 +226,13 @@ class CustomerController extends Controller
         //find customer by ID
         $customer = Customer::findOrFail($id);
 
+        $customerId = $customer->id;
+
         //delete customer
         $customer->delete();
+
+        // Broadcast customer deleted event
+        event(new CustomerDeleted($customerId));
 
         //redirect
         return back();

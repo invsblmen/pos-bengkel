@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Apps;
 
 use App\Http\Controllers\Controller;
 use App\Models\Supplier;
+use App\Events\SupplierCreated;
+use App\Events\SupplierUpdated;
+use App\Events\SupplierDeleted;
 use Illuminate\Http\Request;
 
 class SupplierController extends Controller
@@ -47,6 +50,15 @@ class SupplierController extends Controller
 
         $supplier = Supplier::create($data);
 
+        event(new SupplierCreated([
+            'id' => $supplier->id,
+            'name' => $supplier->name,
+            'phone' => $supplier->phone,
+            'email' => $supplier->email,
+            'address' => $supplier->address,
+            'contact_person' => $supplier->contact_person,
+        ]));
+
         return redirect()->route('suppliers.index')->with([
             'success' => 'Supplier created successfully.',
             'flash' => ['supplier' => $supplier]
@@ -76,6 +88,15 @@ class SupplierController extends Controller
 
         $supplier->update($data);
 
+        event(new SupplierUpdated([
+            'id' => $supplier->id,
+            'name' => $supplier->name,
+            'phone' => $supplier->phone,
+            'email' => $supplier->email,
+            'address' => $supplier->address,
+            'contact_person' => $supplier->contact_person,
+        ]));
+
         return redirect()->route('suppliers.index')->with([
             'success' => 'Supplier updated successfully.',
             'flash' => ['supplier' => $supplier]
@@ -85,7 +106,10 @@ class SupplierController extends Controller
     public function destroy($id)
     {
         $supplier = Supplier::findOrFail($id);
+        $supplierId = $supplier->id;
         $supplier->delete();
+
+        event(new SupplierDeleted($supplierId));
 
         return redirect()->back()->with('success', 'Supplier deleted successfully.');
     }

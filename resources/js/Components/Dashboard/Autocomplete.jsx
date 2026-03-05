@@ -112,7 +112,7 @@ export default function Autocomplete({
     };
 
     return (
-        <div className="relative" ref={wrapperRef}>
+        <div className="relative z-50" ref={wrapperRef}>
             <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 {label} {required && <span className="text-red-500">*</span>}
             </label>

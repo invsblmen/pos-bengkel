@@ -20,6 +20,7 @@ import {
     IconEdit,
 } from '@tabler/icons-react';
 import toast from 'react-hot-toast';
+import { nowLocalDateTime } from '@/Utils/datetime';
 
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('id-ID', {
@@ -37,8 +38,8 @@ export default function Create({ customers, mechanics, services, parts, vehicles
         mechanic_id: '',
         status: 'pending',
         odometer_km: '',
-        estimated_start_at: '',
-        estimated_finish_at: '',
+        estimated_start_at: nowLocalDateTime(),
+        estimated_finish_at: nowLocalDateTime(),
         notes: '',
         maintenance_type: '',
         next_service_km: '',
@@ -52,6 +53,8 @@ export default function Create({ customers, mechanics, services, parts, vehicles
     });
 
     const [customerVehicles, setCustomerVehicles] = useState([]);
+    const [liveCustomers, setLiveCustomers] = useState(customers || []);
+    const [liveVehicles, setLiveVehicles] = useState(vehicles || []);
     const [showVehicleModal, setShowVehicleModal] = useState(false);
     const [vehicleSearchTerm, setVehicleSearchTerm] = useState('');
     const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -73,6 +76,64 @@ export default function Create({ customers, mechanics, services, parts, vehicles
     // Edit Mode
     const [editingItemIndex, setEditingItemIndex] = useState(null);
 
+    useEffect(() => {
+        setLiveCustomers(customers || []);
+    }, [customers]);
+
+    useEffect(() => {
+        setLiveVehicles(vehicles || []);
+    }, [vehicles]);
+
+    useEffect(() => {
+        if (!window.Echo) return;
+
+        const customerChannel = window.Echo.channel('workshop.customers');
+        const vehicleChannel = window.Echo.channel('workshop.vehicles');
+
+        customerChannel.listen('.customer.created', (event) => {
+            const incoming = event?.customer;
+            if (!incoming?.id) return;
+
+            setLiveCustomers((prev) => {
+                if (prev.some((customer) => customer.id === incoming.id)) {
+                    return prev;
+                }
+
+                return [...prev, { ...incoming, vehicles: incoming.vehicles || [] }];
+            });
+        });
+
+        vehicleChannel.listen('.vehicle.created', (event) => {
+            const incoming = event?.vehicle;
+            if (!incoming?.id) return;
+
+            setLiveVehicles((prev) => {
+                if (prev.some((vehicle) => vehicle.id === incoming.id)) {
+                    return prev;
+                }
+
+                return [...prev, incoming];
+            });
+
+            setCustomerVehicles((prev) => {
+                if (Number(incoming.customer_id) !== Number(data.customer_id)) {
+                    return prev;
+                }
+
+                if (prev.some((vehicle) => vehicle.id === incoming.id)) {
+                    return prev;
+                }
+
+                return [...prev, incoming];
+            });
+        });
+
+        return () => {
+            window.Echo.leaveChannel('workshop.customers');
+            window.Echo.leaveChannel('workshop.vehicles');
+        };
+    }, [data.customer_id]);
+
     // Filter vehicles that are currently in active service orders
     const vehiclesInService = useMemo(() => {
         if (!activeServiceOrders || !Array.isArray(activeServiceOrders)) return [];
@@ -88,8 +149,8 @@ export default function Create({ customers, mechanics, services, parts, vehicles
 
     // Get available vehicles (not in active service)
     const availableVehicles = useMemo(() => {
-        return vehicles.filter(v => !isVehicleInService(v.id));
-    }, [vehicles, vehiclesInService]);
+        return liveVehicles.filter(v => !isVehicleInService(v.id));
+    }, [liveVehicles, vehiclesInService]);
 
     // Get vehicle service status info
     const getVehicleServiceStatus = (vehicleId) => {
@@ -166,15 +227,28 @@ export default function Create({ customers, mechanics, services, parts, vehicles
     })();
     const grandTotal = afterDiscount + taxAmount;
 
+    useEffect(() => {
+        if (!data.customer_id) {
+            setCustomerVehicles([]);
+            return;
+        }
+
+        const customer = liveCustomers.find((item) => Number(item.id) === Number(data.customer_id));
+        setCustomerVehicles(customer?.vehicles || []);
+    }, [data.customer_id, liveCustomers]);
+
     // Handlers
-    const handleCustomerChange = (customerId) => {
+    const handleCustomerChange = (customerOrId) => {
+        // Handle both customer object and customer ID
+        const customerId = typeof customerOrId === 'object' ? customerOrId?.id : customerOrId;
+
         setData('customer_id', customerId);
         if (!customerId) {
             setCustomerVehicles([]);
             setData('vehicle_id', '');
             return;
         }
-        const customer = customers.find(c => c.id === parseInt(customerId));
+        const customer = liveCustomers.find(c => c.id === parseInt(customerId));
         if (customer && customer.vehicles) {
             setCustomerVehicles(customer.vehicles);
         } else {
@@ -191,23 +265,45 @@ export default function Create({ customers, mechanics, services, parts, vehicles
 
         setData('vehicle_id', vehicleId);
         if (!vehicleId) return;
-        const vehicle = vehicles.find(v => v.id === parseInt(vehicleId));
+        const vehicle = liveVehicles.find(v => v.id === parseInt(vehicleId));
         if (vehicle && vehicle.customer_id && !data.customer_id) {
             setData('customer_id', vehicle.customer_id);
-            handleCustomerChange(vehicle.customer_id);
+            // Find customer object to update vehicles list
+            const customer = liveCustomers.find(c => c.id === parseInt(vehicle.customer_id));
+            if (customer && customer.vehicles) {
+                setCustomerVehicles(customer.vehicles);
+            }
             toast.success('Pelanggan otomatis dipilih');
         }
     };
 
     const handleVehicleCreated = (newVehicle) => {
-        router.reload({
-            only: ['vehicles'],
-            onSuccess: () => {
-                setData('vehicle_id', newVehicle.id);
-                setShowVehicleModal(false);
-                toast.success('Kendaraan berhasil ditambahkan');
-            },
+        setLiveVehicles((prev) => {
+            if (prev.some((vehicle) => vehicle.id === newVehicle.id)) {
+                return prev;
+            }
+
+            return [...prev, newVehicle];
         });
+
+        setCustomerVehicles((prev) => {
+            if (Number(newVehicle.customer_id) !== Number(data.customer_id)) {
+                return prev;
+            }
+
+            if (prev.some((vehicle) => vehicle.id === newVehicle.id)) {
+                return prev;
+            }
+
+            return [...prev, newVehicle];
+        });
+
+        setData('vehicle_id', newVehicle.id);
+        if (newVehicle.customer_id) {
+            setData('customer_id', newVehicle.customer_id);
+        }
+        setShowVehicleModal(false);
+        toast.success('Kendaraan berhasil ditambahkan');
     };
 
     const handleAddService = (service) => {
@@ -398,7 +494,7 @@ export default function Create({ customers, mechanics, services, parts, vehicles
         }
     };
 
-    const currentVehicle = vehicles.find((v) => v.id === parseInt(data.vehicle_id));
+    const currentVehicle = liveVehicles.find((v) => v.id === parseInt(data.vehicle_id));
     const itemCount = useMemo(() => data.items.length, [data.items]);
 
     return (
@@ -488,9 +584,11 @@ export default function Create({ customers, mechanics, services, parts, vehicles
                     {/* Vehicle Select - Fixed */}
                     <div className="p-3 border-b border-slate-200 dark:border-slate-800 flex-shrink-0">
                         <VehicleSelect
-                            vehicles={customerVehicles.length > 0 ? customerVehicles : vehicles}
-                            selected={data.vehicle_id ? (customerVehicles.length > 0 ? customerVehicles : vehicles).find(v => v.id === data.vehicle_id) : null}
+                            vehicles={customerVehicles.length > 0 ? customerVehicles : liveVehicles}
+                            customers={liveCustomers}
+                            selected={data.vehicle_id ? (customerVehicles.length > 0 ? customerVehicles : liveVehicles).find(v => Number(v.id) === Number(data.vehicle_id)) : null}
                             onSelect={handleVehicleChange}
+                            onVehicleAdded={handleVehicleCreated}
                             placeholder="Pilih kendaraan..."
                             error={errors?.vehicle_id}
                             label="Kendaraan"
@@ -530,9 +628,14 @@ export default function Create({ customers, mechanics, services, parts, vehicles
                         {/* Customer Selection */}
                         <div className="p-3 border-b border-slate-200 dark:border-slate-800">
                             <CustomerSelect
-                                customers={customers}
-                                selected={data.customer_id ? customers.find(c => c.id === data.customer_id) : null}
+                                customers={liveCustomers}
+                                selected={data.customer_id ? liveCustomers.find(c => Number(c.id) === Number(data.customer_id)) : null}
                                 onSelect={handleCustomerChange}
+                                onClear={() => {
+                                    setData('customer_id', '');
+                                    setData('vehicle_id', '');
+                                    setCustomerVehicles([]);
+                                }}
                                 placeholder="Pilih pelanggan..."
                                 error={errors?.customer_id}
                                 label="Pelanggan"
@@ -817,7 +920,7 @@ export default function Create({ customers, mechanics, services, parts, vehicles
                 onClose={() => setShowVehicleModal(false)}
                 initialPlateNumber={vehicleSearchTerm}
                 initialCustomerId={data.customer_id}
-                customers={customers}
+                customers={liveCustomers}
                 onSuccess={handleVehicleCreated}
             />
 

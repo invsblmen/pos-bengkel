@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import Button from '@/Components/Dashboard/Button';
@@ -38,6 +38,79 @@ function CategoryCard({ category }) {
 
 function Index({ categories }) {
     const [viewMode, setViewMode] = useState('grid');
+    const [liveServiceCategories, setLiveServiceCategories] = useState(categories?.data || []);
+
+    // Real-time listener for service categories
+    useEffect(() => {
+        if (!window.Echo) {
+            console.warn('Echo not available - real-time updates disabled');
+            return;
+        }
+
+        const channel = window.Echo.channel('workshop.servicecategories');
+
+        channel.listen('.servicecategory.created', (event) => {
+            console.log('Service category created event received:', event);
+            const incomingCategory = event?.category;
+
+            if (!incomingCategory?.id) {
+                console.warn('Invalid service category data received');
+                return;
+            }
+
+            setLiveServiceCategories(prev => {
+                const exists = prev.some(c => c.id === incomingCategory.id);
+                if (exists) {
+                    console.log('Service category already in list, skipping');
+                    return prev;
+                }
+                console.log('Adding new service category:', incomingCategory.name);
+                return [incomingCategory, ...prev];
+            });
+        });
+
+        channel.listen('.servicecategory.deleted', (event) => {
+            console.log('Service category deleted event received:', event);
+            const deletedCategoryId = event?.categoryId;
+
+            if (!deletedCategoryId) {
+                console.warn('Invalid service category ID received');
+                return;
+            }
+
+            setLiveServiceCategories(prev => {
+                const filtered = prev.filter(c => c.id !== deletedCategoryId);
+                console.log('Removed service category with ID:', deletedCategoryId);
+                return filtered;
+            });
+        });
+
+        channel.listen('.servicecategory.updated', (event) => {
+            console.log('Service category updated event received:', event);
+            const updatedCategory = event?.category;
+
+            if (!updatedCategory?.id) {
+                console.warn('Invalid service category data received');
+                return;
+            }
+
+            setLiveServiceCategories(prev => {
+                const index = prev.findIndex(c => c.id === updatedCategory.id);
+                if (index === -1) {
+                    console.log('Service category not found in list, skipping update');
+                    return prev;
+                }
+                const updated = [...prev];
+                updated[index] = updatedCategory;
+                console.log('Updated service category:', updatedCategory.name);
+                return updated;
+            });
+        });
+
+        return () => {
+            window.Echo.leaveChannel('workshop.servicecategories');
+        };
+    }, []);
 
     return (
         <>
@@ -46,7 +119,7 @@ function Index({ categories }) {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Kategori Layanan Servis</h1>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">{categories?.total || 0} kategori tersedia</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">{liveServiceCategories?.length || 0} kategori tersedia</p>
                     </div>
                     <div className="flex items-center gap-2">
                         <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-1">
@@ -70,11 +143,11 @@ function Index({ categories }) {
                     </div>
                 </div>
 
-                {categories.data && categories.data.length > 0 ? (
+                {liveServiceCategories && liveServiceCategories.length > 0 ? (
                     <>
                         {viewMode === 'grid' ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                {categories.data.map((category) => (
+                                {liveServiceCategories.map((category) => (
                                     <CategoryCard key={category.id} category={category} />
                                 ))}
                             </div>
@@ -93,9 +166,9 @@ function Index({ categories }) {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                            {categories.data.map((category, idx) => (
+                                            {liveServiceCategories.map((category, idx) => (
                                                 <tr key={category.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                                    <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">{idx + 1 + ((categories.current_page || 1) - 1) * (categories.per_page || categories.data.length)}</td>
+                                                    <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">{idx + 1}</td>
                                                     <td className="px-4 py-4 whitespace-nowrap">
                                                         <span className="text-3xl">{category.icon || '🔧'}</span>
                                                     </td>

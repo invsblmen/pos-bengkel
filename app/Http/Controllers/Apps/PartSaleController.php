@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Apps;
 
+use App\Events\PartSaleCreated;
 use App\Http\Controllers\Controller;
 use App\Models\Part;
 use App\Models\PartSale;
@@ -123,6 +124,8 @@ class PartSaleController extends Controller
             $sale->total = $total;
             // Calculate transaction-level discount and tax
             $sale->recalculateTotals()->save();
+
+            broadcast(new PartSaleCreated($sale->fresh()->toArray()));
         });
 
         return redirect()->route('part-sales.index')->with('success', 'Penjualan sparepart berhasil disimpan');

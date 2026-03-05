@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Apps;
 
+use App\Events\CategoryCreated;
+use App\Events\CategoryDeleted;
+use App\Events\CategoryUpdated;
 use Inertia\Inertia;
 use App\Models\Category;
 use Illuminate\Http\Request;
@@ -60,11 +63,13 @@ class CategoryController extends Controller
         $image->storeAs('public/category', $image->hashName());
 
         //create category
-        Category::create([
+        $category = Category::create([
             'image' => $image->hashName(),
             'name' => $request->name,
             'description' => $request->description
         ]);
+
+        broadcast(new CategoryCreated($category->toArray()));
 
         //redirect
         return to_route('categories.index');
@@ -124,6 +129,8 @@ class CategoryController extends Controller
             'description' => $request->description
         ]);
 
+        broadcast(new CategoryUpdated($category->fresh()->toArray()));
+
         //redirect
         return to_route('categories.index');
     }
@@ -138,12 +145,15 @@ class CategoryController extends Controller
     {
         //find by ID
         $category = Category::findOrFail($id);
+        $categoryId = $category->id;
 
         //remove image
         Storage::disk('local')->delete('public/category/' . basename($category->image));
 
         //delete
         $category->delete();
+
+        broadcast(new CategoryDeleted($categoryId));
 
         //redirect
         return to_route('categories.index');

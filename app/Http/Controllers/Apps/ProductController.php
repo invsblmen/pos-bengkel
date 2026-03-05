@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Apps;
 
+use App\Events\ProductCreated;
+use App\Events\ProductDeleted;
+use App\Events\ProductUpdated;
 use Inertia\Inertia;
 use App\Models\Product;
 use App\Models\Category;
@@ -70,7 +73,7 @@ class ProductController extends Controller
         $image->storeAs('public/products', $image->hashName());
 
         //create product
-        Product::create([
+        $product = Product::create([
             'image' => $image->hashName(),
             'barcode' => $request->barcode,
             'title' => $request->title,
@@ -80,6 +83,8 @@ class ProductController extends Controller
             'sell_price' => $request->sell_price,
             'stock' => $request->stock,
         ]);
+
+        broadcast(new ProductCreated($product->toArray()));
 
         //redirect
         return to_route('products.index');
@@ -159,6 +164,8 @@ class ProductController extends Controller
             'stock' => $request->stock,
         ]);
 
+        broadcast(new ProductUpdated($product->fresh()->toArray()));
+
         //redirect
         return to_route('products.index');
     }
@@ -173,12 +180,15 @@ class ProductController extends Controller
     {
         //find by ID
         $product = Product::findOrFail($id);
+        $productId = $product->id;
 
         //remove image
         Storage::disk('local')->delete('public/products/' . basename($product->image));
 
         //delete
         $product->delete();
+
+        broadcast(new ProductDeleted($productId));
 
         //redirect
         return back();

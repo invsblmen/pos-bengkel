@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import Button from '@/Components/Dashboard/Button';
@@ -73,6 +73,82 @@ function ServiceCard({ service }) {
 
 function Index({ services }) {
     const [viewMode, setViewMode] = useState('grid');
+    const [liveServices, setLiveServices] = useState(services?.data || []);
+
+    // Real-time listener for new services
+    useEffect(() => {
+        if (!window.Echo) {
+            console.warn('Echo not available - real-time updates disabled');
+            return;
+        }
+
+        const channel = window.Echo.channel('workshop.services');
+
+        channel.listen('.service.created', (event) => {
+            console.log('Service created event received:', event);
+            const incomingService = event?.service;
+
+            if (!incomingService?.id) {
+                console.warn('Invalid service data received');
+                return;
+            }
+
+            // Add new service to the list if not already exists
+            setLiveServices(prev => {
+                const exists = prev.some(s => s.id === incomingService.id);
+                if (exists) {
+                    console.log('Service already in list, skipping');
+                    return prev;
+                }
+                console.log('Adding new service to list:', incomingService.name);
+                return [incomingService, ...prev];
+            });
+        });
+
+        channel.listen('.service.deleted', (event) => {
+            console.log('Service deleted event received:', event);
+            const deletedServiceId = event?.serviceId;
+
+            if (!deletedServiceId) {
+                console.warn('Invalid service ID received');
+                return;
+            }
+
+            // Remove service from the list
+            setLiveServices(prev => {
+                const filtered = prev.filter(s => s.id !== deletedServiceId);
+                console.log('Removed service with ID:', deletedServiceId);
+                return filtered;
+            });
+        });
+
+        channel.listen('.service.updated', (event) => {
+            console.log('Service updated event received:', event);
+            const updatedService = event?.service;
+
+            if (!updatedService?.id) {
+                console.warn('Invalid service data received');
+                return;
+            }
+
+            // Update service in the list
+            setLiveServices(prev => {
+                const index = prev.findIndex(s => s.id === updatedService.id);
+                if (index === -1) {
+                    console.log('Service not found in list, skipping update');
+                    return prev;
+                }
+                const updated = [...prev];
+                updated[index] = updatedService;
+                console.log('Updated service:', updatedService.name);
+                return updated;
+            });
+        });
+
+        return () => {
+            window.Echo.leaveChannel('workshop.services');
+        };
+    }, []);
 
     return (
         <>
@@ -81,7 +157,7 @@ function Index({ services }) {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Daftar Layanan Bengkel</h1>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">{services?.total || 0} layanan tersedia</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">{liveServices?.length || 0} layanan tersedia</p>
                     </div>
                     <div className="flex items-center gap-2">
                         <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-1">
@@ -105,11 +181,11 @@ function Index({ services }) {
                     </div>
                 </div>
 
-                {services.data && services.data.length > 0 ? (
+                {liveServices && liveServices.length > 0 ? (
                     <>
                         {viewMode === 'grid' ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {services.data.map((service) => (
+                                {liveServices.map((service) => (
                                     <ServiceCard key={service.id} service={service} />
                                 ))}
                             </div>
@@ -130,13 +206,13 @@ function Index({ services }) {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                            {services.data.map((service, idx) => {
+                                            {liveServices.map((service, idx) => {
                                                 const complexity = complexityBadge[service.complexity_level] || complexityBadge.simple;
                                                 const status = statusBadge[service.status] || statusBadge.active;
 
                                                 return (
                                                     <tr key={service.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                                        <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">{idx + 1 + ((services.current_page || 1) - 1) * (services.per_page || services.data.length)}</td>
+                                                        <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">{idx + 1 + ((services.current_page || 1) - 1) * (services.per_page || liveServices.length)}</td>
                                                         <td className="px-4 py-4">
                                                             <div className="text-sm font-semibold text-slate-900 dark:text-white">{service.name}</div>
                                                             {service.description && <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">{service.description}</div>}

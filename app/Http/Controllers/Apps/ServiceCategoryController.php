@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Apps;
 
+use App\Events\ServiceCategoryCreated;
+use App\Events\ServiceCategoryUpdated;
+use App\Events\ServiceCategoryDeleted;
 use App\Http\Controllers\Controller;
 use App\Models\ServiceCategory;
 use Illuminate\Http\Request;
@@ -41,7 +44,9 @@ class ServiceCategoryController extends Controller
             'sort_order' => 'nullable|integer|min:0',
         ]);
 
-        ServiceCategory::create($data);
+        $category = ServiceCategory::create($data);
+
+        ServiceCategoryCreated::dispatch($category->toArray());
 
         return redirect()->route('service-categories.index')->with('success', 'Service category created successfully');
     }
@@ -64,6 +69,8 @@ class ServiceCategoryController extends Controller
 
         $serviceCategory->update($data);
 
+        ServiceCategoryUpdated::dispatch($serviceCategory->toArray());
+
         return redirect()->route('service-categories.index')->with('success', 'Service category updated successfully');
     }
 
@@ -74,7 +81,10 @@ class ServiceCategoryController extends Controller
             return back()->withErrors(['error' => 'Cannot delete category that has services']);
         }
 
+        $categoryId = $serviceCategory->id;
         $serviceCategory->delete();
+
+        ServiceCategoryDeleted::dispatch($categoryId);
 
         return back()->with('success', 'Service category deleted successfully');
     }

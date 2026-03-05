@@ -22,8 +22,8 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             PaymentSettingSeeder::class,
             BusinessProfileSeeder::class,
+            WorkshopSeeder::class,  // Run WorkshopSeeder BEFORE SampleDataSeeder so customers aren't truncated
             SampleDataSeeder::class,
-            WorkshopSeeder::class,
             SupplierSeeder::class,
             ServiceCategorySeeder::class,
             PartCategorySeeder::class,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import Pagination from '@/Components/Dashboard/Pagination';
@@ -46,8 +46,81 @@ export default function Index({ appointments }) {
     const [statusFilter, setStatusFilter] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState('grid');
+    const [liveAppointments, setLiveAppointments] = useState(appointments?.data || []);
 
-    const totalAppointments = appointments?.total || 0;
+    const totalAppointments = liveAppointments?.length || 0;
+
+    // Real-time listener for appointments
+    useEffect(() => {
+        if (!window.Echo) {
+            console.warn('Echo not available - real-time updates disabled');
+            return;
+        }
+
+        const channel = window.Echo.channel('workshop.appointments');
+
+        channel.listen('.appointment.created', (event) => {
+            console.log('Appointment created event received:', event);
+            const incomingAppointment = event?.appointment;
+
+            if (!incomingAppointment?.id) {
+                console.warn('Invalid appointment data received');
+                return;
+            }
+
+            setLiveAppointments(prev => {
+                const exists = prev.some(a => a.id === incomingAppointment.id);
+                if (exists) {
+                    console.log('Appointment already in list, skipping');
+                    return prev;
+                }
+                console.log('Adding new appointment:', incomingAppointment.id);
+                return [incomingAppointment, ...prev];
+            });
+        });
+
+        channel.listen('.appointment.deleted', (event) => {
+            console.log('Appointment deleted event received:', event);
+            const deletedAppointmentId = event?.appointmentId;
+
+            if (!deletedAppointmentId) {
+                console.warn('Invalid appointment ID received');
+                return;
+            }
+
+            setLiveAppointments(prev => {
+                const filtered = prev.filter(a => a.id !== deletedAppointmentId);
+                console.log('Removed appointment with ID:', deletedAppointmentId);
+                return filtered;
+            });
+        });
+
+        channel.listen('.appointment.updated', (event) => {
+            console.log('Appointment updated event received:', event);
+            const updatedAppointment = event?.appointment;
+
+            if (!updatedAppointment?.id) {
+                console.warn('Invalid appointment data received');
+                return;
+            }
+
+            setLiveAppointments(prev => {
+                const index = prev.findIndex(a => a.id === updatedAppointment.id);
+                if (index === -1) {
+                    console.log('Appointment not found in list, skipping update');
+                    return prev;
+                }
+                const updated = [...prev];
+                updated[index] = updatedAppointment;
+                console.log('Updated appointment:', updatedAppointment.id);
+                return updated;
+            });
+        });
+
+        return () => {
+            window.Echo.leaveChannel('workshop.appointments');
+        };
+    }, []);
 
     const handleStatusChange = (appointmentId, newStatus) => {
         if (confirm(`Ubah status appointment menjadi ${statusConfig[newStatus].label}?`)) {
@@ -65,7 +138,7 @@ export default function Index({ appointments }) {
         window.location.href = route('appointments.export', appointmentId);
     };
 
-    const filteredAppointments = appointments.data?.filter((apt) => {
+    const filteredAppointments = liveAppointments?.filter((apt) => {
         const matchesStatus = statusFilter === 'all' || apt.status === statusFilter;
         const matchesSearch = !searchQuery ||
             apt.customer?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||

@@ -27,6 +27,7 @@ export default function Index({ orders, customers, filters }) {
         ...(typeof filters !== 'undefined' ? filters : {}),
     });
     const [showFilters, setShowFilters] = useState(false);
+    const [liveItems, setLiveItems] = useState(orders.data || []);
 
     useEffect(() => {
         setFilterData({
@@ -34,6 +35,22 @@ export default function Index({ orders, customers, filters }) {
             ...(typeof filters !== 'undefined' ? filters : {}),
         });
     }, [filters]);
+
+    useEffect(() => {
+        setLiveItems(orders.data || []);
+    }, [orders.data]);
+
+    useEffect(() => {
+        const channel = window.Echo.channel('workshop.partsalesorders');
+        
+        channel.listen('.partsalesorder.created', (data) => {
+            setLiveItems((prevItems) => [data.order, ...prevItems]);
+        });
+
+        return () => {
+            window.Echo.leaveChannel('workshop.partsalesorders');
+        };
+    }, []);
 
     const handleChange = (field, value) => {
         setFilterData((prev) => ({ ...prev, [field]: value }));
@@ -75,7 +92,7 @@ export default function Index({ orders, customers, filters }) {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Part Sales Orders</h1>
-                        <p className="text-sm text-slate-500">{orders?.total || 0} orders</p>
+                        <p className="text-sm text-slate-500">{liveItems.length} orders</p>
                     </div>
                     <div className="flex items-center gap-2">
                         <button
@@ -166,7 +183,7 @@ export default function Index({ orders, customers, filters }) {
                 )}
 
                 {/* Orders List */}
-                {orders.data && orders.data.length > 0 ? (
+                {liveItems && liveItems.length > 0 ? (
                     <>
                         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
                             <div className="overflow-x-auto">
@@ -184,7 +201,7 @@ export default function Index({ orders, customers, filters }) {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                        {orders.data.map((o, idx) => (
+                                        {liveItems.map((o, idx) => (
                                             <tr key={o.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                                 <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">
                                                     {idx + 1 + ((orders.current_page || 1) - 1) * (orders.per_page || orders.data.length)}

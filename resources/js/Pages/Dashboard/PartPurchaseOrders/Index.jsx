@@ -27,6 +27,7 @@ export default function Index({ orders, suppliers, filters }) {
         ...(typeof filters !== 'undefined' ? filters : {}),
     });
     const [showFilters, setShowFilters] = useState(false);
+    const [liveItems, setLiveItems] = useState(orders.data || []);
 
     useEffect(() => {
         setFilterData({
@@ -34,6 +35,22 @@ export default function Index({ orders, suppliers, filters }) {
             ...(typeof filters !== 'undefined' ? filters : {}),
         });
     }, [filters]);
+
+    useEffect(() => {
+        setLiveItems(orders.data || []);
+    }, [orders.data]);
+
+    useEffect(() => {
+        const channel = window.Echo.channel('workshop.partpurchaseorders');
+        
+        channel.listen('.partpurchaseorder.created', (data) => {
+            setLiveItems((prevItems) => [data.order, ...prevItems]);
+        });
+
+        return () => {
+            window.Echo.leaveChannel('workshop.partpurchaseorders');
+        };
+    }, []);
 
     const handleChange = (field, value) => {
         setFilterData((prev) => ({ ...prev, [field]: value }));
@@ -75,7 +92,7 @@ export default function Index({ orders, suppliers, filters }) {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Part Purchase Orders (PO)</h1>
-                        <p className="text-sm text-slate-500">{orders?.total || 0} purchase orders</p>
+                        <p className="text-sm text-slate-500">{liveItems.length} purchase orders</p>
                     </div>
                     <div className="flex items-center gap-2">
                         <button
@@ -180,7 +197,7 @@ export default function Index({ orders, suppliers, filters }) {
                     </form>
                 )}
 
-                {orders?.data?.length > 0 ? (
+                {liveItems?.length > 0 ? (
                     <>
                         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
                             <div className="overflow-x-auto">
@@ -198,7 +215,7 @@ export default function Index({ orders, suppliers, filters }) {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {orders.data.map((o, idx) => (
+                                        {liveItems.map((o, idx) => (
                                             <tr key={o.id} className="hover:bg-slate-50 transition-colors">
                                                 <td className="py-4 px-6 text-sm">{orders.from + idx}</td>
                                                 <td className="py-4 px-6 text-sm font-medium">{o.po_number}</td>

@@ -5,6 +5,7 @@ import {
     IconCheck,
     IconChevronDown,
     IconUserPlus,
+    IconX,
 } from "@tabler/icons-react";
 import AddCustomerModal from "@/Components/POS/AddCustomerModal";
 
@@ -12,6 +13,7 @@ export default function CustomerSelect({
     customers = [],
     selected,
     onSelect,
+    onClear,
     placeholder = "Pilih pelanggan...",
     error,
     label,
@@ -74,7 +76,7 @@ export default function CustomerSelect({
                     </label>
                 )}
 
-                {/* Select Button with Add */}
+                {/* Select Button with Clear and Add */}
                 <div className="flex items-center gap-2">
                     <button
                         type="button"
@@ -135,6 +137,24 @@ export default function CustomerSelect({
                             }`}
                         />
                     </button>
+
+                    {/* Clear Customer Button - only show when selected */}
+                    {selected && onClear && (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onClear();
+                            }}
+                            className="h-12 w-12 rounded-xl border-2 border-slate-200 dark:border-slate-700
+                                text-slate-500 hover:bg-danger-50 hover:border-danger-300 hover:text-danger-600
+                                dark:hover:bg-danger-950/30 dark:hover:border-danger-700 dark:hover:text-danger-500
+                                flex items-center justify-center transition-colors"
+                            title="Batalkan pilihan pelanggan"
+                        >
+                            <IconX size={20} />
+                        </button>
+                    )}
 
                     {/* Add Customer Button */}
                     <button

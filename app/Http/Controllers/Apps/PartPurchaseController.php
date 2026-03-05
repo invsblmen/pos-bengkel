@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Apps;
 
+use App\Events\PartPurchaseCreated;
+use App\Events\PartPurchaseUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\BusinessProfile;
 use App\Models\Part;
@@ -183,6 +185,8 @@ class PartPurchaseController extends Controller
 
             DB::commit();
 
+            broadcast(new PartPurchaseCreated($purchase->fresh()->toArray()));
+
             $this->notifyPendingPurchase($purchase, 'created');
 
             return redirect()
@@ -317,6 +321,8 @@ class PartPurchaseController extends Controller
             $purchase->recalculateTotals()->save();
 
             DB::commit();
+
+            broadcast(new PartPurchaseUpdated($purchase->fresh()->toArray()));
 
             return redirect()->route('part-purchases.show', $purchase->id)
                 ->with('success', 'Purchase updated successfully');

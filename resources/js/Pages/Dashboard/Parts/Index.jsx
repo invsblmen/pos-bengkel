@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Head, router, Link } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import Button from '@/Components/Dashboard/Button';
@@ -48,6 +48,7 @@ function StatCard({ title, value, subtitle, icon: Icon, gradient }) {
 
 export default function Index({ parts, filters, categories, suppliers }) {
     const [showFilters, setShowFilters] = useState(false);
+    const [liveItems, setLiveItems] = useState(parts?.data || []);
     const [visibleColumns, setVisibleColumns] = useState({
         name: true,
         part_number: true,
@@ -75,12 +76,47 @@ export default function Index({ parts, filters, categories, suppliers }) {
         preserveState: true
     });
 
+    // Real-time Echo listeners
+    useEffect(() => {
+        if (!window.Echo) return;
+        const channel = window.Echo.channel('workshop.parts');
+        
+        channel.listen('.part.created', (event) => {
+            const incoming = event?.part;
+            if (!incoming?.id) return;
+            setLiveItems(prev => {
+                if (prev.some(i => i.id === incoming.id)) return prev;
+                return [incoming, ...prev];
+            });
+        });
+        
+        channel.listen('.part.updated', (event) => {
+            const updated = event?.part;
+            if (!updated?.id) return;
+            setLiveItems(prev => {
+                const index = prev.findIndex(i => i.id === updated.id);
+                if (index === -1) return prev;
+                const newArr = [...prev];
+                newArr[index] = updated;
+                return newArr;
+            });
+        });
+        
+        channel.listen('.part.deleted', (event) => {
+            const id = event?.partId;
+            if (!id) return;
+            setLiveItems(prev => prev.filter(i => i.id !== id));
+        });
+        
+        return () => window.Echo.leaveChannel('workshop.parts');
+    }, []);
+
     const pageStats = useMemo(() => {
-        const items = parts?.data || [];
+        const items = liveItems || [];
         const lowStock = items.filter((p) => p.minimal_stock > 0 && p.stock <= p.minimal_stock).length;
         const outStock = items.filter((p) => p.stock === 0).length;
         return { lowStock, outStock, pageCount: items.length };
-    }, [parts]);
+    }, [liveItems]);
 
     const handleSort = (column) => {
         const currentSort = filters?.sort_by;
@@ -453,7 +489,7 @@ export default function Index({ parts, filters, categories, suppliers }) {
                 )}
             </div>
 
-            {parts.data && parts.data.length > 0 ? (
+            {liveItems && liveItems.length > 0 ? (
                 <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
                             <div className="overflow-x-auto">
                                 <table className="w-full">
@@ -497,7 +533,7 @@ export default function Index({ parts, filters, categories, suppliers }) {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                        {parts.data.map((p, idx) => {
+                                        {liveItems.map((p, idx) => {
                                             const stockStatus = p.stock === 0 ? 'out' : (p.minimal_stock > 0 && p.stock <= p.minimal_stock ? 'low' : 'normal');
                                             const stockBadge = {
                                                 out: 'bg-danger-100 text-danger-700 dark:bg-danger-900 dark:text-danger-300',

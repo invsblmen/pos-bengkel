@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Apps;
 
+use App\Events\PartCategoryCreated;
+use App\Events\PartCategoryUpdated;
+use App\Events\PartCategoryDeleted;
 use App\Http\Controllers\Controller;
 use App\Models\PartCategory;
 use Illuminate\Http\Request;
@@ -40,7 +43,9 @@ class PartCategoryController extends Controller
             'icon' => 'nullable|string',
         ]);
 
-        PartCategory::create($data);
+        $category = PartCategory::create($data);
+
+        PartCategoryCreated::dispatch($category->toArray());
 
         return redirect()->route('part-categories.index')->with('success', 'Part category created successfully');
     }
@@ -62,6 +67,8 @@ class PartCategoryController extends Controller
 
         $partCategory->update($data);
 
+        PartCategoryUpdated::dispatch($partCategory->toArray());
+
         return redirect()->route('part-categories.index')->with('success', 'Part category updated successfully');
     }
 
@@ -72,7 +79,10 @@ class PartCategoryController extends Controller
             return back()->withErrors(['error' => 'Cannot delete category that has parts']);
         }
 
+        $categoryId = $partCategory->id;
         $partCategory->delete();
+
+        PartCategoryDeleted::dispatch($categoryId);
 
         return back()->with('success', 'Part category deleted successfully');
     }

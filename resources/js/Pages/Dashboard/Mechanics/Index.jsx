@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head, router } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import Pagination from '@/Components/Dashboard/Pagination';
@@ -60,8 +60,44 @@ export default function Index({ mechanics, filters }) {
     const [editing, setEditing] = useState(false);
 
     const [viewMode, setViewMode] = useState('grid');
+    const [liveItems, setLiveItems] = useState(mechanics?.data || []);
     const initialSearch = filters?.q || '';
-    const totalMechanics = mechanics?.total || 0;
+    const totalMechanics = liveItems.length;
+
+    // Real-time Echo listeners
+    useEffect(() => {
+        if (!window.Echo) return;
+        const channel = window.Echo.channel('workshop.mechanics');
+        
+        channel.listen('.mechanic.created', (event) => {
+            const incoming = event?.mechanic;
+            if (!incoming?.id) return;
+            setLiveItems(prev => {
+                if (prev.some(i => i.id === incoming.id)) return prev;
+                return [incoming, ...prev];
+            });
+        });
+        
+        channel.listen('.mechanic.updated', (event) => {
+            const updated = event?.mechanic;
+            if (!updated?.id) return;
+            setLiveItems(prev => {
+                const index = prev.findIndex(i => i.id === updated.id);
+                if (index === -1) return prev;
+                const newArr = [...prev];
+                newArr[index] = updated;
+                return newArr;
+            });
+        });
+        
+        channel.listen('.mechanic.deleted', (event) => {
+            const id = event?.mechanicId;
+            if (!id) return;
+            setLiveItems(prev => prev.filter(i => i.id !== id));
+        });
+        
+        return () => window.Echo.leaveChannel('workshop.mechanics');
+    }, []);
 
     const openEdit = (m) => {
         setEditId(m.id);
@@ -127,11 +163,11 @@ export default function Index({ mechanics, filters }) {
                     </div>
                 </div>
 
-                {mechanics.data && mechanics.data.length > 0 ? (
+                {liveItems && liveItems.length > 0 ? (
                     <>
                         {viewMode === 'grid' ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                {mechanics.data.map((m) => (
+                                {liveItems.map((m) => (
                                     <MechanicCard key={m.id} mechanic={m} onQuickEdit={openEdit} />
                                 ))}
                             </div>
@@ -152,7 +188,7 @@ export default function Index({ mechanics, filters }) {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                            {mechanics.data.map((m, idx) => (
+                                            {liveItems.map((m, idx) => (
                                                 <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                                     <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">{idx + 1 + ((mechanics.current_page || 1) - 1) * (mechanics.per_page || mechanics.data.length)}</td>
                                                     <td className="px-4 py-4 text-sm font-semibold text-slate-900 dark:text-white">{m.name}</td>

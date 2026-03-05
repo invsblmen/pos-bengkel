@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Apps;
 
+use App\Events\ServiceOrderCreated;
+use App\Events\ServiceOrderUpdated;
+use App\Events\ServiceOrderDeleted;
 use App\Http\Controllers\Controller;
 use App\Models\BusinessProfile;
 use App\Models\Mechanic;
@@ -207,6 +210,8 @@ class ServiceOrderController extends Controller
             $this->deductPartsFromInventory($order);
         }
 
+        ServiceOrderCreated::dispatch($order->load(['customer', 'vehicle', 'mechanic', 'details.service', 'details.part'])->toArray());
+
         return redirect()->route('service-orders.index')->with('success', 'Service order created.');
     }
 
@@ -284,6 +289,8 @@ class ServiceOrderController extends Controller
 
         $this->calculateServiceOrderCosts($order, $request->items);
 
+        ServiceOrderUpdated::dispatch($order->load(['customer', 'vehicle', 'mechanic', 'details.service', 'details.part'])->toArray());
+
         return redirect()->route('service-orders.show', $order->id)->with('success', 'Service order updated.');
     }
 
@@ -342,7 +349,10 @@ class ServiceOrderController extends Controller
     public function destroy($id)
     {
         $order = ServiceOrder::findOrFail($id);
+        $orderId = $order->id;
         $order->delete();
+
+        ServiceOrderDeleted::dispatch($orderId);
 
         return redirect()->route('service-orders.index')->with('success', 'Service order deleted.');
     }

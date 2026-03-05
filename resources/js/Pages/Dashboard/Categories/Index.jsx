@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import { Head, usePage, Link } from "@inertiajs/react";
 import Button from "@/Components/Dashboard/Button";
@@ -77,6 +77,79 @@ function CategoryCard({ category }) {
 export default function Index({ categories }) {
     const { roles, permissions, errors } = usePage().props;
     const [viewMode, setViewMode] = useState("grid");
+    const [livePartCategories, setLivePartCategories] = useState(categories?.data || []);
+
+    // Real-time listener for part categories
+    useEffect(() => {
+        if (!window.Echo) {
+            console.warn('Echo not available - real-time updates disabled');
+            return;
+        }
+
+        const channel = window.Echo.channel('workshop.partcategories');
+
+        channel.listen('.partcategory.created', (event) => {
+            console.log('Part category created event received:', event);
+            const incomingCategory = event?.category;
+
+            if (!incomingCategory?.id) {
+                console.warn('Invalid part category data received');
+                return;
+            }
+
+            setLivePartCategories(prev => {
+                const exists = prev.some(c => c.id === incomingCategory.id);
+                if (exists) {
+                    console.log('Part category already in list, skipping');
+                    return prev;
+                }
+                console.log('Adding new part category:', incomingCategory.name);
+                return [incomingCategory, ...prev];
+            });
+        });
+
+        channel.listen('.partcategory.deleted', (event) => {
+            console.log('Part category deleted event received:', event);
+            const deletedCategoryId = event?.categoryId;
+
+            if (!deletedCategoryId) {
+                console.warn('Invalid part category ID received');
+                return;
+            }
+
+            setLivePartCategories(prev => {
+                const filtered = prev.filter(c => c.id !== deletedCategoryId);
+                console.log('Removed part category with ID:', deletedCategoryId);
+                return filtered;
+            });
+        });
+
+        channel.listen('.partcategory.updated', (event) => {
+            console.log('Part category updated event received:', event);
+            const updatedCategory = event?.category;
+
+            if (!updatedCategory?.id) {
+                console.warn('Invalid part category data received');
+                return;
+            }
+
+            setLivePartCategories(prev => {
+                const index = prev.findIndex(c => c.id === updatedCategory.id);
+                if (index === -1) {
+                    console.log('Part category not found in list, skipping update');
+                    return prev;
+                }
+                const updated = [...prev];
+                updated[index] = updatedCategory;
+                console.log('Updated part category:', updatedCategory.name);
+                return updated;
+            });
+        });
+
+        return () => {
+            window.Echo.leaveChannel('workshop.partcategories');
+        };
+    }, []);
 
     // Enable real-time updates
     useVisibilityRealtime({
@@ -98,7 +171,7 @@ export default function Index({ categories }) {
                             Kategori
                         </h1>
                         <p className="text-sm text-slate-500 dark:text-slate-400">
-                            {categories.total || categories.data?.length || 0}{" "}
+                            {livePartCategories?.length || 0}{" "}
                             kategori terdaftar
                         </p>
                     </div>
@@ -149,11 +222,11 @@ export default function Index({ categories }) {
             </div>
 
             {/* Content */}
-            {categories.data.length > 0 ? (
+            {livePartCategories.length > 0 ? (
                 viewMode === "grid" ? (
                     /* Grid View */
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                        {categories.data.map((category) => (
+                        {livePartCategories.map((category) => (
                             <CategoryCard
                                 key={category.id}
                                 category={category}
@@ -173,7 +246,7 @@ export default function Index({ categories }) {
                                 </tr>
                             </Table.Thead>
                             <Table.Tbody>
-                                {categories.data.map((category, i) => (
+                                {livePartCategories.map((category, i) => (
                                     <tr
                                         className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                                         key={category.id}

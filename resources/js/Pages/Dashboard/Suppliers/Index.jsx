@@ -30,6 +30,7 @@ export default function Index({ suppliers, filters }) {
         ...(typeof filters !== 'undefined' ? filters : {}),
     });
     const [showFilters, setShowFilters] = useState(false);
+    const [liveItems, setLiveItems] = useState(suppliers?.data || []);
 
     // Enable real-time updates
     useVisibilityRealtime({
@@ -38,6 +39,41 @@ export default function Index({ suppliers, filters }) {
         preserveScroll: true,
         preserveState: true
     });
+
+    // Real-time Echo listeners
+    useEffect(() => {
+        if (!window.Echo) return;
+        const channel = window.Echo.channel('workshop.suppliers');
+        
+        channel.listen('.supplier.created', (event) => {
+            const incoming = event?.supplier;
+            if (!incoming?.id) return;
+            setLiveItems(prev => {
+                if (prev.some(i => i.id === incoming.id)) return prev;
+                return [incoming, ...prev];
+            });
+        });
+        
+        channel.listen('.supplier.updated', (event) => {
+            const updated = event?.supplier;
+            if (!updated?.id) return;
+            setLiveItems(prev => {
+                const index = prev.findIndex(i => i.id === updated.id);
+                if (index === -1) return prev;
+                const newArr = [...prev];
+                newArr[index] = updated;
+                return newArr;
+            });
+        });
+        
+        channel.listen('.supplier.deleted', (event) => {
+            const id = event?.supplierId;
+            if (!id) return;
+            setLiveItems(prev => prev.filter(i => i.id !== id));
+        });
+        
+        return () => window.Echo.leaveChannel('workshop.suppliers');
+    }, []);
 
     useEffect(() => {
         setFilterData({
@@ -90,7 +126,7 @@ export default function Index({ suppliers, filters }) {
                         </div>
                         <div>
                             <h1 className="text-3xl font-bold text-white">Daftar Supplier</h1>
-                            <p className="mt-1 text-sm text-white/80">{suppliers?.total || 0} supplier terdaftar</p>
+                            <p className="mt-1 text-sm text-white/80">{liveItems.length} supplier terdaftar</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -203,13 +239,13 @@ export default function Index({ suppliers, filters }) {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                {suppliers.data.map((s, idx) => (
+                                {liveItems.map((s, idx) => (
                                     <tr
                                         key={s.id}
                                         className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50"
                                     >
                                         <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
-                                            {idx + 1 + ((suppliers.current_page || 1) - 1) * (suppliers.per_page || suppliers.data.length)}
+                                            {idx + 1 + ((suppliers.current_page || 1) - 1) * (suppliers.per_page || liveItems.length)}
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">

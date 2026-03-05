@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Apps;
 
+use App\Events\AppointmentCreated;
+use App\Events\AppointmentDeleted;
+use App\Events\AppointmentUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\Mechanic;
@@ -239,6 +242,8 @@ class AppointmentController extends Controller
             'notes' => $request->notes,
         ]);
 
+        broadcast(new AppointmentCreated($appointment->toArray()));
+
         return redirect()->route('appointments.calendar')->with('success', 'Appointment berhasil dijadwalkan.');
     }
 
@@ -313,6 +318,8 @@ class AppointmentController extends Controller
             'notes' => $request->notes,
         ]);
 
+        broadcast(new AppointmentUpdated($appointment->fresh()->toArray()));
+
         return redirect()->route('appointments.calendar')->with('success', 'Appointment berhasil diperbarui.');
     }
 
@@ -322,7 +329,10 @@ class AppointmentController extends Controller
     public function destroy($id)
     {
         $appointment = Appointment::findOrFail($id);
+        $appointmentId = $appointment->id;
         $appointment->delete();
+
+        broadcast(new AppointmentDeleted($appointmentId));
 
         return back()->with('success', 'Appointment cancelled.');
     }

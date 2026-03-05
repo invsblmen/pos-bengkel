@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Apps;
 
+use App\Events\PartSalesOrderCreated;
 use App\Http\Controllers\Controller;
 use App\Models\PartSalesOrder;
 use App\Models\PartSalesOrderDetail;
@@ -115,6 +116,8 @@ class PartSalesOrderController extends Controller
             $order->recalculateTotals()->save();
 
             DB::commit();
+
+            PartSalesOrderCreated::dispatch($order->load(['customer', 'details.part'])->toArray());
 
             return redirect()->route('part-sales-orders.show', $order->id)
                 ->with('success', 'Sales order created successfully');

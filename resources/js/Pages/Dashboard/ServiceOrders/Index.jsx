@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import Pagination from '@/Components/Dashboard/Pagination';
@@ -30,6 +30,79 @@ export default function Index({ orders, stats, mechanics, filters }) {
     const [dateTo, setDateTo] = useState(filters.date_to || '');
     const [mechanicId, setMechanicId] = useState(filters.mechanic_id || 'all');
     const [showFilters, setShowFilters] = useState(false);
+    const [liveServiceOrders, setLiveServiceOrders] = useState(orders?.data || []);
+
+    // Real-time listener for service orders
+    useEffect(() => {
+        if (!window.Echo) {
+            console.warn('Echo not available - real-time updates disabled');
+            return;
+        }
+
+        const channel = window.Echo.channel('workshop.serviceorders');
+
+        channel.listen('.serviceorder.created', (event) => {
+            console.log('Service order created event received:', event);
+            const incomingOrder = event?.order;
+
+            if (!incomingOrder?.id) {
+                console.warn('Invalid service order data received');
+                return;
+            }
+
+            setLiveServiceOrders(prev => {
+                const exists = prev.some(o => o.id === incomingOrder.id);
+                if (exists) {
+                    console.log('Service order already in list, skipping');
+                    return prev;
+                }
+                console.log('Adding new service order:', incomingOrder.order_number);
+                return [incomingOrder, ...prev];
+            });
+        });
+
+        channel.listen('.serviceorder.deleted', (event) => {
+            console.log('Service order deleted event received:', event);
+            const deletedOrderId = event?.orderId;
+
+            if (!deletedOrderId) {
+                console.warn('Invalid service order ID received');
+                return;
+            }
+
+            setLiveServiceOrders(prev => {
+                const filtered = prev.filter(o => o.id !== deletedOrderId);
+                console.log('Removed service order with ID:', deletedOrderId);
+                return filtered;
+            });
+        });
+
+        channel.listen('.serviceorder.updated', (event) => {
+            console.log('Service order updated event received:', event);
+            const updatedOrder = event?.order;
+
+            if (!updatedOrder?.id) {
+                console.warn('Invalid service order data received');
+                return;
+            }
+
+            setLiveServiceOrders(prev => {
+                const index = prev.findIndex(o => o.id === updatedOrder.id);
+                if (index === -1) {
+                    console.log('Service order not found in list, skipping update');
+                    return prev;
+                }
+                const updated = [...prev];
+                updated[index] = updatedOrder;
+                console.log('Updated service order:', updatedOrder.order_number);
+                return updated;
+            });
+        });
+
+        return () => {
+            window.Echo.leaveChannel('workshop.serviceorders');
+        };
+    }, []);
 
     // Enable real-time updates - auto refresh every 5 seconds
     // Pause when tab not visible to save resources
@@ -368,7 +441,7 @@ export default function Index({ orders, stats, mechanics, filters }) {
 
                 {/* Table */}
                 <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-                    {orders.data && orders.data.length > 0 ? (
+                    {liveServiceOrders && liveServiceOrders.length > 0 ? (
                         <>
                             <div className="overflow-x-auto">
                                 <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
@@ -398,7 +471,7 @@ export default function Index({ orders, stats, mechanics, filters }) {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-200 dark:divide-slate-700 bg-white dark:bg-slate-900">
-                                        {orders.data.map((order) => {
+                                        {liveServiceOrders.map((order) => {
                                             const statusBadge = getStatusBadge(order.status);
                                             const totalCost = parseFloat(order.total || 0);
                                             const laborCost = parseFloat(order.labor_cost || 0);
