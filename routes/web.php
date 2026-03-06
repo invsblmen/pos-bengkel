@@ -24,6 +24,7 @@ use App\Http\Controllers\Apps\PartSalesOrderController;
 use App\Http\Controllers\Apps\PartPurchaseOrderController;
 use App\Http\Controllers\Apps\PartStockHistoryController;
 use App\Http\Controllers\Apps\LowStockAlertController;
+use App\Http\Controllers\Apps\CashManagementController;
 
 // Include authentication routes
 require __DIR__.'/auth.php';
@@ -263,6 +264,23 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::get('/reports/parts-inventory', [\App\Http\Controllers\Apps\ServiceReportController::class, 'partsInventory'])->middleware('permission:reports-access')->name('reports.parts-inventory.index');
     Route::get('/reports/outstanding-payments', [\App\Http\Controllers\Apps\ServiceReportController::class, 'outstandingPayments'])->middleware('permission:reports-access')->name('reports.outstanding-payments.index');
     Route::get('/reports/export', [\App\Http\Controllers\Apps\ServiceReportController::class, 'exportCsv'])->middleware('permission:reports-access')->name('reports.export');
+
+    // cash accounting
+    Route::get('/cash-management', [CashManagementController::class, 'index'])
+        ->middleware('permission:cash-management-access')
+        ->name('cash-management.index');
+    Route::post('/cash-management/stock', [CashManagementController::class, 'updateStock'])
+        ->middleware('permission:cash-management-manage')
+        ->name('cash-management.stock.update');
+    Route::post('/cash-management/transactions', [CashManagementController::class, 'storeTransaction'])
+        ->middleware('permission:cash-management-manage')
+        ->name('cash-management.transactions.store');
+    Route::post('/cash-management/change/suggest', [CashManagementController::class, 'suggestChange'])
+        ->middleware('permission:cash-management-manage')
+        ->name('cash-management.change.suggest');
+    Route::post('/cash-management/sale/settle', [CashManagementController::class, 'settleSaleCash'])
+        ->middleware('permission:cash-management-manage')
+        ->name('cash-management.sale.settle');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

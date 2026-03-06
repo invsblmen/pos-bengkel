@@ -4,6 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Events\PartSaleCreated;
 use App\Models\BusinessProfile;
+use App\Models\CashDenomination;
+use App\Models\CashDrawerDenomination;
+use App\Models\CashTransaction;
+use App\Models\CashTransactionItem;
 use App\Models\PartSale;
 use App\Models\PartSaleDetail;
 use App\Models\PartSalesOrder;
@@ -12,6 +16,7 @@ use App\Models\Customer;
 use App\Models\PartStockMovement;
 use App\Models\User;
 use App\Notifications\PartSaleOrderReadyNotification;
+use App\Services\CashChangeSuggestionService;
 use App\Services\DiscountTaxService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,10 +27,15 @@ use Inertia\Inertia;
 class PartSaleController extends Controller
 {
     protected $discountTaxService;
+    protected $cashChangeSuggestionService;
 
-    public function __construct(DiscountTaxService $discountTaxService)
+    public function __construct(
+        DiscountTaxService $discountTaxService,
+        CashChangeSuggestionService $cashChangeSuggestionService
+    )
     {
         $this->discountTaxService = $discountTaxService;
+        $this->cashChangeSuggestionService = $cashChangeSuggestionService;
     }
 
     public function index(Request $request)
@@ -265,6 +275,19 @@ class PartSaleController extends Controller
         return Inertia::render('Dashboard/Parts/Sales/Show', [
             'sale' => $partSale,
             'businessProfile' => BusinessProfile::first(),
+            'cashDenominations' => CashDenomination::query()
+                ->with('drawerStock')
+                ->where('is_active', true)
+                ->orderBy('value')
+                ->get()
+                ->map(function ($denomination) {
+                    return [
+                        'id' => $denomination->id,
+                        'value' => (int) $denomination->value,
+                        'quantity' => (int) ($denomination->drawerStock->quantity ?? 0),
+                    ];
+                })
+                ->values(),
         ]);
     }
 
@@ -429,19 +452,189 @@ class PartSaleController extends Controller
 
     public function updatePayment(Request $request, PartSale $partSale)
     {
-        $request->validate([
+        $validated = $request->validate([
             'payment_amount' => 'required|integer|min:1',
+            'received_denominations' => 'nullable|array',
+            'received_denominations.*.denomination_id' => 'required_with:received_denominations|exists:cash_denominations,id',
+            'received_denominations.*.quantity' => 'required_with:received_denominations|integer|min:0',
         ]);
 
-        $newPaidAmount = $partSale->paid_amount + $request->payment_amount;
+        $paymentAmount = (int) $validated['payment_amount'];
+        $remainingBeforePayment = max(0, (int) $partSale->grand_total - (int) $partSale->paid_amount);
+        $changeFromThisPayment = max(0, $paymentAmount - $remainingBeforePayment);
 
-        $partSale->update([
-            'paid_amount' => $newPaidAmount,
-            'remaining_amount' => max(0, $partSale->grand_total - $newPaidAmount),
-            'payment_status' => $newPaidAmount >= $partSale->grand_total ? 'paid' : ($newPaidAmount > 0 ? 'partial' : 'unpaid'),
-        ]);
+        $receivedRows = collect($validated['received_denominations'] ?? [])
+            ->map(function ($row) {
+                return [
+                    'denomination_id' => (int) $row['denomination_id'],
+                    'quantity' => (int) $row['quantity'],
+                ];
+            })
+            ->filter(fn ($row) => $row['quantity'] > 0)
+            ->values();
+
+        if ($receivedRows->isNotEmpty()) {
+            $denominationValues = CashDenomination::query()
+                ->whereIn('id', $receivedRows->pluck('denomination_id'))
+                ->pluck('value', 'id');
+
+            $receivedTotal = (int) $receivedRows->sum(function ($row) use ($denominationValues) {
+                return ((int) ($denominationValues[$row['denomination_id']] ?? 0)) * (int) $row['quantity'];
+            });
+
+            if ($receivedTotal !== $paymentAmount) {
+                throw ValidationException::withMessages([
+                    'payment_amount' => ['Total pecahan uang diterima harus sama dengan jumlah pembayaran.'],
+                ]);
+            }
+        }
+
+        DB::transaction(function () use ($partSale, $paymentAmount, $changeFromThisPayment, $receivedRows, $request) {
+            if ($receivedRows->isNotEmpty()) {
+                $this->recordCashPaymentWithDenominations(
+                    $partSale,
+                    $paymentAmount,
+                    $changeFromThisPayment,
+                    $receivedRows,
+                    (int) $request->user()->id
+                );
+            }
+
+            $newPaidAmount = (int) $partSale->paid_amount + $paymentAmount;
+
+            $partSale->update([
+                'paid_amount' => $newPaidAmount,
+                'remaining_amount' => max(0, (int) $partSale->grand_total - $newPaidAmount),
+                'payment_status' => $newPaidAmount >= (int) $partSale->grand_total ? 'paid' : ($newPaidAmount > 0 ? 'partial' : 'unpaid'),
+            ]);
+        });
 
         return back()->with('success', 'Pembayaran berhasil dicatat');
+    }
+
+    private function recordCashPaymentWithDenominations(
+        PartSale $partSale,
+        int $paymentAmount,
+        int $changeAmount,
+        $receivedRows,
+        int $userId
+    ): void {
+        $receivedRows = collect($receivedRows)->values();
+
+        $denominationValues = CashDenomination::query()
+            ->whereIn('id', $receivedRows->pluck('denomination_id'))
+            ->pluck('value', 'id')
+            ->map(fn ($value) => (int) $value)
+            ->toArray();
+
+        $availableByValue = CashDrawerDenomination::query()
+            ->join('cash_denominations', 'cash_drawer_denominations.denomination_id', '=', 'cash_denominations.id')
+            ->selectRaw('cash_denominations.value as value, cash_drawer_denominations.quantity as quantity')
+            ->get()
+            ->mapWithKeys(fn ($row) => [(int) $row->value => (int) $row->quantity])
+            ->toArray();
+
+        foreach ($receivedRows as $row) {
+            $value = (int) ($denominationValues[(int) $row['denomination_id']] ?? 0);
+            if ($value <= 0) {
+                continue;
+            }
+            $availableByValue[$value] = (int) ($availableByValue[$value] ?? 0) + (int) $row['quantity'];
+        }
+
+        $changeSuggestion = $this->cashChangeSuggestionService->suggest($changeAmount, $availableByValue);
+        if ($changeAmount > 0 && !$changeSuggestion['exact']) {
+            throw ValidationException::withMessages([
+                'payment_amount' => ['Stok kas tidak cukup untuk memberikan kembalian pas.'],
+            ]);
+        }
+
+        $valueToId = CashDenomination::query()
+            ->pluck('id', 'value')
+            ->map(fn ($id) => (int) $id)
+            ->toArray();
+
+        $receivedTransaction = CashTransaction::create([
+            'transaction_type' => 'income',
+            'amount' => $paymentAmount,
+            'source' => 'part-sale-payment',
+            'description' => "Pembayaran cash penjualan {$partSale->sale_number}",
+            'meta' => [
+                'part_sale_id' => $partSale->id,
+                'sale_number' => $partSale->sale_number,
+            ],
+            'happened_at' => now(),
+            'created_by' => $userId,
+        ]);
+
+        foreach ($receivedRows as $row) {
+            $denominationId = (int) $row['denomination_id'];
+            $quantity = (int) $row['quantity'];
+            $value = (int) ($denominationValues[$denominationId] ?? 0);
+            if ($quantity <= 0 || $value <= 0) {
+                continue;
+            }
+
+            CashTransactionItem::create([
+                'cash_transaction_id' => $receivedTransaction->id,
+                'denomination_id' => $denominationId,
+                'direction' => 'in',
+                'quantity' => $quantity,
+                'line_total' => $value * $quantity,
+            ]);
+
+            $drawer = CashDrawerDenomination::firstOrCreate(
+                ['denomination_id' => $denominationId],
+                ['quantity' => 0]
+            );
+            $drawer->update(['quantity' => (int) $drawer->quantity + $quantity]);
+        }
+
+        if ($changeAmount > 0) {
+            $changeTransaction = CashTransaction::create([
+                'transaction_type' => 'change_given',
+                'amount' => $changeAmount,
+                'source' => 'part-sale-change',
+                'description' => "Kembalian cash penjualan {$partSale->sale_number}",
+                'meta' => [
+                    'part_sale_id' => $partSale->id,
+                    'sale_number' => $partSale->sale_number,
+                ],
+                'happened_at' => now(),
+                'created_by' => $userId,
+            ]);
+
+            foreach ($changeSuggestion['items'] as $item) {
+                $value = (int) $item['value'];
+                $quantity = (int) $item['quantity'];
+                $denominationId = (int) ($valueToId[$value] ?? 0);
+                if ($denominationId <= 0 || $quantity <= 0) {
+                    continue;
+                }
+
+                $drawer = CashDrawerDenomination::firstOrCreate(
+                    ['denomination_id' => $denominationId],
+                    ['quantity' => 0]
+                );
+
+                $newQty = (int) $drawer->quantity - $quantity;
+                if ($newQty < 0) {
+                    throw ValidationException::withMessages([
+                        'payment_amount' => ['Stok kas pecahan tidak mencukupi untuk kembalian.'],
+                    ]);
+                }
+
+                CashTransactionItem::create([
+                    'cash_transaction_id' => $changeTransaction->id,
+                    'denomination_id' => $denominationId,
+                    'direction' => 'out',
+                    'quantity' => $quantity,
+                    'line_total' => $value * $quantity,
+                ]);
+
+                $drawer->update(['quantity' => $newQty]);
+            }
+        }
     }
 
     public function updateStatus(Request $request, PartSale $partSale)

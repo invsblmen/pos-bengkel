@@ -122,6 +122,7 @@ export default function Sidebar({ sidebarOpen }) {
                                             icon={detail.icon}
                                             href={detail.href}
                                             access={detail.permissions}
+                                            disableWhenActive={detail.disableWhenActive}
                                             sidebarOpen={sidebarOpen}
                                         />
                                     );

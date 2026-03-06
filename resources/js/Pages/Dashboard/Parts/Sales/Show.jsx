@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import { IconArrowLeft, IconPrinter, IconPencil, IconEdit, IconCheck, IconX, IconCash, IconShoppingCart, IconReceipt, IconUser, IconDiscount } from '@tabler/icons-react';
+import axios from 'axios';
 import toast from 'react-hot-toast';
 import { formatBusinessSocials } from '@/Utils/socialMediaFormatter';
 
@@ -31,7 +32,7 @@ const paymentColors = {
     unpaid: 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-slate-800/60 dark:text-gray-100',
 };
 
-export default function Show({ sale, businessProfile }) {
+export default function Show({ sale, businessProfile, cashDenominations = [] }) {
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [newStatus, setNewStatus] = useState(sale.status || 'draft');
     const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -40,6 +41,15 @@ export default function Show({ sale, businessProfile }) {
     const [paperSize, setPaperSize] = useState('a4');
     const [paymentAmount, setPaymentAmount] = useState('');
     const [updatingPayment, setUpdatingPayment] = useState(false);
+    const [suggestingChange, setSuggestingChange] = useState(false);
+    const [changeSuggestion, setChangeSuggestion] = useState(null);
+    const [receivedDenominations, setReceivedDenominations] = useState(() => {
+        const initial = {};
+        (cashDenominations || []).forEach((item) => {
+            initial[item.id] = '';
+        });
+        return initial;
+    });
 
     const formatCurrency = (value = 0) =>
         new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value || 0);
@@ -71,6 +81,26 @@ export default function Show({ sale, businessProfile }) {
     const businessPhone = businessProfile?.business_phone || '';
     const businessAddress = businessProfile?.business_address || '';
     const businessSocials = formatBusinessSocials(businessProfile);
+
+    const denominationValueMap = useMemo(() => {
+        const map = {};
+        (cashDenominations || []).forEach((item) => {
+            map[item.id] = Number(item.value || 0);
+        });
+        return map;
+    }, [cashDenominations]);
+
+    const receivedTotal = useMemo(() => {
+        return Object.entries(receivedDenominations).reduce((sum, [id, qty]) => {
+            const quantity = Number(qty || 0);
+            if (quantity <= 0) {
+                return sum;
+            }
+            return sum + (Number(denominationValueMap[id] || 0) * quantity);
+        }, 0);
+    }, [denominationValueMap, receivedDenominations]);
+
+    const hasDenominationInput = receivedTotal > 0;
 
     const handlePrint = () => setShowPrintModal(true);
 
@@ -114,15 +144,38 @@ export default function Show({ sale, businessProfile }) {
             return;
         }
 
+        const denominationPayload = Object.entries(receivedDenominations)
+            .map(([denominationId, quantity]) => ({
+                denomination_id: Number(denominationId),
+                quantity: Number(quantity || 0),
+            }))
+            .filter((row) => row.quantity > 0);
+
+        if (denominationPayload.length > 0 && receivedTotal !== amount) {
+            toast.error('Total pecahan harus sama dengan jumlah pembayaran');
+            return;
+        }
+
         setUpdatingPayment(true);
         router.post(
             route('part-sales.update-payment', sale.id),
-            { payment_amount: amount },
+            {
+                payment_amount: amount,
+                received_denominations: denominationPayload,
+            },
             {
                 preserveScroll: true,
                 onSuccess: () => {
                     toast.success('Pembayaran berhasil dicatat');
                     setPaymentAmount('');
+                    setChangeSuggestion(null);
+                    setReceivedDenominations((prev) => {
+                        const reset = {};
+                        Object.keys(prev).forEach((key) => {
+                            reset[key] = '';
+                        });
+                        return reset;
+                    });
                 },
                 onError: (errors) => {
                     toast.error(errors?.error || 'Gagal mencatat pembayaran');
@@ -130,6 +183,38 @@ export default function Show({ sale, businessProfile }) {
                 onFinish: () => setUpdatingPayment(false),
             }
         );
+    };
+
+    const handleSuggestChange = async () => {
+        if (!hasDenominationInput) {
+            toast.error('Isi pecahan uang diterima terlebih dahulu');
+            return;
+        }
+
+        setSuggestingChange(true);
+        try {
+            const response = await axios.post(route('cash-management.change.suggest'), {
+                total_due: Number(remainingAmount || 0),
+                received: Object.entries(receivedDenominations)
+                    .map(([denominationId, quantity]) => ({
+                        denomination_id: Number(denominationId),
+                        quantity: Number(quantity || 0),
+                    }))
+                    .filter((row) => row.quantity > 0),
+            });
+
+            setChangeSuggestion(response.data || null);
+            if (response.data?.exact) {
+                toast.success('Saran kembalian siap digunakan');
+            } else {
+                toast.error('Kembalian pas tidak tersedia dengan stok kas saat ini');
+            }
+        } catch (error) {
+            const message = error?.response?.data?.message || 'Gagal menghitung saran kembalian';
+            toast.error(message);
+        } finally {
+            setSuggestingChange(false);
+        }
     };
 
     return (
@@ -383,6 +468,86 @@ export default function Show({ sale, businessProfile }) {
                                                 Sisa yang harus dibayar: <span className="font-bold text-orange-600">{formatCurrency(remainingAmount)}</span>
                                             </p>
                                         </div>
+
+                                        {cashDenominations.length > 0 && (
+                                            <div className="space-y-3 border-t border-slate-200 dark:border-slate-700 pt-4">
+                                                <div className="flex items-center justify-between">
+                                                    <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">Input Pecahan Uang Diterima</h4>
+                                                    <span className="text-xs text-slate-500 dark:text-slate-400">Total: <span className="font-bold text-orange-600">{formatCurrency(receivedTotal)}</span></span>
+                                                </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    {cashDenominations
+                                                        .slice()
+                                                        .sort((a, b) => Number(b.value) - Number(a.value))
+                                                        .map((denom) => (
+                                                            <label
+                                                                key={denom.id}
+                                                                className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 p-2"
+                                                            >
+                                                                <span className="flex-1 text-xs font-bold text-slate-700 dark:text-slate-300">{formatCurrency(denom.value)}</span>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    value={receivedDenominations[denom.id] ?? ''}
+                                                                    onChange={(e) => {
+                                                                        const quantity = e.target.value;
+                                                                        setReceivedDenominations((prev) => ({
+                                                                            ...prev,
+                                                                            [denom.id]: quantity,
+                                                                        }));
+                                                                        setChangeSuggestion(null);
+                                                                        const nextTotal = Object.entries({
+                                                                            ...receivedDenominations,
+                                                                            [denom.id]: quantity,
+                                                                        }).reduce((sum, [id, qty]) => {
+                                                                            const q = Number(qty || 0);
+                                                                            if (q <= 0) {
+                                                                                return sum;
+                                                                            }
+                                                                            return sum + (Number(denominationValueMap[id] || 0) * q);
+                                                                        }, 0);
+                                                                        setPaymentAmount(nextTotal > 0 ? String(nextTotal) : '');
+                                                                    }}
+                                                                    className="w-20 h-9 px-2 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white text-sm font-bold"
+                                                                    placeholder="Qty"
+                                                                />
+                                                            </label>
+                                                        ))}
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleSuggestChange}
+                                                    disabled={suggestingChange || !hasDenominationInput}
+                                                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl border-2 border-orange-300 text-orange-700 dark:text-orange-300 py-2.5 text-sm font-bold hover:bg-orange-50 dark:hover:bg-orange-900/20 disabled:opacity-60 transition-all"
+                                                >
+                                                    {suggestingChange ? 'Menghitung saran kembalian...' : 'Hitung Saran Kembalian'}
+                                                </button>
+                                                {changeSuggestion && (
+                                                    <div className={`rounded-xl p-3 border text-sm ${
+                                                        changeSuggestion.exact
+                                                            ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-700/30 dark:text-emerald-300'
+                                                            : 'bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-900/20 dark:border-rose-700/30 dark:text-rose-300'
+                                                    }`}>
+                                                        <div className="font-bold mb-1">
+                                                            {changeSuggestion.exact ? 'Kembalian pas tersedia' : 'Kembalian pas tidak tersedia'}
+                                                        </div>
+                                                        <div>
+                                                            Total kembalian: {formatCurrency(changeSuggestion.change_amount || 0)}
+                                                        </div>
+                                                        {Array.isArray(changeSuggestion.items) && changeSuggestion.items.length > 0 && (
+                                                            <div className="mt-2 text-xs">
+                                                                {changeSuggestion.items.map((item, idx) => (
+                                                                    <div key={`${item.value}-${idx}`}>
+                                                                        {formatCurrency(item.value)} x {item.quantity}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
                                         <button
                                             type="button"
                                             onClick={handleUpdatePayment}

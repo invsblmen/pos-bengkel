@@ -103,8 +103,29 @@ class AppointmentController extends Controller
      */
     public function calendar(Request $request)
     {
-        $year = $request->get('year', now()->year);
-        $month = $request->get('month', now()->month);
+        $currentYear = now()->year;
+        $currentMonth = now()->month;
+
+        $yearInput = (int) $request->query('year', $currentYear);
+        $monthInput = (int) $request->query('month', $currentMonth);
+
+        if ($yearInput < 1970 || $yearInput > 9999) {
+            $yearInput = $currentYear;
+        }
+
+        if ($monthInput === 0) {
+            $monthInput = $currentMonth;
+        }
+
+        // Normalize overflow/underflow months (e.g. 21 => Sep next year, 0 => Dec previous year).
+        $totalMonths = ($yearInput * 12) + ($monthInput - 1);
+        $year = (int) floor($totalMonths / 12);
+        $month = (($totalMonths % 12) + 12) % 12 + 1;
+
+        if ($year < 1970 || $year > 9999) {
+            $year = $currentYear;
+            $month = $currentMonth;
+        }
 
         $startDate = Carbon::createFromDate($year, $month, 1);
         $endDate = $startDate->clone()->endOfMonth();

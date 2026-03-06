@@ -6,6 +6,7 @@ export default function LinkItem({
     icon,
     access,
     title,
+    disableWhenActive = false,
     sidebarOpen,
     ...props
 }) {
@@ -14,6 +15,12 @@ export default function LinkItem({
 
     const isActive = url.startsWith(href);
     const canAccess = auth.super === true || access === true;
+
+    const handleClick = (event) => {
+        if (disableWhenActive && isActive) {
+            event.preventDefault();
+        }
+    };
 
     if (!canAccess) return null;
 
@@ -32,6 +39,7 @@ export default function LinkItem({
             <Link
                 href={href}
                 className={`${baseClasses} ${activeClasses} px-4 py-2.5 text-sm font-medium`}
+                onClick={handleClick}
                 {...props}
             >
                 <span
@@ -60,6 +68,7 @@ export default function LinkItem({
                 }
             `}
             title={title}
+            onClick={handleClick}
             {...props}
         >
             {icon}

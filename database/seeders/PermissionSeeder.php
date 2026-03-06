@@ -76,6 +76,9 @@ class PermissionSeeder extends Seeder
 
             // suppliers
             'suppliers-access', 'suppliers-create', 'suppliers-update', 'suppliers-delete',
+
+            // cash management
+            'cash-management-access', 'cash-management-manage',
         ];
 
         foreach ($permissions as $permission) {

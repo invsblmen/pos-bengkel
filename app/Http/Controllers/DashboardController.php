@@ -67,22 +67,39 @@ class DashboardController extends Controller
                 ];
             });
 
-        $revenueTrend = ServiceOrder::query()
+        $serviceRevenueByDate = ServiceOrder::query()
             ->where('status', 'completed')
             ->selectRaw('DATE(COALESCE(actual_finish_at, updated_at)) as date, SUM(COALESCE(grand_total, COALESCE(labor_cost, 0) + COALESCE(material_cost, 0))) as total')
             ->groupBy('date')
-            ->orderBy('date', 'desc')
+            ->pluck('total', 'date');
+
+        $partRevenueByDate = PartSale::query()
+            ->where('status', 'completed')
+            ->selectRaw('DATE(COALESCE(sale_date, created_at)) as date, SUM(COALESCE(grand_total, 0)) as total')
+            ->groupBy('date')
+            ->pluck('total', 'date');
+
+        $revenueTrend = collect($serviceRevenueByDate)
+            ->mapWithKeys(fn ($total, $date) => [$date => (int) $total])
+            ->merge(
+                collect($partRevenueByDate)->mapWithKeys(fn ($total, $date) => [$date => (int) $total])
+            )
+            ->keys()
+            ->unique()
+            ->sortDesc()
             ->take(12)
-            ->get()
-            ->map(function ($row) {
+            ->sort()
+            ->values()
+            ->map(function ($date) use ($serviceRevenueByDate, $partRevenueByDate) {
+                $serviceTotal = (int) ($serviceRevenueByDate[$date] ?? 0);
+                $partTotal = (int) ($partRevenueByDate[$date] ?? 0);
+
                 return [
-                    'date'  => $row->date,
-                    'label' => Carbon::parse($row->date)->format('d M'),
-                    'total' => (int) $row->total,
+                    'date' => $date,
+                    'label' => Carbon::parse($date)->format('d M'),
+                    'total' => $serviceTotal + $partTotal,
                 ];
-            })
-            ->reverse()
-            ->values();
+            });
 
         return Inertia::render('Dashboard/Index', [
             'revenueTrend'      => $revenueTrend,

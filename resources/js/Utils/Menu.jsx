@@ -4,7 +4,6 @@ import {
     IconCar,
     IconChartInfographic,
     IconCirclePlus,
-    IconClockHour6,
     IconCreditCard,
     IconFileCertificate,
     IconFileDescription,
@@ -23,6 +22,7 @@ import {
     IconPackage,
     IconAlertCircle,
     IconBuildingStore,
+    IconCash,
 } from "@tabler/icons-react";
 import hasAnyPermission from "./Permission";
 import React from "react";
@@ -117,25 +117,12 @@ export default function Menu() {
                     permissions: hasAnyPermission(["part-purchases-access"]),
                 },
                 {
-                    title: "Appointments",
-                    icon: <IconClockHour6 size={20} strokeWidth={1.5} />,
+                    title: "Appointment",
+                    href: route("appointments.calendar"),
+                    active: url.startsWith("/dashboard/appointments/calendar") || url === "/dashboard/appointments",
+                    icon: <IconCalendar size={20} strokeWidth={1.5} />,
                     permissions: hasAnyPermission(["appointments-access"]),
-                    subdetails: [
-                        {
-                            title: "Daftar Appointments",
-                            href: route("appointments.index"),
-                            active: url === "/dashboard/appointments" || (url.startsWith("/dashboard/appointments") && !url.includes("/calendar")),
-                            icon: <IconTable size={20} strokeWidth={1.5} />,
-                            permissions: hasAnyPermission(["appointments-access"]),
-                        },
-                        {
-                            title: "Kalender Appointments",
-                            href: route("appointments.calendar"),
-                            active: url.startsWith("/dashboard/appointments/calendar"),
-                            icon: <IconCalendar size={20} strokeWidth={1.5} />,
-                            permissions: hasAnyPermission(["appointments-access"]),
-                        },
-                    ],
+                    disableWhenActive: true,
                 },
             ],
         },
@@ -176,6 +163,13 @@ export default function Menu() {
                     active: url.startsWith("/dashboard/mechanics/performance"),
                     icon: <IconTrendingUp size={20} strokeWidth={1.5} />,
                     permissions: hasAnyPermission(["mechanics-access"]),
+                },
+                {
+                    title: "Akuntansi Kas",
+                    href: route("cash-management.index"),
+                    active: url.startsWith("/dashboard/cash-management"),
+                    icon: <IconCash size={20} strokeWidth={1.5} />,
+                    permissions: hasAnyPermission(["cash-management-access"]),
                 },
             ],
         },

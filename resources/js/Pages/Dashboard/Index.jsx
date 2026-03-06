@@ -178,7 +178,7 @@ export default function Dashboard({
                 labels,
                 datasets: [
                     {
-                        label: "Pendapatan",
+                        label: "Pendapatan (Part + Service)",
                         data: totals,
                         borderColor: "#6366f1",
                         backgroundColor: gradient,
@@ -267,11 +267,11 @@ export default function Dashboard({
                             <span>Service Order Baru</span>
                         </Link>
                         <Link
-                            href={route("part-purchases.create")}
+                            href={route("part-sales.create")}
                             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium transition-colors"
                         >
                             <IconPackage size={18} />
-                            <span>Input Pembelian Part</span>
+                            <span>Input Penjualan Part</span>
                         </Link>
                     </div>
                 </div>
