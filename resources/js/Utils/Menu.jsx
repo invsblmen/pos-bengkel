@@ -103,6 +103,13 @@ export default function Menu() {
                     permissions: hasAnyPermission(["service-orders-access"]),
                 },
                 {
+                    title: "Penerimaan Cepat",
+                    href: route("service-orders.quick-intake.create"),
+                    active: url === "/dashboard/service-orders/quick-intake",
+                    icon: <IconCirclePlus size={20} strokeWidth={1.5} />,
+                    permissions: hasAnyPermission(["service-orders-create"]),
+                },
+                {
                     title: "Penjualan Sparepart",
                     href: route("part-sales.index"),
                     active: url.includes("/dashboard/part-sales"),
@@ -188,6 +195,13 @@ export default function Menu() {
                     icon: <IconChartInfographic size={20} strokeWidth={1.5} />,
                     permissions: hasAnyPermission(["reports-access"]),
                     subdetails: [
+                        {
+                            title: "Laporan Keseluruhan",
+                            href: route("reports.overall.index"),
+                            active: url.startsWith("/dashboard/reports/overall"),
+                            icon: <IconChartInfographic size={20} strokeWidth={1.5} />,
+                            permissions: hasAnyPermission(["reports-access"]),
+                        },
                         {
                             title: "Revenue Servis",
                             href: route("reports.service-revenue.index"),

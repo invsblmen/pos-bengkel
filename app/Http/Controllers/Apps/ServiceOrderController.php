@@ -92,6 +92,13 @@ class ServiceOrderController extends Controller
         ]);
     }
 
+    public function createQuick()
+    {
+        return inertia('Dashboard/ServiceOrders/QuickIntake', [
+            'mechanics' => Mechanic::all(['id', 'name']),
+        ]);
+    }
+
     public function edit($id)
     {
         $order = ServiceOrder::with('customer', 'vehicle', 'mechanic', 'details.service', 'details.part', 'tags')
@@ -213,6 +220,87 @@ class ServiceOrderController extends Controller
         ServiceOrderCreated::dispatch($order->load(['customer', 'vehicle', 'mechanic', 'details.service', 'details.part'])->toArray());
 
         return redirect()->route('service-orders.index')->with('success', 'Service order created.');
+    }
+
+    public function storeQuick(Request $request)
+    {
+        $validated = $request->validate([
+            'customer_name' => 'required|string|max:255',
+            'customer_phone' => 'required|string|max:30',
+            'plate_number' => 'required|string|max:20',
+            'vehicle_brand' => 'nullable|string|max:100',
+            'vehicle_model' => 'nullable|string|max:100',
+            'odometer_km' => 'required|integer|min:0|max:1000000',
+            'complaint' => 'nullable|string|max:2000',
+            'mechanic_id' => 'nullable|exists:mechanics,id',
+        ]);
+
+        $normalizedPlate = strtoupper(preg_replace('/\s+/', '', $validated['plate_number']));
+
+        $vehicle = \App\Models\Vehicle::query()
+            ->whereRaw("REPLACE(UPPER(plate_number), ' ', '') = ?", [$normalizedPlate])
+            ->first();
+
+        if ($vehicle) {
+            $customer = $vehicle->customer;
+            if ($customer) {
+                $customer->update([
+                    'name' => $validated['customer_name'],
+                    'phone' => $validated['customer_phone'],
+                ]);
+            } else {
+                $customer = \App\Models\Customer::create([
+                    'name' => $validated['customer_name'],
+                    'phone' => $validated['customer_phone'],
+                ]);
+                $vehicle->update(['customer_id' => $customer->id]);
+            }
+
+            if (!empty($validated['vehicle_brand']) || !empty($validated['vehicle_model'])) {
+                $vehicle->update([
+                    'brand' => $validated['vehicle_brand'] ?: $vehicle->brand,
+                    'model' => $validated['vehicle_model'] ?: $vehicle->model,
+                ]);
+            }
+        } else {
+            $customer = \App\Models\Customer::create([
+                'name' => $validated['customer_name'],
+                'phone' => $validated['customer_phone'],
+            ]);
+
+            $vehicle = \App\Models\Vehicle::create([
+                'customer_id' => $customer->id,
+                'plate_number' => $normalizedPlate,
+                'brand' => $validated['vehicle_brand'] ?? null,
+                'model' => $validated['vehicle_model'] ?? null,
+            ]);
+        }
+
+        $order = ServiceOrder::create([
+            'order_number' => 'SO-' . strtoupper(Str::random(8)),
+            'customer_id' => $vehicle->customer_id,
+            'vehicle_id' => $vehicle->id,
+            'mechanic_id' => $validated['mechanic_id'] ?? null,
+            'status' => 'pending',
+            'odometer_km' => $validated['odometer_km'],
+            'estimated_start_at' => now(),
+            'estimated_finish_at' => now(),
+            'notes' => $validated['complaint'] ?? null,
+            'total' => 0,
+            'discount_type' => 'none',
+            'discount_value' => 0,
+            'tax_type' => 'none',
+            'tax_value' => 0,
+            'labor_cost' => 0,
+            'material_cost' => 0,
+            'grand_total' => 0,
+        ]);
+
+        ServiceOrderCreated::dispatch($order->load(['customer', 'vehicle', 'mechanic'])->toArray());
+
+        return redirect()
+            ->route('service-orders.show', $order->id)
+            ->with('success', 'Penerimaan konsumen berhasil dibuat.');
     }
 
     public function update(Request $request, $id)

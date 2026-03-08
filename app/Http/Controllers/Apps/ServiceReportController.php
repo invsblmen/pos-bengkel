@@ -3,16 +3,279 @@
 namespace App\Http\Controllers\Apps;
 
 use App\Http\Controllers\Controller;
+use App\Models\CashTransaction;
+use App\Models\PartSale;
 use App\Models\ServiceOrder;
 use App\Models\Mechanic;
 use App\Models\Part;
 use App\Models\Customer;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class ServiceReportController extends Controller
 {
+    public function overall(Request $request)
+    {
+        $startDate = Carbon::parse($request->get('start_date', now()->firstOfMonth()))->startOfDay();
+        $endDate = Carbon::parse($request->get('end_date', now()))->endOfDay();
+        $source = $request->get('source', 'all');
+        $allowedSources = ['all', 'service_order', 'part_sale', 'cash_transaction'];
+        if (!in_array($source, $allowedSources, true)) {
+            $source = 'all';
+        }
+        $status = $request->get('status', 'all');
+
+        $perPage = (int) $request->get('per_page', 20);
+        $perPage = max(10, min($perPage, 100));
+        $currentPage = (int) $request->get('page', 1);
+        $currentPage = max(1, $currentPage);
+
+        $statusLabelMap = [
+            'completed' => 'Selesai',
+            'paid' => 'Lunas',
+            'draft' => 'Draft',
+            'confirmed' => 'Dikonfirmasi',
+            'waiting_stock' => 'Menunggu Stok',
+            'ready_to_notify' => 'Siap Diberitahu',
+            'waiting_pickup' => 'Menunggu Diambil',
+            'cancelled' => 'Dibatalkan',
+            'income' => 'Kas Masuk',
+            'expense' => 'Kas Keluar',
+            'change_given' => 'Kembalian',
+            'adjustment' => 'Penyesuaian',
+        ];
+
+        $formatStatusLabel = function (?string $status) use ($statusLabelMap): string {
+            if (empty($status)) {
+                return '-';
+            }
+
+            return $statusLabelMap[$status] ?? ucwords(str_replace('_', ' ', $status));
+        };
+
+        $serviceBaseQuery = ServiceOrder::query()
+            ->with(['customer:id,name', 'vehicle:id,plate_number'])
+            ->whereIn('status', ['completed', 'paid'])
+            ->whereBetween('created_at', [$startDate, $endDate]);
+
+        $serviceRevenue = (int) (clone $serviceBaseQuery)
+            ->selectRaw('SUM(COALESCE(grand_total, total, COALESCE(labor_cost, 0) + COALESCE(material_cost, 0))) as total')
+            ->value('total');
+
+        $serviceOrders = (clone $serviceBaseQuery)
+            ->orderByDesc('created_at')
+            ->get();
+
+        $partBaseQuery = PartSale::query()
+            ->with(['customer:id,name'])
+            ->where('status', '!=', 'cancelled')
+            ->whereBetween('created_at', [$startDate, $endDate]);
+
+        $partRevenue = (int) (clone $partBaseQuery)
+            ->selectRaw('SUM(COALESCE(grand_total, 0)) as total')
+            ->value('total');
+
+        $partSales = (clone $partBaseQuery)
+            ->orderByDesc('created_at')
+            ->get();
+
+        $cashBaseQuery = CashTransaction::query()
+            ->with('user:id,name')
+            ->where(function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('happened_at', [$startDate, $endDate])
+                    ->orWhere(function ($fallback) use ($startDate, $endDate) {
+                        $fallback->whereNull('happened_at')
+                            ->whereBetween('created_at', [$startDate, $endDate]);
+                    });
+            });
+
+        $cashIn = (int) (clone $cashBaseQuery)
+            ->whereIn('transaction_type', ['income'])
+            ->sum('amount');
+
+        $cashOut = (int) (clone $cashBaseQuery)
+            ->whereIn('transaction_type', ['expense', 'change_given'])
+            ->sum('amount');
+
+        $cashTransactions = (clone $cashBaseQuery)
+            ->orderByDesc('happened_at')
+            ->orderByDesc('created_at')
+            ->get();
+
+        $serviceTimeline = $serviceOrders->map(function ($order) use ($formatStatusLabel) {
+            $amount = (int) ($order->grand_total ?? $order->total ?? ((int) ($order->labor_cost ?? 0) + (int) ($order->material_cost ?? 0)));
+
+            return [
+                'id' => 'service-' . $order->id,
+                'date' => optional($order->created_at)->format('Y-m-d H:i:s'),
+                'date_unix' => optional($order->created_at)?->timestamp ?? 0,
+                'source' => 'service_order',
+                'reference' => $order->order_number,
+                'description' => trim(implode(' | ', array_filter([
+                    $order->customer?->name,
+                    $order->vehicle?->plate_number,
+                ]))),
+                'flow' => 'in',
+                'amount' => $amount,
+                'status' => $order->status,
+                'status_label' => $formatStatusLabel($order->status),
+            ];
+        });
+
+        $partTimeline = $partSales->map(function ($sale) use ($formatStatusLabel) {
+            return [
+                'id' => 'part-' . $sale->id,
+                'date' => optional($sale->created_at)->format('Y-m-d H:i:s'),
+                'date_unix' => optional($sale->created_at)?->timestamp ?? 0,
+                'source' => 'part_sale',
+                'reference' => $sale->sale_number,
+                'description' => $sale->customer?->name,
+                'flow' => 'in',
+                'amount' => (int) ($sale->grand_total ?? 0),
+                'status' => $sale->status,
+                'status_label' => $formatStatusLabel($sale->status),
+            ];
+        });
+
+        $cashTimeline = $cashTransactions->map(function ($tx) use ($formatStatusLabel) {
+            $flow = match ($tx->transaction_type) {
+                'income' => 'in',
+                'expense', 'change_given' => 'out',
+                default => 'neutral',
+            };
+
+            $eventDate = $tx->happened_at ?? $tx->created_at;
+
+            return [
+                'id' => 'cash-' . $tx->id,
+                'date' => optional($eventDate)->format('Y-m-d H:i:s'),
+                'date_unix' => optional($eventDate)?->timestamp ?? 0,
+                'source' => 'cash_transaction',
+                'reference' => 'CASH-' . str_pad((string) $tx->id, 6, '0', STR_PAD_LEFT),
+                'description' => $tx->description,
+                'flow' => $flow,
+                'amount' => (int) $tx->amount,
+                'status' => $tx->transaction_type,
+                'status_label' => $formatStatusLabel($tx->transaction_type),
+            ];
+        });
+
+        $timeline = $serviceTimeline
+            ->concat($partTimeline)
+            ->concat($cashTimeline)
+            ->sortByDesc('date_unix')
+            ->values();
+
+        $statusOptions = $timeline
+            ->pluck('status')
+            ->filter(fn ($value) => !empty($value))
+            ->unique()
+            ->sort()
+            ->values()
+            ->map(fn ($value) => [
+                'value' => $value,
+                'label' => $formatStatusLabel($value),
+            ])
+            ->values();
+
+        if ($status !== 'all' && !$statusOptions->pluck('value')->contains($status)) {
+            $status = 'all';
+        }
+
+        $sourceFilteredTimeline = $source === 'all'
+            ? $timeline
+            : $timeline->where('source', $source)->values();
+
+        $filteredTimeline = $status === 'all'
+            ? $sourceFilteredTimeline
+            : $sourceFilteredTimeline->where('status', $status)->values();
+
+        $statusSummary = $sourceFilteredTimeline
+            ->groupBy('status')
+            ->map(function ($rows, $statusKey) use ($formatStatusLabel) {
+                $netAmount = collect($rows)->sum(function ($row) {
+                    $amount = (int) ($row['amount'] ?? 0);
+                    return match ($row['flow'] ?? 'neutral') {
+                        'in' => $amount,
+                        'out' => -$amount,
+                        default => 0,
+                    };
+                });
+
+                return [
+                    'value' => $statusKey,
+                    'label' => $formatStatusLabel($statusKey),
+                    'count' => count($rows),
+                    'net_amount' => (int) $netAmount,
+                ];
+            })
+            ->sortByDesc('count')
+            ->values();
+
+        $timelineWithRunningBalance = $filteredTimeline
+            ->sortBy('date_unix')
+            ->values()
+            ->reduce(function ($carry, $item) {
+                $amount = (int) ($item['amount'] ?? 0);
+                $delta = match ($item['flow'] ?? 'neutral') {
+                    'in' => $amount,
+                    'out' => -$amount,
+                    default => 0,
+                };
+
+                $running = (int) ($carry['running'] ?? 0) + $delta;
+                $item['running_balance'] = $running;
+                $carry['running'] = $running;
+                $carry['items'][] = $item;
+
+                return $carry;
+            }, ['running' => 0, 'items' => []]);
+
+        $displayTimeline = collect($timelineWithRunningBalance['items'] ?? [])
+            ->sortByDesc('date_unix')
+            ->values();
+
+        $total = $displayTimeline->count();
+        $items = $displayTimeline
+            ->slice(($currentPage - 1) * $perPage, $perPage)
+            ->values();
+
+        $paginatedTransactions = new LengthAwarePaginator(
+            $items,
+            $total,
+            $perPage,
+            $currentPage,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]
+        );
+
+        return inertia('Dashboard/Reports/Overall', [
+            'filters' => [
+                'start_date' => $startDate->format('Y-m-d'),
+                'end_date' => $endDate->format('Y-m-d'),
+                'source' => $source,
+                'status' => $status,
+                'per_page' => $perPage,
+            ],
+            'statusOptions' => $statusOptions,
+            'statusSummary' => $statusSummary,
+            'summary' => [
+                'service_revenue' => $serviceRevenue,
+                'part_revenue' => $partRevenue,
+                'total_revenue' => $serviceRevenue + $partRevenue,
+                'cash_in' => $cashIn,
+                'cash_out' => $cashOut,
+                'net_cash_flow' => $cashIn - $cashOut,
+                'transaction_count' => $filteredTimeline->count(),
+            ],
+            'transactions' => $paginatedTransactions,
+        ]);
+    }
+
     /**
      * Service Revenue Report
      */
@@ -297,7 +560,7 @@ class ServiceReportController extends Controller
             'Content-Disposition' => "attachment; filename=$filename",
         ];
 
-        $callback = function () use ($type, $startDate, $endDate) {
+        $callback = function () use ($request, $type, $startDate, $endDate) {
             $file = fopen('php://output', 'w');
 
             if ($type === 'revenue') {
@@ -393,6 +656,149 @@ class ServiceReportController extends Controller
                         $baseSalary,
                         $incentive,
                         $baseSalary + $incentive,
+                    ]);
+                }
+            } elseif ($type === 'overall') {
+                $source = $request->get('source', 'all');
+                $allowedSources = ['all', 'service_order', 'part_sale', 'cash_transaction'];
+                if (!in_array($source, $allowedSources, true)) {
+                    $source = 'all';
+                }
+                $status = $request->get('status', 'all');
+
+                $statusLabelMap = [
+                    'completed' => 'Selesai',
+                    'paid' => 'Lunas',
+                    'draft' => 'Draft',
+                    'confirmed' => 'Dikonfirmasi',
+                    'waiting_stock' => 'Menunggu Stok',
+                    'ready_to_notify' => 'Siap Diberitahu',
+                    'waiting_pickup' => 'Menunggu Diambil',
+                    'cancelled' => 'Dibatalkan',
+                    'income' => 'Kas Masuk',
+                    'expense' => 'Kas Keluar',
+                    'change_given' => 'Kembalian',
+                    'adjustment' => 'Penyesuaian',
+                ];
+
+                $formatStatusLabel = function (?string $status) use ($statusLabelMap): string {
+                    if (empty($status)) {
+                        return '-';
+                    }
+
+                    return $statusLabelMap[$status] ?? ucwords(str_replace('_', ' ', $status));
+                };
+
+                $serviceRows = ServiceOrder::query()
+                    ->with(['customer:id,name', 'vehicle:id,plate_number'])
+                    ->whereIn('status', ['completed', 'paid'])
+                    ->whereBetween('created_at', [$startDate, $endDate])
+                    ->get()
+                    ->map(function ($order) use ($formatStatusLabel) {
+                        return [
+                            'date' => optional($order->created_at)->format('Y-m-d H:i:s'),
+                            'date_unix' => optional($order->created_at)?->timestamp ?? 0,
+                            'source' => 'service_order',
+                            'reference' => $order->order_number,
+                            'description' => trim(implode(' | ', array_filter([
+                                $order->customer?->name,
+                                $order->vehicle?->plate_number,
+                            ]))),
+                            'flow' => 'in',
+                            'amount' => (int) ($order->grand_total ?? $order->total ?? 0),
+                            'status' => $order->status,
+                            'status_label' => $formatStatusLabel($order->status),
+                        ];
+                    });
+
+                $partRows = PartSale::query()
+                    ->with(['customer:id,name'])
+                    ->where('status', '!=', 'cancelled')
+                    ->whereBetween('created_at', [$startDate, $endDate])
+                    ->get()
+                    ->map(function ($sale) use ($formatStatusLabel) {
+                        return [
+                            'date' => optional($sale->created_at)->format('Y-m-d H:i:s'),
+                            'date_unix' => optional($sale->created_at)?->timestamp ?? 0,
+                            'source' => 'part_sale',
+                            'reference' => $sale->sale_number,
+                            'description' => $sale->customer?->name,
+                            'flow' => 'in',
+                            'amount' => (int) ($sale->grand_total ?? 0),
+                            'status' => $sale->status,
+                            'status_label' => $formatStatusLabel($sale->status),
+                        ];
+                    });
+
+                $cashRows = CashTransaction::query()
+                    ->where(function ($query) use ($startDate, $endDate) {
+                        $query->whereBetween('happened_at', [$startDate, $endDate])
+                            ->orWhere(function ($fallback) use ($startDate, $endDate) {
+                                $fallback->whereNull('happened_at')
+                                    ->whereBetween('created_at', [$startDate, $endDate]);
+                            });
+                    })
+                    ->get()
+                    ->map(function ($tx) use ($formatStatusLabel) {
+                        $flow = match ($tx->transaction_type) {
+                            'income' => 'in',
+                            'expense', 'change_given' => 'out',
+                            default => 'neutral',
+                        };
+                        $eventDate = $tx->happened_at ?? $tx->created_at;
+
+                        return [
+                            'date' => optional($eventDate)->format('Y-m-d H:i:s'),
+                            'date_unix' => optional($eventDate)?->timestamp ?? 0,
+                            'source' => 'cash_transaction',
+                            'reference' => 'CASH-' . str_pad((string) $tx->id, 6, '0', STR_PAD_LEFT),
+                            'description' => $tx->description,
+                            'flow' => $flow,
+                            'amount' => (int) $tx->amount,
+                            'status' => $tx->transaction_type,
+                            'status_label' => $formatStatusLabel($tx->transaction_type),
+                        ];
+                    });
+
+                $rows = $serviceRows->concat($partRows)->concat($cashRows)->sortByDesc('date_unix')->values();
+                if ($source !== 'all') {
+                    $rows = $rows->where('source', $source)->values();
+                }
+                if ($status !== 'all') {
+                    $rows = $rows->where('status', $status)->values();
+                }
+
+                $rowsWithBalance = $rows
+                    ->sortBy('date_unix')
+                    ->values()
+                    ->reduce(function ($carry, $row) {
+                        $amount = (int) ($row['amount'] ?? 0);
+                        $delta = match ($row['flow'] ?? 'neutral') {
+                            'in' => $amount,
+                            'out' => -$amount,
+                            default => 0,
+                        };
+                        $running = (int) ($carry['running'] ?? 0) + $delta;
+                        $row['running_balance'] = $running;
+                        $carry['running'] = $running;
+                        $carry['items'][] = $row;
+                        return $carry;
+                    }, ['running' => 0, 'items' => []]);
+
+                $rows = collect($rowsWithBalance['items'] ?? [])->sortByDesc('date_unix')->values();
+
+                fputcsv($file, ['Tanggal', 'Sumber', 'Referensi', 'Keterangan', 'Arus', 'Nominal', 'Status', 'Status Label', 'Saldo Berjalan']);
+                foreach ($rows as $row) {
+                    fputcsv($file, [
+                        $row['date'] ?? '-',
+                        $row['source'] ?? '-',
+                        $row['reference'] ?? '-',
+                        $row['description'] ?? '-',
+                        $row['flow'] ?? '-',
+                        (int) ($row['amount'] ?? 0),
+                        $row['status'] ?? '-',
+                        $row['status_label'] ?? '-',
+                        (int) ($row['running_balance'] ?? 0),
                     ]);
                 }
             }

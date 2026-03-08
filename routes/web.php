@@ -230,6 +230,8 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     // service orders
     Route::get('/service-orders', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'index'])->middleware('permission:service-orders-access')->name('service-orders.index');
     Route::get('/service-orders/create', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'create'])->middleware('permission:service-orders-create')->name('service-orders.create');
+    Route::get('/service-orders/quick-intake', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'createQuick'])->middleware('permission:service-orders-create')->name('service-orders.quick-intake.create');
+    Route::post('/service-orders/quick-intake', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'storeQuick'])->middleware('permission:service-orders-create')->name('service-orders.quick-intake.store');
     Route::get('/service-orders/{id}/print', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'print'])->middleware('permission:service-orders-access')->name('service-orders.print');
     Route::get('/service-orders/{id}', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'show'])->middleware('permission:service-orders-access')->name('service-orders.show');
     Route::get('/service-orders/{id}/edit', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'edit'])->middleware('permission:service-orders-update')->name('service-orders.edit');
@@ -258,6 +260,7 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::get('/reports/part-sales-profit/by-supplier', [PartSalesProfitReportController::class, 'bySupplier'])->middleware('permission:reports-access')->name('reports.part-sales-profit.by-supplier');
 
     // Service Reports
+    Route::get('/reports/overall', [\App\Http\Controllers\Apps\ServiceReportController::class, 'overall'])->middleware('permission:reports-access')->name('reports.overall.index');
     Route::get('/reports/service-revenue', [\App\Http\Controllers\Apps\ServiceReportController::class, 'revenue'])->middleware('permission:reports-access')->name('reports.service-revenue.index');
     Route::get('/reports/mechanic-productivity', [\App\Http\Controllers\Apps\ServiceReportController::class, 'mechanicProductivity'])->middleware('permission:reports-access')->name('reports.mechanic-productivity.index');
     Route::get('/reports/mechanic-payroll', [\App\Http\Controllers\Apps\ServiceReportController::class, 'mechanicPayroll'])->middleware('permission:reports-access')->name('reports.mechanic-payroll.index');
