@@ -69,8 +69,21 @@ class PartController extends Controller
 
         $parts = $query->paginate((int)$perPage)->withQueryString();
 
+        $stats = [
+            'total'         => Part::count(),
+            'normal'        => Part::where('stock', '>', 0)
+                                ->where(function ($q) {
+                                    $q->whereColumn('stock', '>', 'minimal_stock')
+                                      ->orWhere('minimal_stock', 0);
+                                })->count(),
+            'low_stock'     => Part::whereColumn('stock', '<=', 'minimal_stock')
+                                ->where('minimal_stock', '>', 0)->count(),
+            'out_of_stock'  => Part::where('stock', 0)->count(),
+        ];
+
         return Inertia::render('Dashboard/Parts/Index', [
             'parts' => $parts,
+            'stats' => $stats,
             'filters' => [
                 'q' => $q,
                 'category_id' => $categoryId,

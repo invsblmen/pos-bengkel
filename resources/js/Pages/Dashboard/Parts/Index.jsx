@@ -1,16 +1,16 @@
-import React, { useMemo, useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Head, router, Link } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import Button from '@/Components/Dashboard/Button';
-import Search from '@/Components/Dashboard/Search';
 import Pagination from '@/Components/Dashboard/Pagination';
 import { useVisibilityRealtime } from '@/Hooks/useRealtime';
 import {
-    IconDatabaseOff, IconCirclePlus, IconPencilCog, IconTrash,
+    IconCirclePlus, IconPencilCog, IconTrash,
     IconPackage, IconAlertCircle, IconMapPin,
-    IconFilter, IconX, IconChevronDown, IconArrowUp, IconArrowDown, IconArrowsSort,
-    IconArrowUpRight, IconCategory, IconTruck, IconBox, IconDownload, IconPrinter,
-    IconCheck, IconChevronUp, IconEye, IconEyeOff, IconSquareX, IconStack
+    IconFilter, IconX, IconArrowUp, IconArrowDown, IconArrowsSort,
+    IconCategory, IconTruck, IconBox, IconDownload, IconPrinter,
+    IconEye, IconSearch, IconList, IconLayoutGrid,
+    IconShieldCheck, IconAlertTriangle,
 } from '@tabler/icons-react';
 
 const formatCurrency = (value = 0) =>
@@ -20,615 +20,449 @@ const formatCurrency = (value = 0) =>
         minimumFractionDigits: 0,
     }).format(value);
 
-// Gradient Stat Card Component
-function StatCard({ title, value, subtitle, icon: Icon, gradient }) {
+const stockMeta = {
+    all:    { label: 'Semua',       chip: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
+    normal: { label: 'Normal',      chip: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
+    low:    { label: 'Stok Rendah', chip: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
+    out:    { label: 'Habis',       chip: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
+};
+
+function StatCard({ title, value, subtitle, icon, tone }) {
+    const tones = {
+        blue:   'from-blue-50 to-blue-100 border-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 dark:border-blue-800 text-blue-800 dark:text-blue-200',
+        green:  'from-green-50 to-green-100 border-green-200 dark:from-green-900/20 dark:to-green-800/20 dark:border-green-800 text-green-800 dark:text-green-200',
+        amber:  'from-amber-50 to-amber-100 border-amber-200 dark:from-amber-900/20 dark:to-amber-800/20 dark:border-amber-800 text-amber-800 dark:text-amber-200',
+        red:    'from-red-50 to-red-100 border-red-200 dark:from-red-900/20 dark:to-red-800/20 dark:border-red-800 text-red-800 dark:text-red-200',
+    };
     return (
-        <div className={`relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br ${gradient} text-white shadow-lg`}>
-            <div className="absolute top-0 right-0 w-32 h-32 opacity-20">
-                <Icon size={128} strokeWidth={0.5} className="transform translate-x-8 -translate-y-8" />
-            </div>
-            <div className="relative z-10">
-                <div className="flex items-center gap-2 mb-3">
-                    <div className="p-2 rounded-xl bg-white/20">
-                        <Icon size={20} strokeWidth={1.5} />
-                    </div>
-                    <span className="text-sm font-medium opacity-90">{title}</span>
+        <div className={`rounded-2xl border bg-gradient-to-br p-4 ${tones[tone]}`}>
+            <div className="flex items-center justify-between gap-3">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide opacity-80">{title}</p>
+                    <p className="mt-1 text-2xl font-black">{value}</p>
+                    <p className="text-xs opacity-80">{subtitle}</p>
                 </div>
-                <p className="text-3xl font-bold">{value}</p>
-                {subtitle && (
-                    <p className="mt-2 text-sm opacity-80 flex items-center gap-1">
-                        <IconArrowUpRight size={14} />
-                        {subtitle}
-                    </p>
-                )}
+                <div className="rounded-xl bg-white/70 dark:bg-slate-900/40 p-2.5">{icon}</div>
             </div>
         </div>
     );
 }
 
-export default function Index({ parts, filters, categories, suppliers }) {
-    const [showFilters, setShowFilters] = useState(false);
-    const [liveItems, setLiveItems] = useState(parts?.data || []);
-    const [visibleColumns, setVisibleColumns] = useState({
-        name: true,
-        part_number: true,
-        category: true,
-        supplier: true,
-        rack_location: true,
-        stock: true,
-        minimal_stock: true,
-        buy_price: true,
-        sell_price: true,
-    });
+function EmptyState({ hasFilters, onReset }) {
+    return (
+        <div className="py-16 text-center">
+            <div className="inline-flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-700 mb-4">
+                <IconBox size={40} className="text-slate-400 dark:text-slate-500" />
+            </div>
+            <h3 className="mb-2 text-lg font-semibold text-slate-900 dark:text-slate-100">Belum ada sparepart</h3>
+            <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
+                {hasFilters
+                    ? 'Tidak ada part yang sesuai dengan filter yang diterapkan.'
+                    : 'Mulai dengan menambahkan sparepart pertama Anda.'}
+            </p>
+            {hasFilters ? (
+                <button
+                    onClick={onReset}
+                    className="inline-flex items-center gap-2 px-6 py-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium rounded-xl transition-colors"
+                >
+                    <IconX size={18} /> Reset Filter
+                </button>
+            ) : (
+                <Link
+                    href={route('parts.create')}
+                    className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-colors shadow-sm"
+                >
+                    <IconCirclePlus size={18} /> Tambah Part Pertama
+                </Link>
+            )}
+        </div>
+    );
+}
+
+export default function Index({ parts, filters, categories, suppliers, stats }) {
+    const [search, setSearch]             = useState(filters?.q || '');
+    const [stockStatus, setStockStatus]   = useState(filters?.stock_status || 'all');
+    const [showFilters, setShowFilters]   = useState(false);
+    const [viewMode, setViewMode]         = useState('table');
+    const [liveItems, setLiveItems]       = useState(parts?.data || []);
     const [showColumnToggle, setShowColumnToggle] = useState(false);
+    const [visibleColumns, setVisibleColumns] = useState({
+        name: true, part_number: true, category: true, supplier: true,
+        rack_location: true, stock: true, minimal_stock: true,
+        buy_price: true, sell_price: true,
+    });
     const [activeFilters, setActiveFilters] = useState({
         category_id: filters?.category_id || '',
         supplier_id: filters?.supplier_id || '',
-        stock_status: filters?.stock_status || '',
     });
 
-    // Enable real-time updates - auto refresh every 5 seconds
-    // Pause when tab not visible to save resources
-    useVisibilityRealtime({
-        interval: 5000,
-        only: ['parts'],
-        preserveScroll: true,
-        preserveState: true
-    });
+    useEffect(() => { setLiveItems(parts?.data || []); }, [parts?.data]);
 
-    // Real-time Echo listeners
+    useVisibilityRealtime({ interval: 5000, only: ['parts', 'stats'], preserveScroll: true, preserveState: true });
+
     useEffect(() => {
         if (!window.Echo) return;
         const channel = window.Echo.channel('workshop.parts');
-
-        channel.listen('.part.created', (event) => {
-            const incoming = event?.part;
-            if (!incoming?.id) return;
-            setLiveItems(prev => {
-                if (prev.some(i => i.id === incoming.id)) return prev;
-                return [incoming, ...prev];
-            });
+        channel.listen('.part.created', ({ part }) => {
+            if (!part?.id) return;
+            setLiveItems(prev => prev.some(i => i.id === part.id) ? prev : [part, ...prev]);
         });
-
-        channel.listen('.part.updated', (event) => {
-            const updated = event?.part;
-            if (!updated?.id) return;
-            setLiveItems(prev => {
-                const index = prev.findIndex(i => i.id === updated.id);
-                if (index === -1) return prev;
-                const newArr = [...prev];
-                newArr[index] = updated;
-                return newArr;
-            });
+        channel.listen('.part.updated', ({ part }) => {
+            if (!part?.id) return;
+            setLiveItems(prev => prev.map(i => i.id === part.id ? part : i));
         });
-
-        channel.listen('.part.deleted', (event) => {
-            const id = event?.partId;
-            if (!id) return;
-            setLiveItems(prev => prev.filter(i => i.id !== id));
+        channel.listen('.part.deleted', ({ partId }) => {
+            if (!partId) return;
+            setLiveItems(prev => prev.filter(i => i.id !== partId));
         });
-
         return () => window.Echo.leaveChannel('workshop.parts');
     }, []);
 
-    const pageStats = useMemo(() => {
-        const items = liveItems || [];
-        const lowStock = items.filter((p) => p.minimal_stock > 0 && p.stock <= p.minimal_stock).length;
-        const outStock = items.filter((p) => p.stock === 0).length;
-        return { lowStock, outStock, pageCount: items.length };
-    }, [liveItems]);
-
     const handleSort = (column) => {
-        const currentSort = filters?.sort_by;
-        const currentDirection = filters?.sort_direction || 'asc';
-        let newDirection = 'asc';
-        if (currentSort === column && currentDirection === 'asc') {
-            newDirection = 'desc';
-        }
-        router.get(route('parts.index'), {
-            ...filters,
-            sort_by: column,
-            sort_direction: newDirection,
-        }, {
-            preserveState: true,
-            preserveScroll: true,
-        });
+        const dir = filters?.sort_by === column && filters?.sort_direction === 'asc' ? 'desc' : 'asc';
+        router.get(route('parts.index'), { ...filters, sort_by: column, sort_direction: dir }, { preserveState: true, preserveScroll: true });
     };
 
-    const getSortIcon = (column) => {
-        if (filters?.sort_by !== column) {
-            return <IconArrowsSort size={14} className="opacity-50" />;
-        }
+    const getSortIcon = (col) => {
+        if (filters?.sort_by !== col) return <IconArrowsSort size={14} className="opacity-50" />;
         return filters?.sort_direction === 'asc'
             ? <IconArrowUp size={14} className="text-primary-600 dark:text-primary-400" />
             : <IconArrowDown size={14} className="text-primary-600 dark:text-primary-400" />;
     };
 
-    const handleFilterChange = (key, value) => {
-        const newFilters = { ...activeFilters, [key]: value };
-        setActiveFilters(newFilters);
+    const handleFilter = (e) => {
+        e?.preventDefault();
         router.get(route('parts.index'), {
-            search: filters?.search || '',
-            ...newFilters,
-        }, {
-            preserveState: true,
-            preserveScroll: true,
-        });
+            q:            search || undefined,
+            stock_status: stockStatus !== 'all' ? stockStatus : undefined,
+            category_id:  activeFilters.category_id || undefined,
+            supplier_id:  activeFilters.supplier_id || undefined,
+            per_page:     filters?.per_page || 10,
+        }, { preserveState: true, preserveScroll: true });
     };
 
-    const clearFilters = () => {
-        setActiveFilters({
-            category_id: '',
-            supplier_id: '',
-            stock_status: '',
-        });
+    const handleQuickStockFilter = (val) => {
+        setStockStatus(val);
         router.get(route('parts.index'), {
-            search: filters?.search || '',
-        }, {
-            preserveState: true,
-            preserveScroll: true,
-        });
+            q:            search || undefined,
+            stock_status: val !== 'all' ? val : undefined,
+            category_id:  activeFilters.category_id || undefined,
+            supplier_id:  activeFilters.supplier_id || undefined,
+            per_page:     filters?.per_page || 10,
+        }, { preserveState: true, preserveScroll: true });
     };
 
-    const handlePerPageChange = (newPerPage) => {
-        router.get(route('parts.index'), {
-            per_page: parseInt(newPerPage),
-        }, {
-            preserveState: true,
-            preserveScroll: true,
-        });
+    const handleReset = () => {
+        setSearch(''); setStockStatus('all');
+        setActiveFilters({ category_id: '', supplier_id: '' });
+        router.get(route('parts.index'));
     };
 
-    const hasActiveFilters = Object.values(activeFilters).some(value => value !== '');
-
-    const toggleRowSelection = (id, isSelected) => {
-        // Not used anymore, keeping for compatibility
-    };
-
-    const toggleAllSelection = (isSelected) => {
-        // Not used anymore, keeping for compatibility
-    };
-
-    const toggleColumn = (column) => {
-        setVisibleColumns({
-            ...visibleColumns,
-            [column]: !visibleColumns[column]
-        });
-    };
+    const toggleColumn = (col) => setVisibleColumns(prev => ({ ...prev, [col]: !prev[col] }));
 
     const handleExportCSV = () => {
-        const headers = [];
-        const rows = [];
-
-        // Add headers
-        if (visibleColumns.name) headers.push('Nama Part');
-        if (visibleColumns.part_number) headers.push('Kode Part');
-        if (visibleColumns.category) headers.push('Kategori');
-        if (visibleColumns.supplier) headers.push('Supplier');
-        if (visibleColumns.rack_location) headers.push('Lokasi Rak');
-        if (visibleColumns.stock) headers.push('Stok');
-        if (visibleColumns.minimal_stock) headers.push('Min. Stok');
-        if (visibleColumns.buy_price) headers.push('Harga Beli');
-        if (visibleColumns.sell_price) headers.push('Harga Jual');
-
-        // Add data rows
-        parts.data.forEach(p => {
+        const colLabels = { name: 'Nama Part', part_number: 'Kode Part', category: 'Kategori', supplier: 'Supplier', rack_location: 'Lokasi Rak', stock: 'Stok', minimal_stock: 'Min. Stok', buy_price: 'Harga Beli', sell_price: 'Harga Jual' };
+        const headers = Object.keys(colLabels).filter(c => visibleColumns[c]).map(c => colLabels[c]);
+        const rows = parts.data.map(p => {
             const row = [];
-            if (visibleColumns.name) row.push(`"${p.name}"`);
-            if (visibleColumns.part_number) row.push(p.part_number || '');
-            if (visibleColumns.category) row.push(p.category?.name || '');
-            if (visibleColumns.supplier) row.push(p.supplier?.name || '');
+            if (visibleColumns.name)          row.push(`"${p.name}"`);
+            if (visibleColumns.part_number)   row.push(p.part_number || '');
+            if (visibleColumns.category)      row.push(p.category?.name || '');
+            if (visibleColumns.supplier)      row.push(p.supplier?.name || '');
             if (visibleColumns.rack_location) row.push(p.rack_location || '');
-            if (visibleColumns.stock) row.push(p.stock);
+            if (visibleColumns.stock)         row.push(p.stock);
             if (visibleColumns.minimal_stock) row.push(p.minimal_stock || '');
-            if (visibleColumns.buy_price) row.push(p.buy_price || '');
-            if (visibleColumns.sell_price) row.push(p.sell_price || '');
-            rows.push(row.join(','));
+            if (visibleColumns.buy_price)     row.push(p.buy_price || '');
+            if (visibleColumns.sell_price)    row.push(p.sell_price || '');
+            return row.join(',');
         });
-
-        const csv = [headers.join(','), ...rows].join('\n');
+        const csv  = [headers.join(','), ...rows].join('\n');
         const blob = new Blob([csv], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `sparepart-${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
+        const url  = window.URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url; a.download = `sparepart-${new Date().toISOString().split('T')[0]}.csv`; a.click();
     };
 
-    const handlePrint = () => {
-        window.print();
+    const activeFiltersCount = [search, stockStatus !== 'all', activeFilters.category_id, activeFilters.supplier_id].filter(Boolean).length;
+    const colLabels = { name: 'Nama Part', part_number: 'Kode Part', category: 'Kategori', supplier: 'Supplier', rack_location: 'Lokasi Rak', stock: 'Stok', minimal_stock: 'Min. Stok', buy_price: 'Harga Beli', sell_price: 'Harga Jual' };
+
+    const getStockBadge = (p) => {
+        const s = p.stock === 0 ? 'out' : (p.minimal_stock > 0 && p.stock <= p.minimal_stock ? 'low' : 'normal');
+        return {
+            key: s,
+            cls: { out: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300', low: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300', normal: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' }[s],
+            label: { out: 'Habis', low: 'Stok Rendah', normal: 'Normal' }[s],
+        };
     };
 
     return (
         <>
-            <Head title="Part" />
+            <Head title="Sparepart" />
+            <div className="space-y-6">
 
-            <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Sparepart</h1>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">{parts?.total || 0} part tersedia</p>
+                {/*  Hero Banner  */}
+                <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-gradient-to-br from-white via-primary-50/50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 p-5 md:p-6">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div>
+                            <p className="text-xs font-bold uppercase tracking-[0.15em] text-primary-600 dark:text-primary-400">Inventory Management</p>
+                            <h1 className="mt-1 text-2xl font-black text-slate-900 dark:text-white">Sparepart</h1>
+                            <p className="text-sm text-slate-600 dark:text-slate-400">Kelola stok, harga, dan informasi seluruh sparepart bengkel.</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            {/* View mode toggle */}
+                            <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-1">
+                                <button type="button" onClick={() => setViewMode('table')} className={`p-2 rounded-lg ${viewMode === 'table' ? 'bg-primary-500 text-white' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}><IconList size={18} /></button>
+                                <button type="button" onClick={() => setViewMode('card')}  className={`p-2 rounded-lg ${viewMode === 'card'  ? 'bg-primary-500 text-white' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}><IconLayoutGrid size={18} /></button>
+                            </div>
+                            <Link href={route('part-categories.index')} className="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-xl transition-colors text-sm">
+                                <IconCategory size={16} /> Kategori
+                            </Link>
+                            <Link href={route('parts.create')} className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-semibold rounded-xl transition-colors shadow-sm text-sm">
+                                <IconCirclePlus size={18} /> Tambah Part
+                            </Link>
+                        </div>
                     </div>
+
+                    {/* Stat cards */}
+                    <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
+                        <StatCard title="Total Part"    value={stats?.total        ?? parts?.total ?? 0} subtitle="Seluruh sparepart"  icon={<IconBox size={20} />}           tone="blue"  />
+                        <StatCard title="Normal"        value={stats?.normal       ?? 0}                 subtitle="Stok aman"          icon={<IconShieldCheck size={20} />}   tone="green" />
+                        <StatCard title="Stok Rendah"   value={stats?.low_stock    ?? 0}                 subtitle="Perlu restock"      icon={<IconAlertTriangle size={20} />} tone="amber" />
+                        <StatCard title="Habis"         value={stats?.out_of_stock ?? 0}                 subtitle="Tidak tersedia"     icon={<IconPackage size={20} />}       tone="red"   />
+                    </div>
+                </div>
+
+                {/*  Filter Bar  */}
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-4">
+                    {/* Quick stock chips */}
                     <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                            type="link"
-                            href={route('part-categories.index')}
-                            icon={<IconCategory size={18} />}
-                            label="Kategori Sparepart"
-                            className="bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-700"
-                        />
-                        <Button type="link" href={route('parts.create')} icon={<IconCirclePlus size={18} />} label="Tambah Part" className="bg-primary-500 hover:bg-primary-600 text-white shadow-lg shadow-primary-500/30" />
-                    </div>
-                </div>
-
-                {/* Summary Stats with Gradient Cards */}
-                <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <StatCard
-                        title="Total Part"
-                        value={parts?.total || 0}
-                        subtitle={`${pageStats.pageCount} di halaman ini`}
-                        icon={IconBox}
-                        gradient="from-blue-500 to-cyan-500"
-                    />
-                    <StatCard
-                        title="Stok Minimal"
-                        value={pageStats.lowStock}
-                        subtitle="Perlu segera di-restock"
-                        icon={IconAlertCircle}
-                        gradient="from-amber-500 to-orange-500"
-                    />
-                    <StatCard
-                        title="Stok Habis"
-                        value={pageStats.outStock}
-                        subtitle="Tidak tersedia"
-                        icon={IconPackage}
-                        gradient="from-rose-500 to-pink-500"
-                    />
-                    <Link
-                        href={route('parts.low-stock')}
-                        className="relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-purple-500 to-indigo-500 text-white shadow-lg hover:shadow-xl transition-shadow group"
-                    >
-                        <div className="absolute top-0 right-0 w-32 h-32 opacity-20">
-                            <IconAlertCircle size={128} strokeWidth={0.5} className="transform translate-x-8 -translate-y-8" />
-                        </div>
-                        <div className="relative z-10">
-                            <div className="flex items-center gap-2 mb-3">
-                                <div className="p-2 rounded-xl bg-white/20">
-                                    <IconAlertCircle size={20} strokeWidth={1.5} />
-                                </div>
-                                <span className="text-sm font-medium opacity-90">Notifikasi</span>
-                            </div>
-                            <p className="text-3xl font-bold mb-1">Stok Minimal</p>
-                            <p className="text-sm opacity-80 flex items-center gap-1">
-                                <IconArrowUpRight size={14} />
-                                Lihat semua alert
-                            </p>
-                        </div>
-                    </Link>
-                </div>
-            </div>
-
-            {/* Search and Filters */}
-            <div className="mb-4 space-y-4">
-                <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
-                    <div className="flex-1 max-w-md">
-                        <Search route={route('parts.index')} placeholder="Cari part, kode, lokasi rak..." />
-                    </div>
-                    <div className="flex gap-2 items-center">
-                        <select
-                            value={filters?.per_page || 10}
-                            onChange={(e) => handlePerPageChange(e.target.value)}
-                            className="h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 text-sm font-medium focus:ring-4 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
-                            title="Data per halaman"
-                        >
-                            <option value="10">10 per halaman</option>
-                            <option value="25">25 per halaman</option>
-                            <option value="50">50 per halaman</option>
-                            <option value="100">100 per halaman</option>
-                        </select>
-                        <div className="relative">
+                        {['all', 'normal', 'low', 'out'].map((key) => (
                             <button
-                                onClick={() => setShowColumnToggle(!showColumnToggle)}
-                                className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all"
-                                title="Kolom yang Ditampilkan"
+                                key={key} type="button"
+                                onClick={() => handleQuickStockFilter(key)}
+                                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${stockStatus === key ? 'border-primary-500 bg-primary-500 text-white' : `border-transparent ${stockMeta[key].chip}`}`}
                             >
-                                <IconEye size={18} />
+                                {stockMeta[key].label}
                             </button>
-                            {showColumnToggle && (
-                                <div className="absolute right-0 top-full mt-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg z-20 min-w-48">
-                                    <div className="p-3 border-b border-slate-200 dark:border-slate-700">
-                                        <p className="text-sm font-semibold text-slate-900 dark:text-white">Tampilkan Kolom</p>
-                                    </div>
-                                    <div className="p-3 space-y-2 max-h-64 overflow-y-auto">
-                                        {Object.entries(visibleColumns).map(([col, visible]) => (
-                                            <label key={col} className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 p-2 rounded">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={visible}
-                                                    onChange={() => toggleColumn(col)}
-                                                    className="w-4 h-4 rounded"
-                                                />
-                                                <span className="text-sm text-slate-700 dark:text-slate-300">
-                                                    {col === 'part_number' && 'Kode Part'}
-                                                    {col === 'buy_price' && 'Harga Beli'}
-                                                    {col === 'sell_price' && 'Harga Jual'}
-                                                    {col === 'rack_location' && 'Lokasi Rak'}
-                                                    {col === 'minimal_stock' && 'Min. Stok'}
-                                                    {col === 'name' && 'Nama Part'}
-                                                    {col === 'category' && 'Kategori'}
-                                                    {col === 'supplier' && 'Supplier'}
-                                                    {col === 'stock' && 'Stok'}
-                                                </span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={handleExportCSV}
-                            className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all"
-                            title="Export CSV"
-                        >
-                            <IconDownload size={18} />
-                        </button>
-                        <button
-                            onClick={handlePrint}
-                            className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all"
-                            title="Print"
-                        >
-                            <IconPrinter size={18} />
-                        </button>
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className={hasActiveFilters || showFilters
-                                ? 'inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all bg-primary-500 text-white hover:bg-primary-600 shadow-lg shadow-primary-500/30'
-                                : 'inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
-                            }
-                        >
-                            <IconFilter size={18} />
-                            {hasActiveFilters && (
-                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-xs font-bold">
-                                    {Object.values(activeFilters).filter(v => v !== '').length}
-                                </span>
-                            )}
-                            <IconChevronDown size={16} className={`transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Filter Panel */}
-                {showFilters && (
-                    <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700">
-                        <div className="border-b border-slate-200 bg-slate-50 px-6 py-4 dark:border-slate-700 dark:bg-slate-800/50">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-100 dark:bg-primary-900/50">
-                                        <IconFilter size={20} className="text-primary-600 dark:text-primary-400" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                                            Filter Sparepart
-                                        </h3>
-                                        <p className="text-sm text-slate-500 dark:text-slate-400">
-                                            Saring data berdasarkan kriteria
-                                        </p>
-                                    </div>
-                                </div>
-                                {hasActiveFilters && (
-                                    <button
-                                        onClick={clearFilters}
-                                        className="inline-flex items-center gap-2 rounded-xl bg-danger-100 px-4 py-2 text-sm font-medium text-danger-700 transition hover:bg-danger-200 dark:bg-danger-900/30 dark:text-danger-300 dark:hover:bg-danger-900/50"
-                                    >
-                                        <IconX size={16} />
-                                        Hapus Filter
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                        <div className="p-6">
-                            <div className="grid gap-6 md:grid-cols-3">
-                                {/* Category Filter */}
-                                <div>
-                                    <label className="flex text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 items-center gap-2">
-                                        <IconCategory size={16} />
-                                        Kategori
-                                    </label>
-                                    <select
-                                        value={activeFilters.category_id}
-                                        onChange={(e) => handleFilterChange('category_id', e.target.value)}
-                                        className="w-full h-11 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-4 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
-                                    >
-                                        <option value="">Semua Kategori</option>
-                                        {categories?.map((cat) => (
-                                            <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                {/* Supplier Filter */}
-                                <div>
-                                    <label className="flex text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 items-center gap-2">
-                                        <IconTruck size={16} />
-                                        Supplier
-                                    </label>
-                                    <select
-                                        value={activeFilters.supplier_id}
-                                        onChange={(e) => handleFilterChange('supplier_id', e.target.value)}
-                                        className="w-full h-11 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-4 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
-                                    >
-                                        <option value="">Semua Supplier</option>
-                                        {suppliers?.map((sup) => (
-                                            <option key={sup.id} value={sup.id}>{sup.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                {/* Stock Status Filter */}
-                                <div>
-                                    <label className="flex text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 items-center gap-2">
-                                        <IconPackage size={16} />
-                                        Status Stok
-                                    </label>
-                                    <select
-                                        value={activeFilters.stock_status}
-                                        onChange={(e) => handleFilterChange('stock_status', e.target.value)}
-                                        className="w-full h-11 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-4 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
-                                    >
-                                        <option value="">Semua Status</option>
-                                        <option value="normal">Normal</option>
-                                        <option value="low">Stok Rendah</option>
-                                        <option value="out">Habis</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {liveItems && liveItems.length > 0 ? (
-                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
-                                            <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">No</th>
-                                            {visibleColumns.name && <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                                <button onClick={() => handleSort('name')} className="flex items-center gap-2 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
-                                                    Nama Part {getSortIcon('name')}
-                                                </button>
-                                            </th>}
-                                            {visibleColumns.part_number && <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                                <button onClick={() => handleSort('part_number')} className="flex items-center gap-2 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
-                                                    Kode Part {getSortIcon('part_number')}
-                                                </button>
-                                            </th>}
-                                            {visibleColumns.category && <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kategori</th>}
-                                            {visibleColumns.supplier && <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Supplier</th>}
-                                            {visibleColumns.rack_location && <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                                <button onClick={() => handleSort('rack_location')} className="flex items-center gap-2 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
-                                                    Lokasi Rak {getSortIcon('rack_location')}
-                                                </button>
-                                            </th>}
-                                            {visibleColumns.stock && <th className="px-4 py-4 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                                <button onClick={() => handleSort('stock')} className="flex items-center justify-center gap-2 w-full hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
-                                                    Stok {getSortIcon('stock')}
-                                                </button>
-                                            </th>}
-                                            {visibleColumns.minimal_stock && <th className="px-4 py-4 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Min. Stok</th>}
-                                            {visibleColumns.buy_price && <th className="px-4 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                                <button onClick={() => handleSort('buy_price')} className="flex items-center justify-end gap-2 w-full hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
-                                                    Harga Beli {getSortIcon('buy_price')}
-                                                </button>
-                                            </th>}
-                                            {visibleColumns.sell_price && <th className="px-4 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                                <button onClick={() => handleSort('sell_price')} className="flex items-center justify-end gap-2 w-full hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
-                                                    Harga Jual {getSortIcon('sell_price')}
-                                                </button>
-                                            </th>}
-                                            <th className="px-4 py-4 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Aksi</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                        {liveItems.map((p, idx) => {
-                                            const stockStatus = p.stock === 0 ? 'out' : (p.minimal_stock > 0 && p.stock <= p.minimal_stock ? 'low' : 'normal');
-                                            const stockBadge = {
-                                                out: 'bg-danger-100 text-danger-700 dark:bg-danger-900 dark:text-danger-300',
-                                                low: 'bg-warning-100 text-warning-700 dark:bg-warning-900 dark:text-warning-300',
-                                                normal: 'bg-success-100 text-success-700 dark:bg-success-900 dark:text-success-300'
-                                            }[stockStatus];
-
-                                            return (
-                                                <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                                    <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">{idx + 1 + ((parts.current_page || 1) - 1) * (parts.per_page || parts.data.length)}</td>
-                                                    {visibleColumns.name && <td className="px-4 py-4">
-                                                        <div className="text-sm font-semibold text-slate-900 dark:text-white">{p.name}</div>
-                                                        {p.description && <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">{p.description}</div>}
-                                                    </td>}
-                                                    {visibleColumns.part_number && <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400 font-mono">{p.part_number || '-'}</td>}
-                                                    {visibleColumns.category && <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">{p.category?.name || '-'}</td>}
-                                                    {visibleColumns.supplier && <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">{p.supplier?.name || '-'}</td>}
-                                                    {visibleColumns.rack_location && <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">
-                                                        {p.rack_location ? (
-                                                            <div className="flex items-center gap-1">
-                                                                <IconMapPin size={14} className="text-slate-400" />
-                                                                <span>{p.rack_location}</span>
-                                                            </div>
-                                                        ) : '-'}
-                                                    </td>}
-                                                    {visibleColumns.stock && <td className="px-4 py-4 text-center">
-                                                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${stockBadge}`}>
-                                                            <IconPackage size={14} />
-                                                            {p.stock}
-                                                        </span>
-                                                    </td>}
-                                                    {visibleColumns.minimal_stock && <td className="px-4 py-4 text-center">
-                                                        {p.minimal_stock > 0 ? (
-                                                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
-                                                                <IconAlertCircle size={12} />
-                                                                {p.minimal_stock}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-xs text-slate-400">-</span>
-                                                        )}
-                                                    </td>}
-                                                    {visibleColumns.buy_price && <td className="px-4 py-4 text-right text-sm text-slate-600 dark:text-slate-400">{formatCurrency(p.buy_price || 0)}</td>}
-                                                    {visibleColumns.sell_price && <td className="px-4 py-4 text-right text-sm font-semibold text-slate-900 dark:text-white">{formatCurrency(p.sell_price || 0)}</td>}
-                                                    <td className="px-4 py-4 text-center">
-                                                        <div className="flex items-center justify-center gap-2">
-                                                            <Link href={route('parts.show', p.id)} className="inline-flex items-center justify-center p-2 rounded-lg text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 transition-colors" title="Lihat Detail">
-                                                                <IconEye size={16} />
-                                                            </Link>
-                                                            <Link href={route('parts.edit', p.id)} className="inline-flex items-center justify-center p-2 rounded-lg text-warning-600 hover:bg-warning-50 dark:hover:bg-warning-900/30 transition-colors" title="Edit">
-                                                                <IconPencilCog size={16} />
-                                                            </Link>
-                                                            <Button type="delete" icon={<IconTrash size={16} />} className="inline-flex items-center justify-center p-2 rounded-lg text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-900/30" url={route('parts.destroy', p.id)} label="" />
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    ) : (
-                <div className="flex flex-col items-center justify-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
-                    <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
-                        <IconDatabaseOff size={32} className="text-slate-400" strokeWidth={1.5} />
-                    </div>
-                    <h3 className="text-lg font-medium text-slate-800 dark:text-slate-200 mb-1">Belum Ada Part</h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Part akan muncul di sini setelah dibuat.</p>
-                    <Button type="link" href={route('parts.create')} icon={<IconCirclePlus size={18} />} label="Tambah Part Pertama" />
-                </div>
-            )}
-
-
-            {/* Pagination */}
-            {parts.links && (
-                <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4 bg-slate-50 dark:border-slate-700 dark:bg-slate-900 rounded-b-2xl">
-                    <div className="text-sm text-slate-700 dark:text-slate-300">
-                        Menampilkan <span className="font-semibold">{parts.from}</span> hingga <span className="font-semibold">{parts.to}</span> dari <span className="font-semibold">{parts.total}</span> data
-                    </div>
-                    <div className="flex gap-2">
-                        {parts.links.map((link, index) => (
-                            <Link
-                                key={index}
-                                href={link.url || '#'}
-                                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                                    link.active
-                                        ? 'bg-primary-500 text-white shadow-md'
-                                        : 'bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
-                                } ${!link.url && 'cursor-not-allowed opacity-50 pointer-events-none'}`}
-                                dangerouslySetInnerHTML={{ __html: link.label }}
-                            />
                         ))}
                     </div>
+
+                    {/* Search + controls */}
+                    <div className="flex flex-col lg:flex-row gap-3">
+                        <div className="flex-1 relative">
+                            <IconSearch size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="text" value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleFilter()}
+                                placeholder="Cari nama, kode part, lokasi rak..."
+                                className="w-full pl-9 pr-4 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary-500 text-sm"
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {/* Per page */}
+                            <select
+                                value={filters?.per_page || 10}
+                                onChange={(e) => router.get(route('parts.index'), { ...filters, per_page: parseInt(e.target.value) }, { preserveState: true, preserveScroll: true })}
+                                className="h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 text-sm focus:ring-2 focus:ring-primary-500"
+                            >
+                                <option value="10">10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+
+                            {/* Column toggle */}
+                            <div className="relative">
+                                <button onClick={() => setShowColumnToggle(!showColumnToggle)} className="inline-flex items-center rounded-xl px-3 py-2.5 text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700" title="Kolom">
+                                    <IconEye size={16} />
+                                </button>
+                                {showColumnToggle && (
+                                    <div className="absolute right-0 top-full mt-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg z-20 min-w-[11rem]">
+                                        <div className="p-3 border-b border-slate-200 dark:border-slate-700">
+                                            <p className="text-sm font-semibold text-slate-900 dark:text-white">Tampilkan Kolom</p>
+                                        </div>
+                                        <div className="p-3 space-y-1.5 max-h-64 overflow-y-auto">
+                                            {Object.entries(colLabels).map(([col, label]) => (
+                                                <label key={col} className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 p-1.5 rounded">
+                                                    <input type="checkbox" checked={visibleColumns[col]} onChange={() => toggleColumn(col)} className="w-4 h-4 rounded" />
+                                                    <span className="text-sm text-slate-700 dark:text-slate-300">{label}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Export */}
+                            <button onClick={handleExportCSV} className="inline-flex items-center rounded-xl px-3 py-2.5 text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700" title="Export CSV"><IconDownload size={16} /></button>
+                            {/* Print */}
+                            <button onClick={() => window.print()} className="inline-flex items-center rounded-xl px-3 py-2.5 text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700" title="Print"><IconPrinter size={16} /></button>
+
+                            {/* Advanced filter toggle */}
+                            <button
+                                type="button" onClick={() => setShowFilters(prev => !prev)}
+                                className={`relative inline-flex items-center gap-2 px-4 py-2.5 border rounded-xl font-semibold text-sm transition-colors ${showFilters || activeFiltersCount > 1 ? 'bg-primary-50 border-primary-300 text-primary-700 dark:bg-primary-900/30 dark:border-primary-700 dark:text-primary-300' : 'bg-white border-slate-300 text-slate-700 dark:bg-slate-900 dark:border-slate-600 dark:text-slate-300'}`}
+                            >
+                                <IconFilter size={16} /> Filter
+                                {activeFiltersCount > 1 && (
+                                    <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 text-[10px] font-bold text-white">{activeFiltersCount}</span>
+                                )}
+                            </button>
+                            <button type="button" onClick={handleFilter} className="px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white text-sm font-semibold rounded-xl">Terapkan</button>
+                        </div>
+                    </div>
+
+                    {/* Advanced filter panel */}
+                    {showFilters && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                            <div>
+                                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1"><IconCategory size={14} /> Kategori</label>
+                                <select value={activeFilters.category_id} onChange={(e) => setActiveFilters(prev => ({ ...prev, category_id: e.target.value }))} className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white">
+                                    <option value="">Semua Kategori</option>
+                                    {categories?.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1"><IconTruck size={14} /> Supplier</label>
+                                <select value={activeFilters.supplier_id} onChange={(e) => setActiveFilters(prev => ({ ...prev, supplier_id: e.target.value }))} className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white">
+                                    <option value="">Semua Supplier</option>
+                                    {suppliers?.map(sup => <option key={sup.id} value={sup.id}>{sup.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1"><IconPackage size={14} /> Status Stok</label>
+                                <select value={stockStatus !== 'all' ? stockStatus : ''} onChange={(e) => { const v = e.target.value; setStockStatus(v || 'all'); }} className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white">
+                                    <option value="">Semua Status</option>
+                                    <option value="normal">Normal</option>
+                                    <option value="low">Stok Rendah</option>
+                                    <option value="out">Habis</option>
+                                </select>
+                            </div>
+                            <div className="md:col-span-3 flex flex-wrap justify-end gap-2 mt-1">
+                                <button type="button" onClick={handleReset} className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl"><IconX size={16} /> Reset Filter</button>
+                                <button type="button" onClick={handleFilter} className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white text-sm font-semibold rounded-xl"><IconFilter size={16} /> Terapkan Filter</button>
+                            </div>
+                        </div>
+                    )}
                 </div>
-            )}
+
+                {/*  Data Table / Card  */}
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+                    {liveItems && liveItems.length > 0 ? (
+                        <>
+                            {viewMode === 'table' ? (
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                                        <thead className="bg-slate-50 dark:bg-slate-800/70">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500 dark:text-slate-300">No</th>
+                                                {visibleColumns.name && <th className="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500 dark:text-slate-300"><button onClick={() => handleSort('name')} className="flex items-center gap-1.5 hover:text-primary-600 dark:hover:text-primary-400">Nama Part {getSortIcon('name')}</button></th>}
+                                                {visibleColumns.part_number && <th className="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500 dark:text-slate-300"><button onClick={() => handleSort('part_number')} className="flex items-center gap-1.5 hover:text-primary-600 dark:hover:text-primary-400">Kode Part {getSortIcon('part_number')}</button></th>}
+                                                {visibleColumns.category && <th className="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500 dark:text-slate-300">Kategori</th>}
+                                                {visibleColumns.supplier && <th className="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500 dark:text-slate-300">Supplier</th>}
+                                                {visibleColumns.rack_location && <th className="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500 dark:text-slate-300"><button onClick={() => handleSort('rack_location')} className="flex items-center gap-1.5 hover:text-primary-600 dark:hover:text-primary-400">Lokasi Rak {getSortIcon('rack_location')}</button></th>}
+                                                {visibleColumns.stock && <th className="px-4 py-3 text-center text-xs font-bold uppercase text-slate-500 dark:text-slate-300"><button onClick={() => handleSort('stock')} className="flex items-center justify-center gap-1.5 w-full hover:text-primary-600 dark:hover:text-primary-400">Stok {getSortIcon('stock')}</button></th>}
+                                                {visibleColumns.minimal_stock && <th className="px-4 py-3 text-center text-xs font-bold uppercase text-slate-500 dark:text-slate-300">Min. Stok</th>}
+                                                {visibleColumns.buy_price && <th className="px-4 py-3 text-right text-xs font-bold uppercase text-slate-500 dark:text-slate-300"><button onClick={() => handleSort('buy_price')} className="flex items-center justify-end gap-1.5 w-full hover:text-primary-600 dark:hover:text-primary-400">Harga Beli {getSortIcon('buy_price')}</button></th>}
+                                                {visibleColumns.sell_price && <th className="px-4 py-3 text-right text-xs font-bold uppercase text-slate-500 dark:text-slate-300"><button onClick={() => handleSort('sell_price')} className="flex items-center justify-end gap-1.5 w-full hover:text-primary-600 dark:hover:text-primary-400">Harga Jual {getSortIcon('sell_price')}</button></th>}
+                                                <th className="px-4 py-3 text-center text-xs font-bold uppercase text-slate-500 dark:text-slate-300">Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                            {liveItems.map((p, idx) => {
+                                                const { cls: stockCls } = getStockBadge(p);
+                                                return (
+                                                    <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                                                        <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">{idx + 1 + ((parts.current_page || 1) - 1) * (parts.per_page || parts.data.length)}</td>
+                                                        {visibleColumns.name && <td className="px-4 py-3"><div className="text-sm font-semibold text-slate-900 dark:text-white">{p.name}</div>{p.description && <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">{p.description}</div>}</td>}
+                                                        {visibleColumns.part_number && <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 font-mono">{p.part_number || '-'}</td>}
+                                                        {visibleColumns.category && <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{p.category?.name || '-'}</td>}
+                                                        {visibleColumns.supplier && <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{p.supplier?.name || '-'}</td>}
+                                                        {visibleColumns.rack_location && (
+                                                            <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
+                                                                {p.rack_location ? <div className="flex items-center gap-1"><IconMapPin size={13} className="text-slate-400 shrink-0" />{p.rack_location}</div> : '-'}
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.stock && (
+                                                            <td className="px-4 py-3 text-center">
+                                                                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${stockCls}`}><IconPackage size={13} />{p.stock}</span>
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.minimal_stock && (
+                                                            <td className="px-4 py-3 text-center">
+                                                                {p.minimal_stock > 0
+                                                                    ? <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300"><IconAlertCircle size={12} />{p.minimal_stock}</span>
+                                                                    : <span className="text-xs text-slate-400">-</span>}
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.buy_price && <td className="px-4 py-3 text-right text-sm text-slate-600 dark:text-slate-400">{formatCurrency(p.buy_price || 0)}</td>}
+                                                        {visibleColumns.sell_price && <td className="px-4 py-3 text-right text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(p.sell_price || 0)}</td>}
+                                                        <td className="px-4 py-3">
+                                                            <div className="flex items-center justify-center gap-1">
+                                                                <Link href={route('parts.show', p.id)} className="inline-flex items-center gap-1 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-blue-200 dark:hover:bg-blue-900/50"><IconEye size={14} /> Detail</Link>
+                                                                <Link href={route('parts.edit', p.id)} className="inline-flex items-center gap-1 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-amber-200 dark:hover:bg-amber-900/50"><IconPencilCog size={14} /> Edit</Link>
+                                                                <Button type="delete" icon={<IconTrash size={14} />} className="inline-flex items-center justify-center p-1.5 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50" url={route('parts.destroy', p.id)} label="" />
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                /* Card view */
+                                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                                    {liveItems.map((p) => {
+                                        const { cls: stockCls, label: stockLabel } = getStockBadge(p);
+                                        return (
+                                            <div key={p.id} className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/60 dark:bg-slate-800/30 hover:border-primary-300 dark:hover:border-primary-700 transition-colors">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{p.name}</p>
+                                                        {p.part_number && <p className="text-xs font-mono text-slate-500 dark:text-slate-400">{p.part_number}</p>}
+                                                    </div>
+                                                    <span className={`shrink-0 px-2 py-1 rounded-full text-[11px] font-semibold ${stockCls}`}>{stockLabel}</span>
+                                                </div>
+                                                <div className="mt-3 space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
+                                                    <div className="flex items-center gap-1.5"><IconCategory size={13} className="shrink-0 text-slate-400" /><span>{p.category?.name || '-'}</span></div>
+                                                    <div className="flex items-center gap-1.5"><IconTruck size={13} className="shrink-0 text-slate-400" /><span>{p.supplier?.name || '-'}</span></div>
+                                                    {p.rack_location && <div className="flex items-center gap-1.5"><IconMapPin size={13} className="shrink-0 text-slate-400" /><span>{p.rack_location}</span></div>}
+                                                </div>
+                                                <div className="mt-3 flex items-center justify-between border-t border-slate-200 dark:border-slate-700 pt-3">
+                                                    <div>
+                                                        <p className="text-[11px] text-slate-500 dark:text-slate-400">Stok</p>
+                                                        <p className="text-lg font-black text-slate-900 dark:text-white">{p.stock}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-[11px] text-slate-500 dark:text-slate-400">Harga Jual</p>
+                                                        <p className="text-sm font-bold text-primary-700 dark:text-primary-300">{formatCurrency(p.sell_price || 0)}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="mt-3 flex items-center gap-2">
+                                                    <Link href={route('parts.show', p.id)} className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 py-1.5 text-xs font-semibold hover:bg-blue-200 dark:hover:bg-blue-900/50"><IconEye size={14} /> Detail</Link>
+                                                    <Link href={route('parts.edit', p.id)} className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 py-1.5 text-xs font-semibold hover:bg-amber-200 dark:hover:bg-amber-900/50"><IconPencilCog size={14} /> Edit</Link>
+                                                    <Button type="delete" icon={<IconTrash size={14} />} className="flex-1 flex items-center justify-center p-1.5 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50" url={route('parts.destroy', p.id)} label="" />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            <div className="border-t border-slate-200 dark:border-slate-700 px-4 py-3 bg-slate-50 dark:bg-slate-900 flex items-center justify-between gap-4">
+                                <p className="text-sm text-slate-600 dark:text-slate-400">
+                                    Menampilkan <span className="font-semibold">{parts.from}</span><span className="font-semibold">{parts.to}</span> dari <span className="font-semibold">{parts.total}</span> part
+                                </p>
+                                <Pagination links={parts.links} />
+                            </div>
+                        </>
+                    ) : (
+                        <EmptyState hasFilters={activeFiltersCount > 0} onReset={handleReset} />
+                    )}
+                </div>
+
+            </div>
         </>
     );
 }

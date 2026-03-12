@@ -25,6 +25,7 @@ use App\Http\Controllers\Apps\PartPurchaseOrderController;
 use App\Http\Controllers\Apps\PartStockHistoryController;
 use App\Http\Controllers\Apps\LowStockAlertController;
 use App\Http\Controllers\Apps\CashManagementController;
+use Illuminate\Http\Request;
 
 // Include authentication routes
 require __DIR__.'/auth.php';
@@ -37,6 +38,12 @@ Route::get('/', function () {
         'phpVersion'     => PHP_VERSION,
     ]);
 });
+
+Route::get('/secure', function (Request $request) {
+    abort_unless($request->isSecure(), 403, 'Halaman ini hanya bisa diakses lewat HTTPS.');
+
+    return view('secure');
+})->name('secure');
 
 // Test route untuk cek permissions
 Route::get('/test-permissions', function () {

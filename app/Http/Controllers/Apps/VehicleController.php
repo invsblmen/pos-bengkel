@@ -62,8 +62,16 @@ class VehicleController extends Controller
             $vehicles->setCollection($filtered->values());
         }
 
+        $stats = [
+            'total'          => Vehicle::count(),
+            'serviced'       => Vehicle::whereHas('serviceOrders', fn ($q) => $q->whereIn('status', ['completed', 'paid']))->count(),
+            'never_serviced' => Vehicle::whereDoesntHave('serviceOrders', fn ($q) => $q->whereIn('status', ['completed', 'paid']))->count(),
+            'this_month'     => Vehicle::whereHas('serviceOrders', fn ($q) => $q->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year))->count(),
+        ];
+
         return inertia('Dashboard/Vehicles/Index', [
             'vehicles' => $vehicles,
+            'stats'    => $stats,
             'filters' => [
                 'search' => request('search'),
                 'brand' => request('brand'),
