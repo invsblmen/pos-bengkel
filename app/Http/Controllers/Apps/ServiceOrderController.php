@@ -233,6 +233,7 @@ class ServiceOrderController extends Controller
             'odometer_km' => 'required|integer|min:0|max:1000000',
             'complaint' => 'nullable|string|max:2000',
             'mechanic_id' => 'nullable|exists:mechanics,id',
+            'submit_mode' => 'nullable|in:view_detail,create_again',
         ]);
 
         $normalizedPlate = strtoupper(preg_replace('/\s+/', '', $validated['plate_number']));
@@ -297,6 +298,14 @@ class ServiceOrderController extends Controller
         ]);
 
         ServiceOrderCreated::dispatch($order->load(['customer', 'vehicle', 'mechanic'])->toArray());
+
+        $submitMode = $validated['submit_mode'] ?? 'view_detail';
+
+        if ($submitMode === 'create_again') {
+            return redirect()
+                ->route('service-orders.quick-intake.create')
+                ->with('success', 'Penerimaan konsumen berhasil dibuat.');
+        }
 
         return redirect()
             ->route('service-orders.show', $order->id)
