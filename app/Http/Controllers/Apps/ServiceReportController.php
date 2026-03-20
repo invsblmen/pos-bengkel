@@ -8,8 +8,6 @@ use App\Models\PartSale;
 use App\Models\ServiceOrder;
 use App\Models\Mechanic;
 use App\Models\Part;
-use App\Models\Customer;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -56,7 +54,6 @@ class ServiceReportController extends Controller
         };
 
         $serviceBaseQuery = ServiceOrder::query()
-            ->with(['customer:id,name', 'vehicle:id,plate_number'])
             ->whereIn('status', ['completed', 'paid'])
             ->whereBetween('created_at', [$startDate, $endDate]);
 
@@ -64,12 +61,7 @@ class ServiceReportController extends Controller
             ->selectRaw('SUM(COALESCE(grand_total, total, COALESCE(labor_cost, 0) + COALESCE(material_cost, 0))) as total')
             ->value('total');
 
-        $serviceOrders = (clone $serviceBaseQuery)
-            ->orderByDesc('created_at')
-            ->get();
-
         $partBaseQuery = PartSale::query()
-            ->with(['customer:id,name'])
             ->where('status', '!=', 'cancelled')
             ->whereBetween('created_at', [$startDate, $endDate]);
 
@@ -77,12 +69,7 @@ class ServiceReportController extends Controller
             ->selectRaw('SUM(COALESCE(grand_total, 0)) as total')
             ->value('total');
 
-        $partSales = (clone $partBaseQuery)
-            ->orderByDesc('created_at')
-            ->get();
-
         $cashBaseQuery = CashTransaction::query()
-            ->with('user:id,name')
             ->where(function ($query) use ($startDate, $endDate) {
                 $query->whereBetween('happened_at', [$startDate, $endDate])
                     ->orWhere(function ($fallback) use ($startDate, $endDate) {
@@ -99,158 +86,89 @@ class ServiceReportController extends Controller
             ->whereIn('transaction_type', ['expense', 'change_given'])
             ->sum('amount');
 
-        $cashTransactions = (clone $cashBaseQuery)
-            ->orderByDesc('happened_at')
-            ->orderByDesc('created_at')
-            ->get();
+        $rowsBaseQuery = DB::query()->fromSub($this->buildOverallRowsQuery($startDate, $endDate), 'rows');
 
-        $serviceTimeline = $serviceOrders->map(function ($order) use ($formatStatusLabel) {
-            $amount = (int) ($order->grand_total ?? $order->total ?? ((int) ($order->labor_cost ?? 0) + (int) ($order->material_cost ?? 0)));
+        $statusValues = (clone $rowsBaseQuery)
+            ->whereNotNull('status')
+            ->where('status', '!=', '')
+            ->select('status')
+            ->distinct()
+            ->orderBy('status')
+            ->pluck('status');
 
-            return [
-                'id' => 'service-' . $order->id,
-                'date' => optional($order->created_at)->format('Y-m-d H:i:s'),
-                'date_unix' => optional($order->created_at)?->timestamp ?? 0,
-                'source' => 'service_order',
-                'reference' => $order->order_number,
-                'description' => trim(implode(' | ', array_filter([
-                    $order->customer?->name,
-                    $order->vehicle?->plate_number,
-                ]))),
-                'flow' => 'in',
-                'amount' => $amount,
-                'status' => $order->status,
-                'status_label' => $formatStatusLabel($order->status),
-            ];
-        });
-
-        $partTimeline = $partSales->map(function ($sale) use ($formatStatusLabel) {
-            return [
-                'id' => 'part-' . $sale->id,
-                'date' => optional($sale->created_at)->format('Y-m-d H:i:s'),
-                'date_unix' => optional($sale->created_at)?->timestamp ?? 0,
-                'source' => 'part_sale',
-                'reference' => $sale->sale_number,
-                'description' => $sale->customer?->name,
-                'flow' => 'in',
-                'amount' => (int) ($sale->grand_total ?? 0),
-                'status' => $sale->status,
-                'status_label' => $formatStatusLabel($sale->status),
-            ];
-        });
-
-        $cashTimeline = $cashTransactions->map(function ($tx) use ($formatStatusLabel) {
-            $flow = match ($tx->transaction_type) {
-                'income' => 'in',
-                'expense', 'change_given' => 'out',
-                default => 'neutral',
-            };
-
-            $eventDate = $tx->happened_at ?? $tx->created_at;
-
-            return [
-                'id' => 'cash-' . $tx->id,
-                'date' => optional($eventDate)->format('Y-m-d H:i:s'),
-                'date_unix' => optional($eventDate)?->timestamp ?? 0,
-                'source' => 'cash_transaction',
-                'reference' => 'CASH-' . str_pad((string) $tx->id, 6, '0', STR_PAD_LEFT),
-                'description' => $tx->description,
-                'flow' => $flow,
-                'amount' => (int) $tx->amount,
-                'status' => $tx->transaction_type,
-                'status_label' => $formatStatusLabel($tx->transaction_type),
-            ];
-        });
-
-        $timeline = $serviceTimeline
-            ->concat($partTimeline)
-            ->concat($cashTimeline)
-            ->sortByDesc('date_unix')
-            ->values();
-
-        $statusOptions = $timeline
-            ->pluck('status')
-            ->filter(fn ($value) => !empty($value))
-            ->unique()
-            ->sort()
-            ->values()
+        $statusOptions = collect($statusValues)
             ->map(fn ($value) => [
                 'value' => $value,
                 'label' => $formatStatusLabel($value),
             ])
             ->values();
 
-        if ($status !== 'all' && !$statusOptions->pluck('value')->contains($status)) {
+        if ($status !== 'all' && !collect($statusValues)->contains($status)) {
             $status = 'all';
         }
 
-        $sourceFilteredTimeline = $source === 'all'
-            ? $timeline
-            : $timeline->where('source', $source)->values();
+        $sourceFilteredRows = clone $rowsBaseQuery;
+        if ($source !== 'all') {
+            $sourceFilteredRows->where('source', $source);
+        }
 
-        $filteredTimeline = $status === 'all'
-            ? $sourceFilteredTimeline
-            : $sourceFilteredTimeline->where('status', $status)->values();
-
-        $statusSummary = $sourceFilteredTimeline
+        $statusSummary = DB::query()
+            ->fromSub($sourceFilteredRows, 'source_rows')
+            ->whereNotNull('status')
+            ->where('status', '!=', '')
+            ->selectRaw('status as value')
+            ->selectRaw('COUNT(*) as count')
+            ->selectRaw("SUM(CASE WHEN flow = 'in' THEN amount WHEN flow = 'out' THEN -amount ELSE 0 END) as net_amount")
             ->groupBy('status')
-            ->map(function ($rows, $statusKey) use ($formatStatusLabel) {
-                $netAmount = collect($rows)->sum(function ($row) {
-                    $amount = (int) ($row['amount'] ?? 0);
-                    return match ($row['flow'] ?? 'neutral') {
-                        'in' => $amount,
-                        'out' => -$amount,
-                        default => 0,
-                    };
-                });
-
+            ->orderByDesc('count')
+            ->get()
+            ->map(function ($row) use ($formatStatusLabel) {
                 return [
-                    'value' => $statusKey,
-                    'label' => $formatStatusLabel($statusKey),
-                    'count' => count($rows),
-                    'net_amount' => (int) $netAmount,
+                    'value' => $row->value,
+                    'label' => $formatStatusLabel($row->value),
+                    'count' => (int) ($row->count ?? 0),
+                    'net_amount' => (int) ($row->net_amount ?? 0),
                 ];
             })
-            ->sortByDesc('count')
             ->values();
 
-        $timelineWithRunningBalance = $filteredTimeline
-            ->sortBy('date_unix')
-            ->values()
-            ->reduce(function ($carry, $item) {
-                $amount = (int) ($item['amount'] ?? 0);
-                $delta = match ($item['flow'] ?? 'neutral') {
-                    'in' => $amount,
-                    'out' => -$amount,
-                    default => 0,
-                };
+        $filteredRows = clone $sourceFilteredRows;
+        if ($status !== 'all') {
+            $filteredRows->where('status', $status);
+        }
 
-                $running = (int) ($carry['running'] ?? 0) + $delta;
-                $item['running_balance'] = $running;
-                $carry['running'] = $running;
-                $carry['items'][] = $item;
+        $rowsWithBalance = DB::query()
+            ->fromSub($filteredRows, 'filtered_rows')
+            ->selectRaw('event_at, source, reference, description, flow, amount, status')
+            ->selectRaw("SUM(CASE WHEN flow = 'in' THEN amount WHEN flow = 'out' THEN -amount ELSE 0 END) OVER (ORDER BY event_at ASC, reference ASC) as running_balance");
 
-                return $carry;
-            }, ['running' => 0, 'items' => []]);
+        $paginatedTransactions = DB::query()
+            ->fromSub($rowsWithBalance, 'rows_with_balance')
+            ->selectRaw('event_at, source, reference, description, flow, amount, status, running_balance')
+            ->orderByDesc('event_at')
+            ->orderByDesc('reference')
+            ->paginate($perPage, ['*'], 'page', $currentPage)
+            ->withQueryString();
 
-        $displayTimeline = collect($timelineWithRunningBalance['items'] ?? [])
-            ->sortByDesc('date_unix')
-            ->values();
+        $paginatedTransactions->setCollection(
+            $paginatedTransactions->getCollection()->map(function ($row) use ($formatStatusLabel) {
+                $reference = (string) ($row->reference ?? '');
+                $source = (string) ($row->source ?? '');
 
-        $total = $displayTimeline->count();
-        $items = $displayTimeline
-            ->slice(($currentPage - 1) * $perPage, $perPage)
-            ->values();
-
-        $paginatedTransactions = new LengthAwarePaginator(
-            $items,
-            $total,
-            $perPage,
-            $currentPage,
-            [
-                'path' => $request->url(),
-                'query' => $request->query(),
-            ]
+                return [
+                    'id' => $source . '-' . $reference,
+                    'date' => $row->event_at,
+                    'date_unix' => $row->event_at ? Carbon::parse($row->event_at)->timestamp : 0,
+                    'source' => $source,
+                    'reference' => $reference,
+                    'description' => $row->description,
+                    'flow' => $row->flow,
+                    'amount' => (int) ($row->amount ?? 0),
+                    'status' => $row->status,
+                    'status_label' => $formatStatusLabel($row->status),
+                    'running_balance' => (int) ($row->running_balance ?? 0),
+                ];
+            })->values()
         );
 
         return inertia('Dashboard/Reports/Overall', [
@@ -270,10 +188,38 @@ class ServiceReportController extends Controller
                 'cash_in' => $cashIn,
                 'cash_out' => $cashOut,
                 'net_cash_flow' => $cashIn - $cashOut,
-                'transaction_count' => $filteredTimeline->count(),
+                'transaction_count' => (int) $paginatedTransactions->total(),
             ],
             'transactions' => $paginatedTransactions,
         ]);
+    }
+
+    private function buildOverallRowsQuery(Carbon $startDate, Carbon $endDate)
+    {
+        $serviceRows = DB::table('service_orders')
+            ->leftJoin('customers', 'service_orders.customer_id', '=', 'customers.id')
+            ->leftJoin('vehicles', 'service_orders.vehicle_id', '=', 'vehicles.id')
+            ->whereIn('service_orders.status', ['completed', 'paid'])
+            ->whereBetween('service_orders.created_at', [$startDate, $endDate])
+            ->selectRaw("service_orders.created_at as event_at, 'service_order' as source, service_orders.order_number as reference, TRIM(CONCAT_WS(' | ', customers.name, vehicles.plate_number)) as description, 'in' as flow, COALESCE(service_orders.grand_total, service_orders.total, 0) as amount, service_orders.status as status");
+
+        $partRows = DB::table('part_sales')
+            ->leftJoin('customers', 'part_sales.customer_id', '=', 'customers.id')
+            ->where('part_sales.status', '!=', 'cancelled')
+            ->whereBetween('part_sales.created_at', [$startDate, $endDate])
+            ->selectRaw("part_sales.created_at as event_at, 'part_sale' as source, part_sales.sale_number as reference, customers.name as description, 'in' as flow, COALESCE(part_sales.grand_total, 0) as amount, part_sales.status as status");
+
+        $cashRows = DB::table('cash_transactions')
+            ->where(function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('happened_at', [$startDate, $endDate])
+                    ->orWhere(function ($fallback) use ($startDate, $endDate) {
+                        $fallback->whereNull('happened_at')
+                            ->whereBetween('created_at', [$startDate, $endDate]);
+                    });
+            })
+            ->selectRaw("COALESCE(cash_transactions.happened_at, cash_transactions.created_at) as event_at, 'cash_transaction' as source, CONCAT('CASH-', LPAD(cash_transactions.id, 6, '0')) as reference, cash_transactions.description as description, CASE WHEN cash_transactions.transaction_type = 'income' THEN 'in' WHEN cash_transactions.transaction_type IN ('expense','change_given') THEN 'out' ELSE 'neutral' END as flow, cash_transactions.amount as amount, cash_transactions.transaction_type as status");
+
+        return $serviceRows->unionAll($partRows)->unionAll($cashRows);
     }
 
     /**
@@ -316,10 +262,17 @@ class ServiceReportController extends Controller
         $summaryQuery = ServiceOrder::whereIn('status', ['completed', 'paid'])
             ->whereBetween('created_at', [$startDate, $endDate]);
 
-        $totalRevenue = $summaryQuery->sum('total');
-        $totalOrders = $summaryQuery->count();
-        $totalLaborCost = $summaryQuery->sum('labor_cost');
-        $totalMaterialCost = $summaryQuery->sum('material_cost');
+        $summaryData = $summaryQuery
+            ->selectRaw('COALESCE(SUM(total), 0) as total_revenue')
+            ->selectRaw('COUNT(*) as total_orders')
+            ->selectRaw('COALESCE(SUM(labor_cost), 0) as total_labor_cost')
+            ->selectRaw('COALESCE(SUM(material_cost), 0) as total_material_cost')
+            ->first();
+
+        $totalRevenue = (int) ($summaryData->total_revenue ?? 0);
+        $totalOrders = (int) ($summaryData->total_orders ?? 0);
+        $totalLaborCost = (int) ($summaryData->total_labor_cost ?? 0);
+        $totalMaterialCost = (int) ($summaryData->total_material_cost ?? 0);
         $averageOrderValue = $totalOrders > 0 ? round($totalRevenue / $totalOrders) : 0;
 
         return inertia('Dashboard/Reports/ServiceRevenue', [
@@ -350,54 +303,40 @@ class ServiceReportController extends Controller
         $startDate = Carbon::parse($startDate)->startOfDay();
         $endDate = Carbon::parse($endDate)->endOfDay();
 
-        $mechanics = Mechanic::with(['serviceOrders' => function ($query) use ($startDate, $endDate) {
-            $query->with('details.service')
-                ->whereBetween('created_at', [$startDate, $endDate])
-                ->whereIn('status', ['completed', 'paid']);
-        }])
-        ->get()
-        ->map(function ($mechanic) {
-            $serviceDetails = $mechanic->serviceOrders
-                ->flatMap(fn ($order) => $order->details)
-                ->filter(fn ($detail) => !is_null($detail->service_id))
-                ->values();
+        $mechanics = $this->getMechanicAggregates($startDate, $endDate)
+            ->map(function ($mechanic) {
+                $estimatedMinutes = (int) ($mechanic->estimated_work_minutes ?? 0);
+                $totalIncentive = (int) ($mechanic->total_incentive ?? 0);
+                $totalRevenue = (int) ($mechanic->total_revenue ?? 0);
+                $totalOrders = (int) ($mechanic->total_orders ?? 0);
+                $hourlyRate = (int) ($mechanic->hourly_rate ?? 0);
+                $baseSalary = (int) round(($estimatedMinutes / 60) * $hourlyRate);
+                $totalSalary = $baseSalary + $totalIncentive;
 
-            $estimatedMinutes = $serviceDetails
-                ->sum(fn ($detail) => (int) ($detail->service?->est_time_minutes ?? 0));
-
-            $totalLaborCost = $mechanic->serviceOrders->sum('labor_cost');
-            $totalMaterialCost = $mechanic->serviceOrders->sum('material_cost');
-            $totalServiceRevenue = $serviceDetails->sum('final_amount');
-            $totalAutoDiscount = $serviceDetails->sum('auto_discount_amount');
-            $totalIncentive = $serviceDetails->sum('incentive_amount');
-            $hourlyRate = (int) ($mechanic->hourly_rate ?? 0);
-            $baseSalary = (int) round(($estimatedMinutes / 60) * $hourlyRate);
-            $totalSalary = $baseSalary + (int) $totalIncentive;
-
-            return [
-                'id' => $mechanic->id,
-                'name' => $mechanic->name,
-                'specialty' => is_array($mechanic->specialization)
-                    ? implode(', ', $mechanic->specialization)
-                    : ($mechanic->specialization ?? '-'),
-                'total_orders' => $mechanic->serviceOrders->count(),
-                'total_revenue' => $mechanic->serviceOrders->sum('total'),
-                'service_revenue' => $totalServiceRevenue,
-                'total_auto_discount' => $totalAutoDiscount,
-                'total_incentive' => $totalIncentive,
-                'estimated_work_minutes' => $estimatedMinutes,
-                'hourly_rate' => $hourlyRate,
-                'base_salary' => $baseSalary,
-                'total_salary' => $totalSalary,
-                'total_labor_cost' => $totalLaborCost,
-                'total_material_cost' => $totalMaterialCost,
-                'average_order_value' => $mechanic->serviceOrders->count() > 0
-                    ? round($mechanic->serviceOrders->sum('total') / $mechanic->serviceOrders->count())
-                    : 0,
-            ];
-        })
-        ->sortByDesc('total_revenue')
-        ->values();
+                return [
+                    'id' => $mechanic->id,
+                    'name' => $mechanic->name,
+                    'specialty' => is_array($mechanic->specialization)
+                        ? implode(', ', $mechanic->specialization)
+                        : ($mechanic->specialization ?? '-'),
+                    'total_orders' => $totalOrders,
+                    'total_revenue' => $totalRevenue,
+                    'service_revenue' => (int) ($mechanic->service_revenue ?? 0),
+                    'total_auto_discount' => (int) ($mechanic->total_auto_discount ?? 0),
+                    'total_incentive' => $totalIncentive,
+                    'estimated_work_minutes' => $estimatedMinutes,
+                    'hourly_rate' => $hourlyRate,
+                    'base_salary' => $baseSalary,
+                    'total_salary' => $totalSalary,
+                    'total_labor_cost' => (int) ($mechanic->total_labor_cost ?? 0),
+                    'total_material_cost' => (int) ($mechanic->total_material_cost ?? 0),
+                    'average_order_value' => $totalOrders > 0
+                        ? (int) round($totalRevenue / $totalOrders)
+                        : 0,
+                ];
+            })
+            ->sortByDesc('total_revenue')
+            ->values();
 
         return inertia('Dashboard/Reports/MechanicProductivity', [
             'mechanics' => $mechanics,
@@ -420,34 +359,28 @@ class ServiceReportController extends Controller
         $startDate = Carbon::parse($request->get('start_date', now()->firstOfMonth()))->startOfDay();
         $endDate = Carbon::parse($request->get('end_date', now()))->endOfDay();
 
-        $mechanics = Mechanic::with(['serviceOrders' => function ($query) use ($startDate, $endDate) {
-            $query->with('details.service')
-                ->whereBetween('created_at', [$startDate, $endDate])
-                ->whereIn('status', ['completed', 'paid']);
-        }])->get()->map(function ($mechanic) {
-            $serviceDetails = $mechanic->serviceOrders
-                ->flatMap(fn ($order) => $order->details)
-                ->filter(fn ($detail) => !is_null($detail->service_id))
-                ->values();
+        $mechanics = $this->getMechanicAggregates($startDate, $endDate)
+            ->map(function ($mechanic) {
+                $estimatedMinutes = (int) ($mechanic->estimated_work_minutes ?? 0);
+                $hourlyRate = (int) ($mechanic->hourly_rate ?? 0);
+                $baseSalary = (int) round(($estimatedMinutes / 60) * $hourlyRate);
+                $incentiveAmount = (int) ($mechanic->total_incentive ?? 0);
 
-            $estimatedMinutes = $serviceDetails->sum(fn ($detail) => (int) ($detail->service?->est_time_minutes ?? 0));
-            $hourlyRate = (int) ($mechanic->hourly_rate ?? 0);
-            $baseSalary = (int) round(($estimatedMinutes / 60) * $hourlyRate);
-            $incentiveAmount = (int) $serviceDetails->sum('incentive_amount');
-
-            return [
-                'id' => $mechanic->id,
-                'name' => $mechanic->name,
-                'employee_number' => $mechanic->employee_number,
-                'total_orders' => $mechanic->serviceOrders->count(),
-                'service_count' => $serviceDetails->count(),
-                'estimated_work_minutes' => $estimatedMinutes,
-                'hourly_rate' => $hourlyRate,
-                'base_salary' => $baseSalary,
-                'incentive_amount' => $incentiveAmount,
-                'take_home_pay' => $baseSalary + $incentiveAmount,
-            ];
-        })->sortByDesc('take_home_pay')->values();
+                return [
+                    'id' => $mechanic->id,
+                    'name' => $mechanic->name,
+                    'employee_number' => $mechanic->employee_number,
+                    'total_orders' => (int) ($mechanic->total_orders ?? 0),
+                    'service_count' => (int) ($mechanic->service_count ?? 0),
+                    'estimated_work_minutes' => $estimatedMinutes,
+                    'hourly_rate' => $hourlyRate,
+                    'base_salary' => $baseSalary,
+                    'incentive_amount' => $incentiveAmount,
+                    'take_home_pay' => $baseSalary + $incentiveAmount,
+                ];
+            })
+            ->sortByDesc('take_home_pay')
+            ->values();
 
         return inertia('Dashboard/Reports/MechanicPayroll', [
             'mechanics' => $mechanics,
@@ -464,12 +397,62 @@ class ServiceReportController extends Controller
         ]);
     }
 
+    private function getMechanicAggregates(Carbon $startDate, Carbon $endDate)
+    {
+        $ordersSummary = ServiceOrder::query()
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereIn('status', ['completed', 'paid'])
+            ->whereNotNull('mechanic_id')
+            ->selectRaw('mechanic_id')
+            ->selectRaw('COUNT(*) as total_orders')
+            ->selectRaw('COALESCE(SUM(total), 0) as total_revenue')
+            ->selectRaw('COALESCE(SUM(labor_cost), 0) as total_labor_cost')
+            ->selectRaw('COALESCE(SUM(material_cost), 0) as total_material_cost')
+            ->groupBy('mechanic_id');
+
+        $detailsSummary = DB::table('service_order_details as sod')
+            ->join('service_orders as so', 'sod.service_order_id', '=', 'so.id')
+            ->leftJoin('services as s', 'sod.service_id', '=', 's.id')
+            ->whereBetween('so.created_at', [$startDate, $endDate])
+            ->whereIn('so.status', ['completed', 'paid'])
+            ->whereNotNull('so.mechanic_id')
+            ->whereNotNull('sod.service_id')
+            ->selectRaw('so.mechanic_id')
+            ->selectRaw('COUNT(*) as service_count')
+            ->selectRaw('COALESCE(SUM(s.est_time_minutes), 0) as estimated_work_minutes')
+            ->selectRaw('COALESCE(SUM(sod.final_amount), 0) as service_revenue')
+            ->selectRaw('COALESCE(SUM(sod.auto_discount_amount), 0) as total_auto_discount')
+            ->selectRaw('COALESCE(SUM(sod.incentive_amount), 0) as total_incentive')
+            ->groupBy('so.mechanic_id');
+
+        return Mechanic::query()
+            ->leftJoinSub($ordersSummary, 'order_summary', function ($join) {
+                $join->on('mechanics.id', '=', 'order_summary.mechanic_id');
+            })
+            ->leftJoinSub($detailsSummary, 'detail_summary', function ($join) {
+                $join->on('mechanics.id', '=', 'detail_summary.mechanic_id');
+            })
+            ->select('mechanics.*')
+            ->selectRaw('COALESCE(order_summary.total_orders, 0) as total_orders')
+            ->selectRaw('COALESCE(order_summary.total_revenue, 0) as total_revenue')
+            ->selectRaw('COALESCE(order_summary.total_labor_cost, 0) as total_labor_cost')
+            ->selectRaw('COALESCE(order_summary.total_material_cost, 0) as total_material_cost')
+            ->selectRaw('COALESCE(detail_summary.service_count, 0) as service_count')
+            ->selectRaw('COALESCE(detail_summary.estimated_work_minutes, 0) as estimated_work_minutes')
+            ->selectRaw('COALESCE(detail_summary.service_revenue, 0) as service_revenue')
+            ->selectRaw('COALESCE(detail_summary.total_auto_discount, 0) as total_auto_discount')
+            ->selectRaw('COALESCE(detail_summary.total_incentive, 0) as total_incentive')
+            ->get();
+    }
+
     /**
      * Parts Inventory Analysis Report
      */
     public function partsInventory(Request $request)
     {
-        $parts = Part::with('category')
+        $parts = Part::query()
+            ->with('category:id,name')
+            ->select(['id', 'name', 'category_id', 'stock', 'reorder_level', 'price'])
             ->get()
             ->map(function ($part) {
                 return [
@@ -531,15 +514,15 @@ class ServiceReportController extends Controller
             ];
         });
 
-        $totalOutstanding = ServiceOrder::where('status', 'completed')
-            ->sum('total');
+        $outstandingSummary = ServiceOrder::where('status', 'completed')
+            ->selectRaw('COALESCE(SUM(total), 0) as total_outstanding, COUNT(*) as count_outstanding')
+            ->first();
 
         return inertia('Dashboard/Reports/OutstandingPayments', [
             'orders' => $orders,
             'summary' => [
-                'total_outstanding' => $totalOutstanding,
-                'count_outstanding' => ServiceOrder::where('status', 'completed')
-                    ->count(),
+                'total_outstanding' => (int) ($outstandingSummary->total_outstanding ?? 0),
+                'count_outstanding' => (int) ($outstandingSummary->count_outstanding ?? 0),
             ],
         ]);
     }
@@ -587,28 +570,19 @@ class ServiceReportController extends Controller
                     'Total Gaji',
                 ]);
 
-                $mechanics = Mechanic::with(['serviceOrders' => function ($query) use ($startDate, $endDate) {
-                    $query->with('details.service')
-                        ->whereBetween('created_at', [$startDate, $endDate])
-                        ->whereIn('status', ['completed', 'paid']);
-                }])->get();
+                $mechanics = $this->getMechanicAggregates($startDate, $endDate);
 
                 foreach ($mechanics as $mechanic) {
-                    $serviceDetails = $mechanic->serviceOrders
-                        ->flatMap(fn ($order) => $order->details)
-                        ->filter(fn ($detail) => !is_null($detail->service_id))
-                        ->values();
-
-                    $estimatedMinutes = (int) $serviceDetails->sum(fn ($detail) => (int) ($detail->service?->est_time_minutes ?? 0));
+                    $estimatedMinutes = (int) ($mechanic->estimated_work_minutes ?? 0);
                     $hourlyRate = (int) ($mechanic->hourly_rate ?? 0);
                     $baseSalary = (int) round(($estimatedMinutes / 60) * $hourlyRate);
-                    $incentive = (int) $serviceDetails->sum('incentive_amount');
+                    $incentive = (int) ($mechanic->total_incentive ?? 0);
 
                     fputcsv($file, [
                         $mechanic->name,
-                        $mechanic->serviceOrders->count(),
-                        (int) $mechanic->serviceOrders->sum('total'),
-                        (int) $serviceDetails->sum('auto_discount_amount'),
+                        (int) ($mechanic->total_orders ?? 0),
+                        (int) ($mechanic->total_revenue ?? 0),
+                        (int) ($mechanic->total_auto_discount ?? 0),
                         $incentive,
                         $estimatedMinutes,
                         $hourlyRate,
@@ -629,28 +603,19 @@ class ServiceReportController extends Controller
                     'Take Home Pay',
                 ]);
 
-                $mechanics = Mechanic::with(['serviceOrders' => function ($query) use ($startDate, $endDate) {
-                    $query->with('details.service')
-                        ->whereBetween('created_at', [$startDate, $endDate])
-                        ->whereIn('status', ['completed', 'paid']);
-                }])->get();
+                $mechanics = $this->getMechanicAggregates($startDate, $endDate);
 
                 foreach ($mechanics as $mechanic) {
-                    $serviceDetails = $mechanic->serviceOrders
-                        ->flatMap(fn ($order) => $order->details)
-                        ->filter(fn ($detail) => !is_null($detail->service_id))
-                        ->values();
-
-                    $estimatedMinutes = (int) $serviceDetails->sum(fn ($detail) => (int) ($detail->service?->est_time_minutes ?? 0));
+                    $estimatedMinutes = (int) ($mechanic->estimated_work_minutes ?? 0);
                     $hourlyRate = (int) ($mechanic->hourly_rate ?? 0);
                     $baseSalary = (int) round(($estimatedMinutes / 60) * $hourlyRate);
-                    $incentive = (int) $serviceDetails->sum('incentive_amount');
+                    $incentive = (int) ($mechanic->total_incentive ?? 0);
 
                     fputcsv($file, [
                         $mechanic->name,
                         $mechanic->employee_number,
-                        $mechanic->serviceOrders->count(),
-                        $serviceDetails->count(),
+                        (int) ($mechanic->total_orders ?? 0),
+                        (int) ($mechanic->service_count ?? 0),
                         $estimatedMinutes,
                         $hourlyRate,
                         $baseSalary,
@@ -689,116 +654,39 @@ class ServiceReportController extends Controller
                     return $statusLabelMap[$status] ?? ucwords(str_replace('_', ' ', $status));
                 };
 
-                $serviceRows = ServiceOrder::query()
-                    ->with(['customer:id,name', 'vehicle:id,plate_number'])
-                    ->whereIn('status', ['completed', 'paid'])
-                    ->whereBetween('created_at', [$startDate, $endDate])
-                    ->get()
-                    ->map(function ($order) use ($formatStatusLabel) {
-                        return [
-                            'date' => optional($order->created_at)->format('Y-m-d H:i:s'),
-                            'date_unix' => optional($order->created_at)?->timestamp ?? 0,
-                            'source' => 'service_order',
-                            'reference' => $order->order_number,
-                            'description' => trim(implode(' | ', array_filter([
-                                $order->customer?->name,
-                                $order->vehicle?->plate_number,
-                            ]))),
-                            'flow' => 'in',
-                            'amount' => (int) ($order->grand_total ?? $order->total ?? 0),
-                            'status' => $order->status,
-                            'status_label' => $formatStatusLabel($order->status),
-                        ];
-                    });
+                $filteredRows = DB::query()->fromSub($this->buildOverallRowsQuery($startDate, $endDate), 'rows');
 
-                $partRows = PartSale::query()
-                    ->with(['customer:id,name'])
-                    ->where('status', '!=', 'cancelled')
-                    ->whereBetween('created_at', [$startDate, $endDate])
-                    ->get()
-                    ->map(function ($sale) use ($formatStatusLabel) {
-                        return [
-                            'date' => optional($sale->created_at)->format('Y-m-d H:i:s'),
-                            'date_unix' => optional($sale->created_at)?->timestamp ?? 0,
-                            'source' => 'part_sale',
-                            'reference' => $sale->sale_number,
-                            'description' => $sale->customer?->name,
-                            'flow' => 'in',
-                            'amount' => (int) ($sale->grand_total ?? 0),
-                            'status' => $sale->status,
-                            'status_label' => $formatStatusLabel($sale->status),
-                        ];
-                    });
-
-                $cashRows = CashTransaction::query()
-                    ->where(function ($query) use ($startDate, $endDate) {
-                        $query->whereBetween('happened_at', [$startDate, $endDate])
-                            ->orWhere(function ($fallback) use ($startDate, $endDate) {
-                                $fallback->whereNull('happened_at')
-                                    ->whereBetween('created_at', [$startDate, $endDate]);
-                            });
-                    })
-                    ->get()
-                    ->map(function ($tx) use ($formatStatusLabel) {
-                        $flow = match ($tx->transaction_type) {
-                            'income' => 'in',
-                            'expense', 'change_given' => 'out',
-                            default => 'neutral',
-                        };
-                        $eventDate = $tx->happened_at ?? $tx->created_at;
-
-                        return [
-                            'date' => optional($eventDate)->format('Y-m-d H:i:s'),
-                            'date_unix' => optional($eventDate)?->timestamp ?? 0,
-                            'source' => 'cash_transaction',
-                            'reference' => 'CASH-' . str_pad((string) $tx->id, 6, '0', STR_PAD_LEFT),
-                            'description' => $tx->description,
-                            'flow' => $flow,
-                            'amount' => (int) $tx->amount,
-                            'status' => $tx->transaction_type,
-                            'status_label' => $formatStatusLabel($tx->transaction_type),
-                        ];
-                    });
-
-                $rows = $serviceRows->concat($partRows)->concat($cashRows)->sortByDesc('date_unix')->values();
                 if ($source !== 'all') {
-                    $rows = $rows->where('source', $source)->values();
+                    $filteredRows->where('rows.source', $source);
                 }
+
                 if ($status !== 'all') {
-                    $rows = $rows->where('status', $status)->values();
+                    $filteredRows->where('rows.status', $status);
                 }
 
-                $rowsWithBalance = $rows
-                    ->sortBy('date_unix')
-                    ->values()
-                    ->reduce(function ($carry, $row) {
-                        $amount = (int) ($row['amount'] ?? 0);
-                        $delta = match ($row['flow'] ?? 'neutral') {
-                            'in' => $amount,
-                            'out' => -$amount,
-                            default => 0,
-                        };
-                        $running = (int) ($carry['running'] ?? 0) + $delta;
-                        $row['running_balance'] = $running;
-                        $carry['running'] = $running;
-                        $carry['items'][] = $row;
-                        return $carry;
-                    }, ['running' => 0, 'items' => []]);
+                $rowsWithBalance = DB::query()
+                    ->fromSub($filteredRows, 'filtered')
+                    ->selectRaw('event_at, source, reference, description, flow, amount, status')
+                    ->selectRaw("SUM(CASE WHEN flow = 'in' THEN amount WHEN flow = 'out' THEN -amount ELSE 0 END) OVER (ORDER BY event_at ASC, reference ASC) as running_balance");
 
-                $rows = collect($rowsWithBalance['items'] ?? [])->sortByDesc('date_unix')->values();
+                $rows = DB::query()
+                    ->fromSub($rowsWithBalance, 'final_rows')
+                    ->orderByDesc('event_at')
+                    ->orderByDesc('reference')
+                    ->cursor();
 
                 fputcsv($file, ['Tanggal', 'Sumber', 'Referensi', 'Keterangan', 'Arus', 'Nominal', 'Status', 'Status Label', 'Saldo Berjalan']);
                 foreach ($rows as $row) {
                     fputcsv($file, [
-                        $row['date'] ?? '-',
-                        $row['source'] ?? '-',
-                        $row['reference'] ?? '-',
-                        $row['description'] ?? '-',
-                        $row['flow'] ?? '-',
-                        (int) ($row['amount'] ?? 0),
-                        $row['status'] ?? '-',
-                        $row['status_label'] ?? '-',
-                        (int) ($row['running_balance'] ?? 0),
+                        $row->event_at ?? '-',
+                        $row->source ?? '-',
+                        $row->reference ?? '-',
+                        $row->description ?? '-',
+                        $row->flow ?? '-',
+                        (int) ($row->amount ?? 0),
+                        $row->status ?? '-',
+                        $formatStatusLabel($row->status ?? null),
+                        (int) ($row->running_balance ?? 0),
                     ]);
                 }
             }

@@ -19,9 +19,8 @@ class PartSalesProfitReportController extends Controller
             'invoice' => $request->input('invoice'),
         ];
 
-        // Base query for part sales
+        // Base filtered query for part sales
         $baseQuery = PartSale::query()
-            ->with(['user:id,name'])
             ->when($filters['invoice'] ?? null, fn ($q, $invoice) =>
                 $q->where('invoice', 'like', '%' . $invoice . '%')
             )
@@ -35,50 +34,60 @@ class PartSalesProfitReportController extends Controller
 
         // Paginated sales with profit calculation
         $sales = (clone $baseQuery)
+            ->with(['user:id,name'])
             ->paginate(15)
             ->withQueryString();
 
-        // Add profit calculation to each sale
-        $sales->getCollection()->transform(function ($sale) {
-            $details = PartSaleDetail::where('part_sale_id', $sale->id)->get();
+        $pageSaleIds = $sales->getCollection()->pluck('id');
 
-            $totalCost = $details->sum(function ($detail) {
-                return ($detail->cost_price ?? 0) * ($detail->quantity ?? $detail->qty ?? 0);
-            });
+        // Aggregate page profit metrics in a single grouped query
+        $metricsBySale = PartSaleDetail::query()
+            ->selectRaw('part_sale_id')
+            ->selectRaw('SUM(COALESCE(cost_price, 0) * COALESCE(quantity, qty, 0)) as total_cost')
+            ->selectRaw('SUM(COALESCE(selling_price, 0) * COALESCE(quantity, qty, 0)) as total_revenue')
+            ->whereIn('part_sale_id', $pageSaleIds)
+            ->groupBy('part_sale_id')
+            ->get()
+            ->keyBy('part_sale_id');
 
-            $totalRevenue = $details->sum(function ($detail) {
-                return ($detail->selling_price ?? 0) * ($detail->quantity ?? $detail->qty ?? 0);
-            });
+        $sales->getCollection()->transform(function ($sale) use ($metricsBySale) {
+            $metric = $metricsBySale->get($sale->id);
 
+            $totalCost = (float) ($metric->total_cost ?? 0);
+            $totalRevenue = (float) ($metric->total_revenue ?? 0);
             $totalProfit = $totalRevenue - $totalCost;
-            $profitMargin = $totalRevenue > 0 ? ($totalProfit / $totalRevenue) * 100 : 0;
 
-            $sale->total_cost = (int) $totalCost;
-            $sale->total_revenue = (int) $totalRevenue;
-            $sale->total_profit = (int) $totalProfit;
-            $sale->profit_margin = round($profitMargin, 2);
+            $sale->total_cost = (int) round($totalCost);
+            $sale->total_revenue = (int) round($totalRevenue);
+            $sale->total_profit = (int) round($totalProfit);
+            $sale->profit_margin = $totalRevenue > 0 ? round(($totalProfit / $totalRevenue) * 100, 2) : 0;
 
             return $sale;
         });
 
-        // Summary statistics
-        $allSaleIds = (clone $baseQuery)->pluck('id');
+        // Summary statistics in a single aggregate query
+        $summaryStats = PartSaleDetail::query()
+            ->join('part_sales', 'part_sale_details.part_sale_id', '=', 'part_sales.id')
+            ->when($filters['invoice'] ?? null, fn ($q, $invoice) =>
+                $q->where('part_sales.invoice', 'like', '%' . $invoice . '%')
+            )
+            ->when($filters['start_date'] ?? null, fn ($q, $start) =>
+                $q->whereDate('part_sales.created_at', '>=', $start)
+            )
+            ->when($filters['end_date'] ?? null, fn ($q, $end) =>
+                $q->whereDate('part_sales.created_at', '<=', $end)
+            )
+            ->selectRaw('SUM(COALESCE(part_sale_details.cost_price, 0) * COALESCE(part_sale_details.quantity, part_sale_details.qty, 0)) as total_cost')
+            ->selectRaw('SUM(COALESCE(part_sale_details.selling_price, 0) * COALESCE(part_sale_details.quantity, part_sale_details.qty, 0)) as total_revenue')
+            ->selectRaw('SUM(COALESCE(part_sale_details.quantity, part_sale_details.qty, 0)) as total_quantity')
+            ->selectRaw('COUNT(DISTINCT part_sales.id) as orders_count')
+            ->first();
 
-        $summaryDetails = PartSaleDetail::whereIn('part_sale_id', $allSaleIds)->get();
-
-        $totalCost = $summaryDetails->sum(function ($detail) {
-            return ($detail->cost_price ?? 0) * ($detail->quantity ?? $detail->qty ?? 0);
-        });
-
-        $totalRevenue = $summaryDetails->sum(function ($detail) {
-            return ($detail->selling_price ?? 0) * ($detail->quantity ?? $detail->qty ?? 0);
-        });
-
+        $totalCost = (float) ($summaryStats->total_cost ?? 0);
+        $totalRevenue = (float) ($summaryStats->total_revenue ?? 0);
         $totalProfit = $totalRevenue - $totalCost;
-        $totalQuantity = $summaryDetails->sum(function ($detail) {
-            return $detail->quantity ?? $detail->qty ?? 0;
-        });
-        $ordersCount = (clone $baseQuery)->count();
+        $totalQuantity = (int) ($summaryStats->total_quantity ?? 0);
+        $ordersCount = (int) ($summaryStats->orders_count ?? 0);
 
         $summary = [
             'total_cost' => (int) $totalCost,
@@ -92,14 +101,23 @@ class PartSalesProfitReportController extends Controller
 
         // Top performing parts
         $topParts = PartSaleDetail::selectRaw('
-                part_id,
-                SUM(COALESCE(quantity, 0)) as total_quantity,
-                SUM((COALESCE(selling_price, 0) - COALESCE(cost_price, 0)) * COALESCE(quantity, 0)) as total_profit,
+                part_sale_details.part_id,
+                SUM(COALESCE(part_sale_details.quantity, part_sale_details.qty, 0)) as total_quantity,
+                SUM((COALESCE(part_sale_details.selling_price, 0) - COALESCE(part_sale_details.cost_price, 0)) * COALESCE(part_sale_details.quantity, part_sale_details.qty, 0)) as total_profit,
                 AVG((COALESCE(selling_price, 0) - COALESCE(cost_price, 0)) / NULLIF(COALESCE(cost_price, 1), 0) * 100) as avg_margin
             ')
-            ->whereIn('part_sale_id', $allSaleIds)
+            ->join('part_sales', 'part_sale_details.part_sale_id', '=', 'part_sales.id')
+            ->when($filters['invoice'] ?? null, fn ($q, $invoice) =>
+                $q->where('part_sales.invoice', 'like', '%' . $invoice . '%')
+            )
+            ->when($filters['start_date'] ?? null, fn ($q, $start) =>
+                $q->whereDate('part_sales.created_at', '>=', $start)
+            )
+            ->when($filters['end_date'] ?? null, fn ($q, $end) =>
+                $q->whereDate('part_sales.created_at', '<=', $end)
+            )
             ->with('part:id,name,part_number')
-            ->groupBy('part_id')
+            ->groupBy('part_sale_details.part_id')
             ->orderByDesc('total_profit')
             ->limit(10)
             ->get()
