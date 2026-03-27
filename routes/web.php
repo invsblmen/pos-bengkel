@@ -190,6 +190,8 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::get('/part-sales', [PartSaleController::class, 'index'])->middleware('permission:part-sales-access')->name('part-sales.index');
     Route::get('/part-sales/create', [PartSaleController::class, 'create'])->middleware('permission:part-sales-create')->name('part-sales.create');
     Route::post('/part-sales', [PartSaleController::class, 'store'])->middleware('permission:part-sales-create')->name('part-sales.store');
+    Route::get('/part-sales/warranties', [PartSaleController::class, 'warranties'])->middleware('permission:part-sales-access')->name('part-sales.warranties.index');
+    Route::get('/part-sales/warranties/export', [PartSaleController::class, 'exportWarranties'])->middleware('permission:part-sales-access')->name('part-sales.warranties.export');
     Route::get('/part-sales/{partSale}', [PartSaleController::class, 'show'])->middleware('permission:part-sales-show')->name('part-sales.show');
     Route::get('/part-sales/{partSale}/print', [PartSaleController::class, 'print'])->middleware('permission:part-sales-show')->name('part-sales.print');
     Route::get('/part-sales/{partSale}/edit', [PartSaleController::class, 'edit'])->middleware('permission:part-sales-edit')->name('part-sales.edit');
@@ -197,6 +199,7 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::delete('/part-sales/{partSale}', [PartSaleController::class, 'destroy'])->middleware('permission:part-sales-delete')->name('part-sales.destroy');
     Route::post('/part-sales/{partSale}/update-payment', [PartSaleController::class, 'updatePayment'])->middleware('permission:part-sales-edit')->name('part-sales.update-payment');
     Route::post('/part-sales/{partSale}/update-status', [PartSaleController::class, 'updateStatus'])->middleware('permission:part-sales-edit')->name('part-sales.update-status');
+    Route::post('/part-sales/{partSale}/details/{detail}/claim-warranty', [PartSaleController::class, 'claimWarranty'])->middleware('permission:part-sales-warranty-claim')->name('part-sales.details.claim-warranty');
     Route::post('/part-sales/create-from-order', [PartSaleController::class, 'createFromOrder'])->middleware('permission:part-sales-create')->name('part-sales.create-from-order');
 
     // Part Purchase Orders - DISABLED

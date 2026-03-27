@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
-import { IconArrowLeft, IconPrinter, IconPencil, IconEdit, IconCheck, IconX, IconCash, IconShoppingCart, IconReceipt, IconUser, IconDiscount } from '@tabler/icons-react';
+import { IconArrowLeft, IconPrinter, IconPencil, IconEdit, IconCheck, IconX, IconCash, IconShoppingCart, IconReceipt, IconUser, IconDiscount, IconShieldCheck } from '@tabler/icons-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { formatBusinessSocials } from '@/Utils/socialMediaFormatter';
@@ -62,6 +62,57 @@ export default function Show({ sale, businessProfile, cashDenominations = [] }) 
                   day: 'numeric',
               })
             : '-';
+
+    const formatDateShort = (value) =>
+        value
+            ? new Date(value).toLocaleDateString('id-ID', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+              })
+            : '-';
+
+    const getWarrantyMeta = (detail) => {
+        const period = Number(detail.warranty_period_days || 0);
+        if (period <= 0 || !detail.warranty_end_date) {
+            return {
+                label: 'Tanpa Garansi',
+                badgeClass: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800/60 dark:text-slate-200',
+                canClaim: false,
+                endDateLabel: '-',
+            };
+        }
+
+        if (detail.warranty_claimed_at) {
+            return {
+                label: 'Sudah Diklaim',
+                badgeClass: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-100',
+                canClaim: false,
+                endDateLabel: formatDateShort(detail.warranty_end_date),
+            };
+        }
+
+        const today = new Date();
+        const endDate = new Date(detail.warranty_end_date);
+        today.setHours(0, 0, 0, 0);
+        endDate.setHours(0, 0, 0, 0);
+
+        if (today > endDate) {
+            return {
+                label: 'Expired',
+                badgeClass: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-100',
+                canClaim: false,
+                endDateLabel: formatDateShort(detail.warranty_end_date),
+            };
+        }
+
+        return {
+            label: 'Aktif',
+            badgeClass: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-100',
+            canClaim: true,
+            endDateLabel: formatDateShort(detail.warranty_end_date),
+        };
+    };
 
     const calculateItemSubtotal = (detail) => (detail.quantity || 0) * (detail.unit_price || 0);
     const calculateItemDiscount = (detail) => detail.discount_amount || 0;
@@ -217,6 +268,24 @@ export default function Show({ sale, businessProfile, cashDenominations = [] }) 
         }
     };
 
+    const handleClaimWarranty = (detail) => {
+        const notes = window.prompt('Catatan klaim garansi (opsional):') || '';
+
+        router.post(
+            route('part-sales.details.claim-warranty', { partSale: sale.id, detail: detail.id }),
+            { warranty_claim_notes: notes },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.success('Klaim garansi berhasil dicatat');
+                },
+                onError: (errors) => {
+                    toast.error(errors?.error || 'Gagal mencatat klaim garansi');
+                },
+            }
+        );
+    };
+
     return (
         <DashboardLayout>
             <Head title={`Penjualan ${sale.sale_number}`} />
@@ -297,11 +366,15 @@ export default function Show({ sale, businessProfile, cashDenominations = [] }) 
                                                 <th className="px-6 py-3 text-right font-bold text-slate-700 dark:text-slate-300">Qty</th>
                                                 <th className="px-6 py-3 text-right font-bold text-slate-700 dark:text-slate-300">Harga</th>
                                                 <th className="px-6 py-3 text-right font-bold text-slate-700 dark:text-slate-300">Diskon</th>
+                                                <th className="px-6 py-3 text-center font-bold text-slate-700 dark:text-slate-300">Garansi</th>
                                                 <th className="px-6 py-3 text-right font-bold text-slate-700 dark:text-slate-300">Total</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                            {sale.details.map((detail) => (
+                                            {sale.details.map((detail) => {
+                                                const warranty = getWarrantyMeta(detail);
+
+                                                return (
                                                 <tr key={detail.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
                                                     <td className="px-6 py-4">
                                                         <div className="font-bold text-slate-900 dark:text-white">{detail.part?.name || '-'}</div>
@@ -310,13 +383,35 @@ export default function Show({ sale, businessProfile, cashDenominations = [] }) 
                                                     <td className="px-6 py-4 text-right font-bold text-slate-900 dark:text-white">{detail.quantity}</td>
                                                     <td className="px-6 py-4 text-right font-semibold text-slate-900 dark:text-white">{formatCurrency(detail.unit_price)}</td>
                                                     <td className="px-6 py-4 text-right font-bold text-red-600 dark:text-red-400">-{formatCurrency(calculateItemDiscount(detail))}</td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <div className="flex flex-col items-center gap-2">
+                                                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${warranty.badgeClass}`}>
+                                                                <IconShieldCheck size={13} />
+                                                                {warranty.label}
+                                                            </span>
+                                                            {Number(detail.warranty_period_days || 0) > 0 && (
+                                                                <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                                                                    {detail.warranty_period_days} hari • s.d. {warranty.endDateLabel}
+                                                                </span>
+                                                            )}
+                                                            {warranty.canClaim && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleClaimWarranty(detail)}
+                                                                    className="inline-flex items-center rounded-md bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold px-2 py-1 transition-colors"
+                                                                >
+                                                                    Klaim
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </td>
                                                     <td className="px-6 py-4 text-right font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(calculateItemTotal(detail))}</td>
                                                 </tr>
-                                            ))}
+                                            );})}
                                         </tbody>
                                         <tfoot className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800/60 dark:to-slate-900/60 border-t-2 border-slate-200 dark:border-slate-700">
                                             <tr>
-                                                <td colSpan="4" className="px-6 py-4 text-right font-bold text-slate-900 dark:text-white">Subtotal Item</td>
+                                                <td colSpan="5" className="px-6 py-4 text-right font-bold text-slate-900 dark:text-white">Subtotal Item</td>
                                                 <td className="px-6 py-4 text-right font-bold text-xl text-emerald-600 dark:text-emerald-400">{formatCurrency(subtotal)}</td>
                                             </tr>
                                         </tfoot>

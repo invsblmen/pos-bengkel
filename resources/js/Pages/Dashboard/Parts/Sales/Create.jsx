@@ -31,6 +31,7 @@ export default function Create({ parts = [], customers = [] }) {
     const [itemPrice, setItemPrice] = useState(0);
     const [itemDiscountType, setItemDiscountType] = useState('percent');
     const [itemDiscountValue, setItemDiscountValue] = useState(0);
+    const [itemWarrantyDays, setItemWarrantyDays] = useState(0);
     const [searchPart, setSearchPart] = useState('');
     const [isPartDropdownOpen, setIsPartDropdownOpen] = useState(false);
 
@@ -131,6 +132,7 @@ export default function Create({ parts = [], customers = [] }) {
                 unit_price: itemPrice || fallbackPrice,
                 discount_type: itemDiscountType,
                 discount_value: itemDiscountValue,
+                warranty_period_days: itemWarrantyDays,
             },
         ]);
 
@@ -140,6 +142,7 @@ export default function Create({ parts = [], customers = [] }) {
         setItemPrice(0);
         setItemDiscountType('percent');
         setItemDiscountValue(0);
+        setItemWarrantyDays(0);
         setSearchPart('');
 
         toast.success('Item ditambahkan');
@@ -508,6 +511,16 @@ export default function Create({ parts = [], customers = [] }) {
                                             </div>
                                         </div>
                                     </div>
+                                    <div className="w-32">
+                                        <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Garansi (hari)</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={itemWarrantyDays}
+                                            onChange={(e) => setItemWarrantyDays(parseInt(e.target.value) || 0)}
+                                            className="w-full h-10 px-3 text-right text-sm rounded-lg border-2 border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white font-bold focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                        />
+                                    </div>
                                     <button
                                         type="button"
                                         onClick={addItem}
@@ -529,6 +542,7 @@ export default function Create({ parts = [], customers = [] }) {
                                                     <th className="px-3 py-2 text-center font-bold text-slate-700 dark:text-slate-300 w-24">Qty</th>
                                                     <th className="px-3 py-2 text-right font-bold text-slate-700 dark:text-slate-300 w-36">Harga</th>
                                                     <th className="px-3 py-2 text-right font-bold text-slate-700 dark:text-slate-300 w-44">Diskon</th>
+                                                    <th className="px-3 py-2 text-right font-bold text-slate-700 dark:text-slate-300 w-32">Garansi</th>
                                                     <th className="px-3 py-2 text-right font-bold text-slate-700 dark:text-slate-300 w-32">Total</th>
                                                     <th className="px-3 py-2 text-center font-bold text-slate-700 dark:text-slate-300 w-14">Aksi</th>
                                                 </tr>
@@ -610,6 +624,15 @@ export default function Create({ parts = [], customers = [] }) {
                                                                 </div>
                                                             </div>
                                                         </td>
+                                                        <td className="px-2 py-1.5 text-right">
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                value={item.warranty_period_days || 0}
+                                                                onChange={(e) => updateItem(index, 'warranty_period_days', parseInt(e.target.value) || 0)}
+                                                                className="w-24 h-7 px-2 text-right text-sm rounded-md border-2 border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white font-semibold focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                                            />
+                                                        </td>
                                                         <td className="px-2 py-1.5 text-right font-bold text-emerald-600 dark:text-emerald-400 text-sm">
                                                             {formatCurrency(calculateItemTotal(item))}
                                                         </td>
@@ -683,6 +706,17 @@ export default function Create({ parts = [], customers = [] }) {
                                                             {formatCurrency(calculateItemTotal(item))}
                                                         </div>
                                                     </div>
+                                                </div>
+
+                                                <div>
+                                                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 block">Garansi (hari)</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={item.warranty_period_days || 0}
+                                                        onChange={(e) => updateItem(index, 'warranty_period_days', parseInt(e.target.value) || 0)}
+                                                        className="w-full h-8 px-2 text-right text-xs rounded-md border-2 border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white font-semibold focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                                    />
                                                 </div>
 
                                                 <div>

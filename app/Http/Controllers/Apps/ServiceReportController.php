@@ -9,7 +9,9 @@ use App\Models\ServiceOrder;
 use App\Models\Mechanic;
 use App\Models\Part;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class ServiceReportController extends Controller
@@ -86,72 +88,82 @@ class ServiceReportController extends Controller
             ->whereIn('transaction_type', ['expense', 'change_given'])
             ->sum('amount');
 
-        $rowsBaseQuery = DB::query()->fromSub($this->buildOverallRowsQuery($startDate, $endDate), 'rows');
+        $overallCacheKey = 'reports:overall:' . sha1(json_encode([
+            'start_date' => $startDate->format('Y-m-d H:i:s'),
+            'end_date' => $endDate->format('Y-m-d H:i:s'),
+            'source' => $source,
+            'status' => $status,
+            'per_page' => $perPage,
+            'page' => $currentPage,
+        ]));
 
-        $statusValues = (clone $rowsBaseQuery)
-            ->whereNotNull('status')
-            ->where('status', '!=', '')
-            ->select('status')
-            ->distinct()
-            ->orderBy('status')
-            ->pluck('status');
+        $cachedOverall = Cache::remember($overallCacheKey, now()->addSeconds(45), function () use ($startDate, $endDate, $source, $status, $perPage, $currentPage, $formatStatusLabel, $request) {
+            $rowsBaseQuery = DB::query()->fromSub($this->buildOverallRowsQuery($startDate, $endDate), 'rows');
 
-        $statusOptions = collect($statusValues)
-            ->map(fn ($value) => [
-                'value' => $value,
-                'label' => $formatStatusLabel($value),
-            ])
-            ->values();
+            $statusValues = (clone $rowsBaseQuery)
+                ->whereNotNull('status')
+                ->where('status', '!=', '')
+                ->select('status')
+                ->distinct()
+                ->orderBy('status')
+                ->pluck('status');
 
-        if ($status !== 'all' && !collect($statusValues)->contains($status)) {
-            $status = 'all';
-        }
+            $statusOptions = collect($statusValues)
+                ->map(fn ($value) => [
+                    'value' => $value,
+                    'label' => $formatStatusLabel($value),
+                ])
+                ->values();
 
-        $sourceFilteredRows = clone $rowsBaseQuery;
-        if ($source !== 'all') {
-            $sourceFilteredRows->where('source', $source);
-        }
+            $effectiveStatus = $status;
+            if ($effectiveStatus !== 'all' && !collect($statusValues)->contains($effectiveStatus)) {
+                $effectiveStatus = 'all';
+            }
 
-        $statusSummary = DB::query()
-            ->fromSub($sourceFilteredRows, 'source_rows')
-            ->whereNotNull('status')
-            ->where('status', '!=', '')
-            ->selectRaw('status as value')
-            ->selectRaw('COUNT(*) as count')
-            ->selectRaw("SUM(CASE WHEN flow = 'in' THEN amount WHEN flow = 'out' THEN -amount ELSE 0 END) as net_amount")
-            ->groupBy('status')
-            ->orderByDesc('count')
-            ->get()
-            ->map(function ($row) use ($formatStatusLabel) {
-                return [
-                    'value' => $row->value,
-                    'label' => $formatStatusLabel($row->value),
-                    'count' => (int) ($row->count ?? 0),
-                    'net_amount' => (int) ($row->net_amount ?? 0),
-                ];
-            })
-            ->values();
+            $sourceFilteredRows = clone $rowsBaseQuery;
+            if ($source !== 'all') {
+                $sourceFilteredRows->where('source', $source);
+            }
 
-        $filteredRows = clone $sourceFilteredRows;
-        if ($status !== 'all') {
-            $filteredRows->where('status', $status);
-        }
+            $statusSummary = DB::query()
+                ->fromSub($sourceFilteredRows, 'source_rows')
+                ->whereNotNull('status')
+                ->where('status', '!=', '')
+                ->selectRaw('status as value')
+                ->selectRaw('COUNT(*) as count')
+                ->selectRaw("SUM(CASE WHEN flow = 'in' THEN amount WHEN flow = 'out' THEN -amount ELSE 0 END) as net_amount")
+                ->groupBy('status')
+                ->orderByDesc('count')
+                ->get()
+                ->map(function ($row) use ($formatStatusLabel) {
+                    return [
+                        'value' => $row->value,
+                        'label' => $formatStatusLabel($row->value),
+                        'count' => (int) ($row->count ?? 0),
+                        'net_amount' => (int) ($row->net_amount ?? 0),
+                    ];
+                })
+                ->values();
 
-        $rowsWithBalance = DB::query()
-            ->fromSub($filteredRows, 'filtered_rows')
-            ->selectRaw('event_at, source, reference, description, flow, amount, status')
-            ->selectRaw("SUM(CASE WHEN flow = 'in' THEN amount WHEN flow = 'out' THEN -amount ELSE 0 END) OVER (ORDER BY event_at ASC, reference ASC) as running_balance");
+            $filteredRows = clone $sourceFilteredRows;
+            if ($effectiveStatus !== 'all') {
+                $filteredRows->where('status', $effectiveStatus);
+            }
 
-        $paginatedTransactions = DB::query()
-            ->fromSub($rowsWithBalance, 'rows_with_balance')
-            ->selectRaw('event_at, source, reference, description, flow, amount, status, running_balance')
-            ->orderByDesc('event_at')
-            ->orderByDesc('reference')
-            ->paginate($perPage, ['*'], 'page', $currentPage)
-            ->withQueryString();
+            $rowsWithBalance = DB::query()
+                ->fromSub($filteredRows, 'filtered_rows')
+                ->selectRaw('event_at, source, reference, description, flow, amount, status')
+                ->selectRaw("SUM(CASE WHEN flow = 'in' THEN amount WHEN flow = 'out' THEN -amount ELSE 0 END) OVER (ORDER BY event_at ASC, reference ASC) as running_balance");
 
-        $paginatedTransactions->setCollection(
-            $paginatedTransactions->getCollection()->map(function ($row) use ($formatStatusLabel) {
+            $paginatedTransactions = DB::query()
+                ->fromSub($rowsWithBalance, 'rows_with_balance')
+                ->selectRaw('event_at, source, reference, description, flow, amount, status, running_balance')
+                ->orderByDesc('event_at')
+                ->orderByDesc('reference')
+                ->paginate($perPage, ['*'], 'page', $currentPage)
+                ->withQueryString();
+
+            $transactionItems = $paginatedTransactions->getCollection()->map(function ($row) use ($formatStatusLabel) {
                 $reference = (string) ($row->reference ?? '');
                 $source = (string) ($row->source ?? '');
 
@@ -168,7 +180,38 @@ class ServiceReportController extends Controller
                     'status_label' => $formatStatusLabel($row->status),
                     'running_balance' => (int) ($row->running_balance ?? 0),
                 ];
-            })->values()
+            })->values();
+
+            return [
+                'status_options' => $statusOptions->all(),
+                'status_summary' => $statusSummary->all(),
+                'effective_status' => $effectiveStatus,
+                'transaction_count' => (int) $paginatedTransactions->total(),
+                'transactions' => [
+                    'items' => $transactionItems->all(),
+                    'total' => (int) $paginatedTransactions->total(),
+                    'per_page' => (int) $paginatedTransactions->perPage(),
+                    'current_page' => (int) $paginatedTransactions->currentPage(),
+                    'path' => $request->url(),
+                    'query' => $request->query(),
+                ],
+            ];
+        });
+
+        $status = (string) ($cachedOverall['effective_status'] ?? $status);
+        $statusOptions = collect($cachedOverall['status_options'] ?? [])->values();
+        $statusSummary = collect($cachedOverall['status_summary'] ?? [])->values();
+
+        $transactionMeta = $cachedOverall['transactions'] ?? [];
+        $paginatedTransactions = new LengthAwarePaginator(
+            collect($transactionMeta['items'] ?? []),
+            (int) ($transactionMeta['total'] ?? 0),
+            (int) ($transactionMeta['per_page'] ?? $perPage),
+            (int) ($transactionMeta['current_page'] ?? $currentPage),
+            [
+                'path' => $transactionMeta['path'] ?? $request->url(),
+                'query' => $transactionMeta['query'] ?? $request->query(),
+            ]
         );
 
         return inertia('Dashboard/Reports/Overall', [
@@ -188,7 +231,7 @@ class ServiceReportController extends Controller
                 'cash_in' => $cashIn,
                 'cash_out' => $cashOut,
                 'net_cash_flow' => $cashIn - $cashOut,
-                'transaction_count' => (int) $paginatedTransactions->total(),
+                'transaction_count' => (int) ($cachedOverall['transaction_count'] ?? $paginatedTransactions->total()),
             ],
             'transactions' => $paginatedTransactions,
         ]);

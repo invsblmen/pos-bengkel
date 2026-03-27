@@ -24,6 +24,11 @@ class PartSaleDetail extends Model
         'source_purchase_detail_id',
         'cost_price',
         'selling_price',
+        'warranty_period_days',
+        'warranty_start_date',
+        'warranty_end_date',
+        'warranty_claimed_at',
+        'warranty_claim_notes',
     ];
 
     protected $casts = [
@@ -36,6 +41,10 @@ class PartSaleDetail extends Model
         'final_amount' => 'integer',
         'cost_price' => 'integer',
         'selling_price' => 'integer',
+        'warranty_period_days' => 'integer',
+        'warranty_start_date' => 'date',
+        'warranty_end_date' => 'date',
+        'warranty_claimed_at' => 'datetime',
     ];
 
     // Relationships

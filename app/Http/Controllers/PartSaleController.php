@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Notifications\PartSaleOrderReadyNotification;
 use App\Services\CashChangeSuggestionService;
 use App\Services\DiscountTaxService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -74,6 +75,141 @@ class PartSaleController extends Controller
         ]);
     }
 
+    public function warranties(Request $request)
+    {
+        $search = trim((string) $request->input('search', ''));
+        $status = (string) $request->input('warranty_status', 'all');
+        $expiringIn = (int) $request->input('expiring_in_days', 30);
+        $expiringIn = max(1, min($expiringIn, 365));
+
+        $today = now()->startOfDay();
+        $expiringDate = (clone $today)->addDays($expiringIn)->endOfDay();
+
+        $query = $this->applyWarrantyFilters(
+            PartSaleDetail::query()
+                ->with([
+                    'part:id,name,part_number',
+                    'partSale:id,sale_number,sale_date,customer_id,status,payment_status',
+                    'partSale.customer:id,name',
+                ]),
+            $search,
+            $status,
+            $today,
+            $expiringDate
+        );
+
+        $warranties = $query
+            ->orderByRaw('CASE WHEN warranty_claimed_at IS NULL THEN 0 ELSE 1 END ASC')
+            ->orderBy('warranty_end_date')
+            ->paginate(15)
+            ->withQueryString();
+
+        $summaryBase = $this->applyWarrantyFilters(
+            PartSaleDetail::query(),
+            $search,
+            'all',
+            $today,
+            $expiringDate
+        );
+
+        $summary = [
+            'all' => (clone $summaryBase)->count(),
+            'active' => (clone $summaryBase)
+                ->whereNull('warranty_claimed_at')
+                ->whereDate('warranty_end_date', '>=', $today)
+                ->count(),
+            'expiring' => (clone $summaryBase)
+                ->whereNull('warranty_claimed_at')
+                ->whereBetween('warranty_end_date', [$today, $expiringDate])
+                ->count(),
+            'expired' => (clone $summaryBase)
+                ->whereNull('warranty_claimed_at')
+                ->whereDate('warranty_end_date', '<', $today)
+                ->count(),
+            'claimed' => (clone $summaryBase)
+                ->whereNotNull('warranty_claimed_at')
+                ->count(),
+        ];
+
+        return Inertia::render('Dashboard/Parts/Sales/Warranties/Index', [
+            'warranties' => $warranties,
+            'summary' => $summary,
+            'filters' => [
+                'search' => $search,
+                'warranty_status' => $status,
+                'expiring_in_days' => $expiringIn,
+            ],
+        ]);
+    }
+
+    public function exportWarranties(Request $request)
+    {
+        $search = trim((string) $request->input('search', ''));
+        $status = (string) $request->input('warranty_status', 'all');
+        $expiringIn = (int) $request->input('expiring_in_days', 30);
+        $expiringIn = max(1, min($expiringIn, 365));
+
+        $today = now()->startOfDay();
+        $expiringDate = (clone $today)->addDays($expiringIn)->endOfDay();
+
+        $warranties = $this->applyWarrantyFilters(
+            PartSaleDetail::query()->with([
+                'part:id,name,part_number',
+                'partSale:id,sale_number,sale_date,customer_id,status,payment_status',
+                'partSale.customer:id,name',
+            ]),
+            $search,
+            $status,
+            $today,
+            $expiringDate
+        )
+            ->orderByRaw('CASE WHEN warranty_claimed_at IS NULL THEN 0 ELSE 1 END ASC')
+            ->orderBy('warranty_end_date')
+            ->get();
+
+        $filename = 'sparepart-warranties-' . now()->format('Y-m-d-His') . '.csv';
+
+        return response()->streamDownload(function () use ($warranties, $expiringIn) {
+            $file = fopen('php://output', 'w');
+
+            fputcsv($file, [
+                'No Transaksi',
+                'Tanggal Transaksi',
+                'Pelanggan',
+                'Sparepart',
+                'Nomor Part',
+                'Periode Garansi (Hari)',
+                'Mulai Garansi',
+                'Akhir Garansi',
+                'Status Garansi',
+                'Tanggal Klaim',
+                'Catatan Klaim',
+            ]);
+
+            foreach ($warranties as $item) {
+                $statusLabel = $this->resolveWarrantyStatusLabel($item, $expiringIn);
+
+                fputcsv($file, [
+                    $item->partSale?->sale_number ?? '-',
+                    optional($item->partSale?->sale_date)->format('Y-m-d') ?? ($item->partSale?->sale_date ?? '-'),
+                    $item->partSale?->customer?->name ?? '-',
+                    $item->part?->name ?? '-',
+                    $item->part?->part_number ?? '-',
+                    (int) ($item->warranty_period_days ?? 0),
+                    optional($item->warranty_start_date)->format('Y-m-d') ?? '-',
+                    optional($item->warranty_end_date)->format('Y-m-d') ?? '-',
+                    $statusLabel,
+                    optional($item->warranty_claimed_at)->format('Y-m-d H:i:s') ?? '-',
+                    $item->warranty_claim_notes ?? '-',
+                ]);
+            }
+
+            fclose($file);
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+        ]);
+    }
+
     public function create(Request $request)
     {
         $customers = Customer::orderBy('name')->get();
@@ -104,6 +240,7 @@ class PartSaleController extends Controller
             'items.*.unit_price' => 'required|integer|min:0',
             'items.*.discount_type' => 'nullable|in:none,percent,fixed',
             'items.*.discount_value' => 'nullable|numeric|min:0',
+            'items.*.warranty_period_days' => 'nullable|integer|min:0|max:3650',
             'discount_type' => 'nullable|in:none,percent,fixed',
             'discount_value' => 'nullable|numeric|min:0',
             'tax_type' => 'nullable|in:none,percent,fixed',
@@ -164,6 +301,7 @@ class PartSaleController extends Controller
                 }
 
                 $finalAmount = $subtotal - $discountAmount;
+                $warrantyData = $this->buildWarrantyData($item, $request->sale_date);
 
                 // Reserve stock based on unified status flow
                 $reservedQty = 0;
@@ -220,6 +358,11 @@ class PartSaleController extends Controller
                     'final_amount' => $finalAmount,
                     'cost_price' => $part->buy_price ?? 0,
                     'selling_price' => $item['unit_price'],
+                    'warranty_period_days' => $warrantyData['warranty_period_days'],
+                    'warranty_start_date' => $warrantyData['warranty_start_date'],
+                    'warranty_end_date' => $warrantyData['warranty_end_date'],
+                    'warranty_claimed_at' => null,
+                    'warranty_claim_notes' => null,
                 ]);
 
             }
@@ -341,6 +484,7 @@ class PartSaleController extends Controller
             'items.*.unit_price' => 'required|integer|min:0',
             'items.*.discount_type' => 'nullable|in:none,percent,fixed',
             'items.*.discount_value' => 'nullable|numeric|min:0',
+            'items.*.warranty_period_days' => 'nullable|integer|min:0|max:3650',
             'discount_type' => 'nullable|in:none,percent,fixed',
             'discount_value' => 'nullable|numeric|min:0',
             'tax_type' => 'nullable|in:none,percent,fixed',
@@ -386,6 +530,7 @@ class PartSaleController extends Controller
                 }
 
                 $finalAmount = $subtotal - $discountAmount;
+                $warrantyData = $this->buildWarrantyData($item, $request->sale_date);
 
                 PartSaleDetail::create([
                     'part_sale_id' => $partSale->id,
@@ -400,6 +545,11 @@ class PartSaleController extends Controller
                     'final_amount' => $finalAmount,
                     'cost_price' => Part::find($item['part_id'])?->buy_price ?? 0,
                     'selling_price' => $item['unit_price'],
+                    'warranty_period_days' => $warrantyData['warranty_period_days'],
+                    'warranty_start_date' => $warrantyData['warranty_start_date'],
+                    'warranty_end_date' => $warrantyData['warranty_end_date'],
+                    'warranty_claimed_at' => null,
+                    'warranty_claim_notes' => null,
                 ]);
             }
 
@@ -843,5 +993,120 @@ class PartSaleController extends Controller
         return redirect()->route('part-sales.create', [
             'sales_order_id' => $request->sales_order_id
         ]);
+    }
+
+    public function claimWarranty(Request $request, PartSale $partSale, PartSaleDetail $detail)
+    {
+        if ((int) $detail->part_sale_id !== (int) $partSale->id) {
+            throw ValidationException::withMessages([
+                'error' => ['Detail garansi tidak valid untuk transaksi ini.'],
+            ]);
+        }
+
+        $validated = $request->validate([
+            'warranty_claim_notes' => 'nullable|string|max:1000',
+        ]);
+
+        if ((int) ($detail->warranty_period_days ?? 0) <= 0 || empty($detail->warranty_end_date)) {
+            throw ValidationException::withMessages([
+                'error' => ['Item ini tidak memiliki garansi.'],
+            ]);
+        }
+
+        if (!empty($detail->warranty_claimed_at)) {
+            throw ValidationException::withMessages([
+                'error' => ['Garansi item ini sudah pernah diklaim.'],
+            ]);
+        }
+
+        $endDate = Carbon::parse($detail->warranty_end_date)->startOfDay();
+        if (now()->startOfDay()->gt($endDate)) {
+            throw ValidationException::withMessages([
+                'error' => ['Masa garansi item ini sudah berakhir.'],
+            ]);
+        }
+
+        $detail->update([
+            'warranty_claimed_at' => now(),
+            'warranty_claim_notes' => $validated['warranty_claim_notes'] ?? null,
+        ]);
+
+        return back()->with('success', 'Klaim garansi berhasil dicatat');
+    }
+
+    private function applyWarrantyFilters($query, string $search, string $status, Carbon $today, Carbon $expiringDate)
+    {
+        $query->where('warranty_period_days', '>', 0);
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('part', function ($partQuery) use ($search) {
+                    $partQuery->where('name', 'like', '%' . $search . '%')
+                        ->orWhere('part_number', 'like', '%' . $search . '%');
+                })->orWhereHas('partSale', function ($saleQuery) use ($search) {
+                    $saleQuery->where('sale_number', 'like', '%' . $search . '%')
+                        ->orWhereHas('customer', function ($customerQuery) use ($search) {
+                            $customerQuery->where('name', 'like', '%' . $search . '%');
+                        });
+                });
+            });
+        }
+
+        if ($status === 'active') {
+            $query->whereNull('warranty_claimed_at')
+                ->whereDate('warranty_end_date', '>=', $today);
+        } elseif ($status === 'expiring') {
+            $query->whereNull('warranty_claimed_at')
+                ->whereBetween('warranty_end_date', [$today, $expiringDate]);
+        } elseif ($status === 'expired') {
+            $query->whereNull('warranty_claimed_at')
+                ->whereDate('warranty_end_date', '<', $today);
+        } elseif ($status === 'claimed') {
+            $query->whereNotNull('warranty_claimed_at');
+        }
+
+        return $query;
+    }
+
+    private function resolveWarrantyStatusLabel(PartSaleDetail $detail, int $expiringInDays): string
+    {
+        if (!empty($detail->warranty_claimed_at)) {
+            return 'Sudah Diklaim';
+        }
+
+        $today = now()->startOfDay();
+        $endDate = $detail->warranty_end_date ? Carbon::parse($detail->warranty_end_date)->startOfDay() : null;
+
+        if (!$endDate || $endDate->lt($today)) {
+            return 'Expired';
+        }
+
+        $threshold = (clone $today)->addDays(max(1, $expiringInDays));
+        if ($endDate->lte($threshold)) {
+            return 'Akan Expired';
+        }
+
+        return 'Aktif';
+    }
+
+    private function buildWarrantyData(array $item, string $saleDate): array
+    {
+        $periodDays = (int) ($item['warranty_period_days'] ?? 0);
+        if ($periodDays <= 0) {
+            return [
+                'warranty_period_days' => 0,
+                'warranty_start_date' => null,
+                'warranty_end_date' => null,
+            ];
+        }
+
+        $startDate = Carbon::parse($saleDate)->startOfDay();
+        $endDate = (clone $startDate)->addDays($periodDays);
+
+        return [
+            'warranty_period_days' => $periodDays,
+            'warranty_start_date' => $startDate->toDateString(),
+            'warranty_end_date' => $endDate->toDateString(),
+        ];
     }
 }

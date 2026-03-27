@@ -99,6 +99,31 @@ npm run build
 php artisan db:seed --class=WorkshopSeeder
 ```
 
+## Update Terbaru (2026-03-27)
+
+Perubahan enterprise yang baru ditambahkan:
+
+- Manajemen garansi sparepart pada transaksi part sales (input masa garansi per item, status, dan klaim).
+- Halaman terpusat manajemen garansi sparepart dengan filter, ringkasan, pagination, dan realtime refresh.
+- Export CSV data garansi sparepart berdasarkan filter aktif.
+- Notifikasi in-app untuk garansi sparepart yang akan berakhir melalui command terjadwal harian.
+- Permission khusus klaim garansi sparepart: `part-sales-warranty-claim`.
+
+Command terkait garansi:
+
+```bash
+# Jalankan notifikasi garansi akan habis secara manual
+php artisan warranty:notify-expiring --days=7
+
+# Lihat daftar scheduler termasuk job notifikasi garansi
+php artisan schedule:list
+```
+
+Dokumen lanjutan implementasi lintas device tersedia di:
+
+- `TODO_NEXT_STEPS.md`
+- `TODO_KANBAN.md`
+
 ## Catatan Migrasi Cleanup Legacy
 
 Repository ini sudah melakukan cleanup modul retail lama, termasuk migration drop tabel legacy melalui:

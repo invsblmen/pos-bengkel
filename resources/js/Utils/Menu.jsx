@@ -23,6 +23,7 @@ import {
     IconAlertCircle,
     IconBuildingStore,
     IconCash,
+    IconShieldCheck,
 } from "@tabler/icons-react";
 import hasAnyPermission from "./Permission";
 import React from "react";
@@ -114,6 +115,13 @@ export default function Menu() {
                     href: route("part-sales.index"),
                     active: url.includes("/dashboard/part-sales"),
                     icon: <IconArrowUp size={20} strokeWidth={1.5} />,
+                    permissions: hasAnyPermission(["part-sales-access"]),
+                },
+                {
+                    title: "Garansi Sparepart",
+                    href: route("part-sales.warranties.index"),
+                    active: url.startsWith("/dashboard/part-sales/warranties"),
+                    icon: <IconShieldCheck size={20} strokeWidth={1.5} />,
                     permissions: hasAnyPermission(["part-sales-access"]),
                 },
                 {
