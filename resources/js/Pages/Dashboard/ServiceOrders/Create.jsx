@@ -22,6 +22,14 @@ import {
 import toast from 'react-hot-toast';
 import { nowLocalDateTime } from '@/Utils/datetime';
 
+const generateSubmissionToken = () => {
+    if (typeof window !== 'undefined' && window.crypto?.randomUUID) {
+        return window.crypto.randomUUID();
+    }
+
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('id-ID', {
         style: 'currency',
@@ -33,6 +41,7 @@ const formatCurrency = (value) => {
 
 export default function Create({ customers, mechanics, services, parts, vehicles, tags, activeServiceOrders, availableVouchers = [] }) {
     const { data, setData, post, processing, errors } = useForm({
+        submission_token: generateSubmissionToken(),
         customer_id: '',
         vehicle_id: '',
         mechanic_id: '',
@@ -69,6 +78,7 @@ export default function Create({ customers, mechanics, services, parts, vehicles
     const [checkIn, setCheckIn] = useState({ odometer_km: '', notes: '' });
     const [insights, setInsights] = useState({ last_km: {}, vehicle_km: null, last_order_km: null });
     const [mobileView, setMobileView] = useState('services'); // 'services' | 'summary'
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Discount & Tax Modes
     const [discountMode, setDiscountMode] = useState('nominal'); // 'nominal' or 'percent'
@@ -427,6 +437,10 @@ export default function Create({ customers, mechanics, services, parts, vehicles
     const handleSubmit = (e) => {
         e.preventDefault();
 
+        if (processing || isSubmitting) {
+            return;
+        }
+
         // Validation
         if (!data.customer_id) {
             toast.error('Pilih pelanggan terlebih dahulu');
@@ -456,6 +470,8 @@ export default function Create({ customers, mechanics, services, parts, vehicles
             tax_type: data.tax_value > 0 ? (taxMode === 'nominal' ? 'fixed' : taxMode) : 'none',
         };
 
+        setIsSubmitting(true);
+
         // Submit form with Inertia
         router.post(route('service-orders.store'), finalData, {
             onSuccess: () => {
@@ -470,6 +486,9 @@ export default function Create({ customers, mechanics, services, parts, vehicles
                 } else {
                     toast.error('Gagal membuat Service Order');
                 }
+            },
+            onFinish: () => {
+                setIsSubmitting(false);
             },
         });
     };
@@ -908,14 +927,14 @@ export default function Create({ customers, mechanics, services, parts, vehicles
                         <button
                             type="button"
                             onClick={handleSubmit}
-                            disabled={processing || !data.customer_id || !data.vehicle_id || data.items.length === 0}
+                            disabled={processing || isSubmitting || !data.customer_id || !data.vehicle_id || data.items.length === 0}
                             className={`w-full h-12 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
                                 data.customer_id && data.vehicle_id && data.items.length > 0
                                     ? 'bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-lg shadow-primary-500/30'
                                     : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
                             }`}
                         >
-                            {processing ? (
+                            {(processing || isSubmitting) ? (
                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                             ) : (
                                 <>

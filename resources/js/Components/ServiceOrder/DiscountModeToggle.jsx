@@ -9,30 +9,30 @@ export default function DiscountModeToggle({
     const isNominal = mode === 'nominal';
 
     return (
-        <div className={`inline-flex items-center gap-1 p-1 bg-slate-200 dark:bg-slate-700 rounded-lg ${className}`}>
+        <div className={`inline-flex h-10 items-center gap-1 rounded-lg border border-slate-300 bg-slate-100 px-1.5 dark:border-slate-700 dark:bg-slate-800 ${className}`}>
             <button
                 type="button"
                 onClick={() => onChange('nominal')}
-                className={`p-2 rounded transition-all ${
+                className={`inline-flex h-7 w-7 items-center justify-center rounded-md leading-none transition-all ${
                     isNominal
                         ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-primary-400 shadow-sm'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
                 title="Diskon Nominal (Rp)"
             >
-                <IconCurrencyDollar size={18} />
+                <IconCurrencyDollar size={16} />
             </button>
             <button
                 type="button"
                 onClick={() => onChange('percent')}
-                className={`p-2 rounded transition-all ${
+                className={`inline-flex h-7 w-7 items-center justify-center rounded-md leading-none transition-all ${
                     !isNominal
                         ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-primary-400 shadow-sm'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
                 title="Diskon Persen (%)"
             >
-                <IconPercentage size={18} />
+                <IconPercentage size={16} />
             </button>
         </div>
     );

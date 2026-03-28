@@ -21,6 +21,7 @@ use App\Support\DispatchesBroadcastSafely;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 
@@ -191,6 +192,7 @@ class ServiceOrderController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+            'submission_token' => 'required|string|max:100',
             'customer_id' => 'nullable|exists:customers,id',
             'vehicle_id' => 'nullable|exists:vehicles,id',
             'mechanic_id' => 'nullable|exists:mechanics,id',
@@ -222,64 +224,87 @@ class ServiceOrderController extends Controller
             'voucher_code' => 'nullable|string|max:50',
         ]);
 
-        $orderNumber = 'SO-' . strtoupper(Str::random(8));
+        $submissionToken = (string) $request->input('submission_token');
+        $userId = Auth::id() ?? 0;
+        $processingKey = "service_order:store:processing:{$userId}:{$submissionToken}";
+        $resultKey = "service_order:store:result:{$userId}:{$submissionToken}";
 
-        $order = ServiceOrder::create([
-            'order_number' => $orderNumber,
-            'customer_id' => $request->customer_id,
-            'vehicle_id' => $request->vehicle_id,
-            'mechanic_id' => $request->mechanic_id,
-            'status' => $request->status ?? 'pending',
-            'odometer_km' => $request->odometer_km,
-            'estimated_start_at' => $request->estimated_start_at,
-            'estimated_finish_at' => $request->estimated_finish_at,
-            'labor_cost' => $request->labor_cost ?? 0,
-            'notes' => $request->notes,
-            'maintenance_type' => $request->maintenance_type,
-            'next_service_km' => $request->next_service_km,
-            'next_service_date' => $request->next_service_date,
-            'total' => 0,
-            'discount_type' => $request->discount_type ?? 'none',
-            'discount_value' => $request->discount_value ?? 0,
-            'voucher_id' => null,
-            'voucher_code' => null,
-            'voucher_discount_amount' => 0,
-            'tax_type' => $request->tax_type ?? 'none',
-            'tax_value' => $request->tax_value ?? 0,
-        ]);
-
-        // Attach tags
-        if ($request->tags) {
-            $order->tags()->sync($request->tags);
+        $existingOrderId = Cache::get($resultKey);
+        if ($existingOrderId) {
+            return redirect()
+                ->route('service-orders.show', $existingOrderId)
+                ->with('info', 'Permintaan sudah diproses sebelumnya.');
         }
 
-        // Validate odometer progression against previous records
-        if ($order->vehicle_id && $order->odometer_km !== null) {
-            $prevOrderKm = ServiceOrder::where('vehicle_id', $order->vehicle_id)
-                ->whereNotNull('odometer_km')
-                ->where('id', '!=', $order->id)
-                ->max('odometer_km');
-            if ($prevOrderKm && $order->odometer_km < $prevOrderKm) {
-                $order->delete();
-                return back()->withErrors(['odometer_km' => 'Odometer tidak boleh kurang dari km sebelumnya (' . number_format($prevOrderKm, 0, ',', '.') . ' km).'])->withInput();
+        if (!Cache::add($processingKey, 1, now()->addSeconds(30))) {
+            return back()->with('warning', 'Permintaan sedang diproses. Mohon tunggu beberapa detik.');
+        }
+
+        try {
+
+            $orderNumber = 'SO-' . strtoupper(Str::random(8));
+
+            $order = ServiceOrder::create([
+                'order_number' => $orderNumber,
+                'customer_id' => $request->customer_id,
+                'vehicle_id' => $request->vehicle_id,
+                'mechanic_id' => $request->mechanic_id,
+                'status' => $request->status ?? 'pending',
+                'odometer_km' => $request->odometer_km,
+                'estimated_start_at' => $request->estimated_start_at,
+                'estimated_finish_at' => $request->estimated_finish_at,
+                'labor_cost' => $request->labor_cost ?? 0,
+                'notes' => $request->notes,
+                'maintenance_type' => $request->maintenance_type,
+                'next_service_km' => $request->next_service_km,
+                'next_service_date' => $request->next_service_date,
+                'total' => 0,
+                'discount_type' => $request->discount_type ?? 'none',
+                'discount_value' => $request->discount_value ?? 0,
+                'voucher_id' => null,
+                'voucher_code' => null,
+                'voucher_discount_amount' => 0,
+                'tax_type' => $request->tax_type ?? 'none',
+                'tax_value' => $request->tax_value ?? 0,
+            ]);
+
+            // Attach tags
+            if ($request->tags) {
+                $order->tags()->sync($request->tags);
             }
+
+            // Validate odometer progression against previous records
+            if ($order->vehicle_id && $order->odometer_km !== null) {
+                $prevOrderKm = ServiceOrder::where('vehicle_id', $order->vehicle_id)
+                    ->whereNotNull('odometer_km')
+                    ->where('id', '!=', $order->id)
+                    ->max('odometer_km');
+                if ($prevOrderKm && $order->odometer_km < $prevOrderKm) {
+                    $order->delete();
+                    return back()->withErrors(['odometer_km' => 'Odometer tidak boleh kurang dari km sebelumnya (' . number_format($prevOrderKm, 0, ',', '.') . ' km).'])->withInput();
+                }
+            }
+
+            $this->calculateServiceOrderCosts($order, $request->items);
+            $this->applyVoucherToServiceOrder($order, $request->voucher_code);
+
+            // If created with completed or paid status, deduct parts from inventory
+            if (in_array($order->status, ['completed', 'paid'])) {
+                $this->deductPartsFromInventory($order);
+                $this->syncWarrantyRegistrationsForFinalizedOrder($order);
+            }
+
+            $this->dispatchBroadcastSafely(
+                fn () => ServiceOrderCreated::dispatch($order->load(['customer', 'vehicle', 'mechanic', 'details.service', 'details.part'])->toArray()),
+                'ServiceOrderCreated'
+            );
+
+            Cache::put($resultKey, $order->id, now()->addMinutes(10));
+
+            return redirect()->route('service-orders.index')->with('success', 'Service order created.');
+        } finally {
+            Cache::forget($processingKey);
         }
-
-        $this->calculateServiceOrderCosts($order, $request->items);
-        $this->applyVoucherToServiceOrder($order, $request->voucher_code);
-
-        // If created with completed or paid status, deduct parts from inventory
-        if (in_array($order->status, ['completed', 'paid'])) {
-            $this->deductPartsFromInventory($order);
-            $this->syncWarrantyRegistrationsForFinalizedOrder($order);
-        }
-
-        $this->dispatchBroadcastSafely(
-            fn () => ServiceOrderCreated::dispatch($order->load(['customer', 'vehicle', 'mechanic', 'details.service', 'details.part'])->toArray()),
-            'ServiceOrderCreated'
-        );
-
-        return redirect()->route('service-orders.index')->with('success', 'Service order created.');
     }
 
     public function storeQuick(Request $request)

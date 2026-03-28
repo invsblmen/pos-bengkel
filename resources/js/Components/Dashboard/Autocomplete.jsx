@@ -16,6 +16,7 @@ export default function Autocomplete({
     disabled = false,
     getOptionDisabled = null,
     renderOption = null,
+    inputClassName = '',
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -113,9 +114,11 @@ export default function Autocomplete({
 
     return (
         <div className="relative z-50" ref={wrapperRef}>
-            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                {label} {required && <span className="text-red-500">*</span>}
-            </label>
+            {label && (
+                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {label} {required && <span className="text-red-500">*</span>}
+                </label>
+            )}
 
             <div className="relative">
                 <input
@@ -132,7 +135,7 @@ export default function Autocomplete({
                     disabled={disabled}
                     className={`block w-full rounded-xl border ${
                         errors ? 'border-red-500' : 'border-gray-300'
-                    } bg-white px-4 py-2.5 pr-20 text-gray-900 shadow-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100`}
+                    } bg-white px-4 py-2.5 pr-20 text-gray-900 shadow-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 ${inputClassName}`}
                 />
 
                 <div className="absolute right-2 top-1/2 flex -translate-y-1/2 gap-1">

@@ -5,7 +5,7 @@ import Autocomplete from '@/Components/Dashboard/Autocomplete';
 import QuickCreateVehicleModal from '@/Components/Dashboard/QuickCreateVehicleModal';
 import QuickCreateServiceModal from '@/Components/Dashboard/QuickCreateServiceModal';
 import QuickCreatePartModal from '@/Components/Dashboard/QuickCreatePartModal';
-import { IconArrowLeft, IconDeviceFloppy, IconTrash, IconPlus, IconX } from '@tabler/icons-react';
+import { IconArrowLeft, IconDeviceFloppy, IconInfoCircle, IconTrash, IconPlus, IconX } from '@tabler/icons-react';
 import { toInputValue, extractDateFromISO } from '@/Utils/datetime';
 import toast from 'react-hot-toast';
 
@@ -58,6 +58,7 @@ export default function Edit({ order, customers, mechanics, services, parts, veh
     const [showPartModal, setShowPartModal] = useState(false);
     const [partSearchTerm, setPartSearchTerm] = useState('');
     const [currentPartIndex, setCurrentPartIndex] = useState(null);
+    const [partDraftByItem, setPartDraftByItem] = useState({});
     const [insights, setInsights] = useState({ last_km: {}, vehicle_km: null, last_order_km: null });
     const [vehicleHistory, setVehicleHistory] = useState({ recent_orders: [] });
     const [vehicleRecommendations, setVehicleRecommendations] = useState({ recommended_parts: [], recommended_services: [] });
@@ -182,7 +183,16 @@ export default function Edit({ order, customers, mechanics, services, parts, veh
         router.reload({
             only: ['parts'],
             onSuccess: () => {
-                if (currentItemIndex !== null && currentPartIndex !== null) {
+                if (currentItemIndex !== null && currentPartIndex === 'draft') {
+                    setPartDraftByItem((prev) => ({
+                        ...prev,
+                        [currentItemIndex]: {
+                            ...(prev[currentItemIndex] || { qty: 1, price: 0, discount_type: 'percent', discount_value: 0 }),
+                            part_id: newPart.id,
+                            price: newPart.sell_price || 0
+                        }
+                    }));
+                } else if (currentItemIndex !== null && currentPartIndex !== null) {
                     handlePartChange(currentItemIndex, currentPartIndex, 'part_id', newPart.id);
                 }
                 toast.success('Sparepart berhasil ditambahkan');
@@ -219,6 +229,102 @@ export default function Edit({ order, customers, mechanics, services, parts, veh
         setData('items', newItems);
     };
 
+    const getPartDraft = (itemIndex) => (
+        partDraftByItem[itemIndex] || { part_id: '', qty: 1, price: 0, discount_type: 'percent', discount_value: 0 }
+    );
+
+    const updatePartDraft = (itemIndex, patch) => {
+        setPartDraftByItem((prev) => ({
+            ...prev,
+            [itemIndex]: {
+                ...getPartDraft(itemIndex),
+                ...patch,
+            },
+        }));
+    };
+
+    const handleDraftPartSelect = (itemIndex, partId) => {
+        const selectedPart = parts.find((p) => p.id === parseInt(partId));
+        if (!selectedPart) return;
+
+        updatePartDraft(itemIndex, {
+            part_id: partId,
+            price: selectedPart.sell_price || 0,
+        });
+
+        setTimeout(() => {
+            const qtyInput = document.querySelector(`[data-draft-item-index="${itemIndex}"][data-draft-field="qty"]`);
+            if (qtyInput) qtyInput.focus();
+        }, 0);
+    };
+
+    const handleAddPartFromDraft = (itemIndex) => {
+        const draft = getPartDraft(itemIndex);
+        if (!draft.part_id) {
+            toast.error('Pilih sparepart terlebih dahulu');
+            return;
+        }
+
+        if ((Number(draft.qty) || 0) < 1) {
+            toast.error('Qty minimal 1');
+            return;
+        }
+
+        const exists = data.items[itemIndex].parts.some((p) => parseInt(p.part_id) === parseInt(draft.part_id));
+        if (exists) {
+            toast.error('Sparepart sudah ditambahkan');
+            return;
+        }
+
+        const selectedPart = parts.find((p) => p.id === parseInt(draft.part_id));
+        const newItems = [...data.items];
+        newItems[itemIndex].parts.push({
+            part_id: draft.part_id,
+            qty: Number(draft.qty) || 1,
+            price: Number(draft.price) || selectedPart?.sell_price || 0,
+            discount_type: draft.discount_type || 'percent',
+            discount_value: Number(draft.discount_value) || 0,
+        });
+        setData('items', newItems);
+
+        setPartDraftByItem((prev) => ({
+            ...prev,
+            [itemIndex]: { part_id: '', qty: 1, price: 0, discount_type: 'percent', discount_value: 0 },
+        }));
+
+        setTimeout(() => {
+            const qtyInput = document.querySelector(`[data-draft-item-index="${itemIndex}"][data-draft-field="qty"]`);
+            if (qtyInput) qtyInput.focus();
+        }, 0);
+    };
+
+    const handleDraftInputEnter = (e, itemIndex, field) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+
+        const focusDraft = (nextField) => {
+            const el = document.querySelector(`[data-draft-item-index="${itemIndex}"][data-draft-field="${nextField}"]`);
+            if (el) el.focus();
+        };
+
+        if (field === 'qty') {
+            focusDraft('price');
+            return;
+        }
+
+        if (field === 'price') {
+            focusDraft('discount_value');
+            return;
+        }
+
+        if (field === 'discount_value') {
+            const draft = getPartDraft(itemIndex);
+            if (draft.part_id) {
+                handleAddPartFromDraft(itemIndex);
+            }
+        }
+    };
+
     const handleRemovePart = (itemIndex, partIndex) => {
         const newItems = [...data.items];
         newItems[itemIndex].parts = newItems[itemIndex].parts.filter((_, i) => i !== partIndex);
@@ -236,6 +342,41 @@ export default function Edit({ order, customers, mechanics, services, parts, veh
         }
 
         setData('items', newItems);
+    };
+
+    const focusPartField = (itemIndex, partIndex, field) => {
+        setTimeout(() => {
+            const el = document.querySelector(`[data-item-index="${itemIndex}"][data-part-index="${partIndex}"][data-part-field="${field}"]`);
+            if (el) el.focus();
+        }, 0);
+    };
+
+    const handlePartInputEnter = (e, itemIndex, partIndex, field) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+
+        if (field === 'qty') {
+            focusPartField(itemIndex, partIndex, 'price');
+            return;
+        }
+
+        if (field === 'price') {
+            focusPartField(itemIndex, partIndex, 'discount_value');
+            return;
+        }
+
+        if (field === 'discount_value') {
+            const partsLength = data.items[itemIndex]?.parts?.length || 0;
+            const nextPartIndex = partIndex + 1;
+
+            if (nextPartIndex < partsLength) {
+                focusPartField(itemIndex, nextPartIndex, 'qty');
+                return;
+            }
+
+            const draftQty = document.querySelector(`[data-draft-item-index="${itemIndex}"][data-draft-field="qty"]`);
+            if (draftQty) draftQty.focus();
+        }
     };
 
     const handleSubmit = (e) => {
@@ -571,11 +712,11 @@ export default function Edit({ order, customers, mechanics, services, parts, veh
                             {data.items.map((item, itemIndex) => (
                                 <div
                                     key={itemIndex}
-                                    className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50"
+                                    className="rounded-2xl border border-gray-200 bg-gray-50/80 p-4 dark:border-gray-700 dark:bg-gray-800/50"
                                 >
                                     {/* Service Row */}
-                                    <div className="mb-4 flex gap-4">
-                                        <div className="flex-1">
+                                    <div className="mb-4 grid gap-3 lg:grid-cols-12">
+                                        <div className="lg:col-span-11">
                                             <label className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">
                                                 Layanan Service (Opsional)
                                             </label>
@@ -594,11 +735,11 @@ export default function Edit({ order, customers, mechanics, services, parts, veh
                                                 createLabel="Tambah Layanan"
                                             />
                                         </div>
-                                        <div className="flex items-end">
+                                        <div className="flex items-end lg:col-span-1">
                                             <button
                                                 type="button"
                                                 onClick={() => handleRemoveItem(itemIndex)}
-                                                className="rounded-lg bg-red-100 p-2 text-red-700 transition hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
+                                                className="h-10 w-full rounded-lg bg-red-100 p-2 text-red-700 transition hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
                                                 title="Hapus item beserta semua sparepart"
                                             >
                                                 <IconTrash size={18} />
@@ -608,9 +749,9 @@ export default function Edit({ order, customers, mechanics, services, parts, veh
 
                                     {/* Service Price Display */}
                                     {item.service_id && (
-                                        <div className="mb-4 rounded-lg bg-white p-3 space-y-3 dark:bg-gray-700">
+                                        <div className="mb-4 space-y-3 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-600 dark:bg-gray-700">
                                             <p className="text-sm text-gray-600 dark:text-gray-300">
-                                                Biaya Jasa: <span className="font-semibold text-gray-900 dark:text-white">
+                                                Biaya Jasa: <span className="font-semibold tabular-nums text-gray-900 dark:text-white">
                                                     {formatCurrency(services.find(s => s.id === parseInt(item.service_id))?.price || 0)}
                                                 </span>
                                             </p>
@@ -656,152 +797,371 @@ export default function Edit({ order, customers, mechanics, services, parts, veh
                                     )}
 
                                     {/* Parts Section */}
-                                    <div className="rounded-lg border-t border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-700">
+                                    <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-700">
                                         <div className="mb-3 flex items-center justify-between">
                                             <label className="text-xs font-semibold uppercase text-gray-600 dark:text-gray-400">
                                                 Sparepart untuk Layanan Ini
                                             </label>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleAddPart(itemIndex)}
-                                                className="inline-flex items-center gap-1 rounded-lg bg-primary-100 px-2 py-1 text-xs font-medium text-primary-700 transition hover:bg-primary-200 dark:bg-primary-900/30 dark:text-primary-300 dark:hover:bg-primary-900/50"
-                                            >
-                                                <IconPlus size={14} />
-                                                Tambah Part
-                                            </button>
+                                        </div>
+
+                                        <div className="mb-3 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-800/40">
+                                            <div className="grid items-end gap-2.5 lg:grid-cols-12">
+                                                <div className="lg:col-span-5">
+                                                    <label className="mb-1 block text-[11px] font-semibold text-gray-700 dark:text-gray-300">Pilih Sparepart</label>
+                                                    <Autocomplete
+                                                        value={getPartDraft(itemIndex).part_id}
+                                                        onChange={(partId) => handleDraftPartSelect(itemIndex, partId)}
+                                                        options={parts}
+                                                        displayField={(p) => {
+                                                            const code = p.part_number || 'Tanpa Kode';
+                                                            return `${p.name} (${code}) — ${formatCurrency(p.sell_price)}`;
+                                                        }}
+                                                        searchFields={['name', 'part_number', 'barcode']}
+                                                        placeholder="Cari sparepart..."
+                                                        onCreateNew={(searchTerm) => {
+                                                            setPartSearchTerm(searchTerm);
+                                                            setCurrentItemIndex(itemIndex);
+                                                            setCurrentPartIndex('draft');
+                                                            setShowPartModal(true);
+                                                        }}
+                                                        createLabel="Tambah Sparepart"
+                                                    />
+                                                </div>
+
+                                                <div className="lg:col-span-1">
+                                                    <label className="mb-1 block text-[11px] font-semibold text-gray-700 dark:text-gray-300">Qty</label>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        value={getPartDraft(itemIndex).qty}
+                                                        onChange={(e) => updatePartDraft(itemIndex, { qty: parseInt(e.target.value) || 1 })}
+                                                        onKeyDown={(e) => handleDraftInputEnter(e, itemIndex, 'qty')}
+                                                        data-draft-item-index={itemIndex}
+                                                        data-draft-field="qty"
+                                                        className="block h-9 w-full rounded-lg border border-gray-300 bg-white px-2 text-center text-xs tabular-nums text-gray-900 transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                                    />
+                                                </div>
+
+                                                <div className="lg:col-span-2">
+                                                    <label className="mb-1 block text-[11px] font-semibold text-gray-700 dark:text-gray-300">Harga</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={getPartDraft(itemIndex).price}
+                                                        onChange={(e) => updatePartDraft(itemIndex, { price: parseFloat(e.target.value) || 0 })}
+                                                        onKeyDown={(e) => handleDraftInputEnter(e, itemIndex, 'price')}
+                                                        data-draft-item-index={itemIndex}
+                                                        data-draft-field="price"
+                                                        className="block h-9 w-full rounded-lg border border-gray-300 bg-white px-2.5 text-right text-xs tabular-nums text-gray-900 transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                                    />
+                                                </div>
+
+                                                <div className="lg:col-span-3">
+                                                    <label className="mb-1 block text-[11px] font-semibold text-gray-700 dark:text-gray-300">Diskon</label>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <div className="inline-flex h-9 rounded-lg border-2 border-slate-300 dark:border-slate-700 overflow-hidden">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => updatePartDraft(itemIndex, { discount_type: 'percent' })}
+                                                                className={`px-2 text-[10px] font-bold transition-all ${(getPartDraft(itemIndex).discount_type || 'percent') === 'percent'
+                                                                    ? 'bg-purple-600 text-white'
+                                                                    : 'bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                                                                }`}
+                                                            >
+                                                                %
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => updatePartDraft(itemIndex, { discount_type: 'fixed' })}
+                                                                className={`px-2 text-[10px] font-bold transition-all ${(getPartDraft(itemIndex).discount_type || 'percent') === 'fixed'
+                                                                    ? 'bg-emerald-600 text-white'
+                                                                    : 'bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                                                                }`}
+                                                            >
+                                                                Rp
+                                                            </button>
+                                                        </div>
+                                                        <div className="relative flex-1">
+                                                            {(getPartDraft(itemIndex).discount_type || 'percent') === 'fixed' && (
+                                                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500">Rp</span>
+                                                            )}
+                                                            {(getPartDraft(itemIndex).discount_type || 'percent') !== 'fixed' && (
+                                                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500">%</span>
+                                                            )}
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                value={getPartDraft(itemIndex).discount_value}
+                                                                onChange={(e) => updatePartDraft(itemIndex, { discount_value: parseFloat(e.target.value) || 0 })}
+                                                                onKeyDown={(e) => handleDraftInputEnter(e, itemIndex, 'discount_value')}
+                                                                data-draft-item-index={itemIndex}
+                                                                data-draft-field="discount_value"
+                                                                className={`w-full h-9 rounded-lg border-2 border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-xs font-semibold focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-right ${(getPartDraft(itemIndex).discount_type || 'percent') === 'fixed' ? 'pl-6 pr-2' : 'px-2 pr-6'}`}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="lg:col-span-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleAddPartFromDraft(itemIndex)}
+                                                        disabled={!getPartDraft(itemIndex).part_id}
+                                                        className="inline-flex h-9 w-full items-center justify-center gap-1 rounded-lg bg-primary-600 px-2.5 text-xs font-semibold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        <IconPlus size={14} />
+                                                        Tambah
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         {item.parts.length > 0 ? (
-                                            <div className="space-y-3">
-                                                {item.parts.map((part, partIndex) => (
-                                                    <div key={partIndex} className="grid gap-2 rounded-lg bg-gray-50 p-3 dark:bg-gray-600 md:grid-cols-12">
-                                                        <div className="md:col-span-5">
-                                                            <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
-                                                                Sparepart
-                                                            </label>
-                                                            <Autocomplete
-                                                                value={part.part_id}
-                                                                onChange={(partId) => handlePartChange(itemIndex, partIndex, 'part_id', partId)}
-                                                                options={parts}
-                                                                displayField={(p) => {
-                                                                    const code = p.part_number || 'Tanpa Kode';
-                                                                    const category = p.category?.name ? ` • ${p.category.name}` : '';
-                                                                    const barcode = p.barcode ? ` • ${p.barcode}` : '';
-                                                                    return `${p.name} (${code})${category}${barcode} — ${formatCurrency(p.sell_price)}`;
-                                                                }}
-                                                                searchFields={['name', 'part_number', 'barcode']}
-                                                                placeholder="Cari sparepart..."
-                                                                onCreateNew={(searchTerm) => {
-                                                                    setPartSearchTerm(searchTerm);
-                                                                    setCurrentItemIndex(itemIndex);
-                                                                    setCurrentPartIndex(partIndex);
-                                                                    setShowPartModal(true);
-                                                                }}
-                                                                createLabel="Tambah Sparepart"
-                                                            />
-                                                        </div>
+                                            <>
+                                                <div className="hidden lg:block overflow-x-auto rounded-xl border border-gray-200 bg-white dark:border-gray-600 dark:bg-gray-700">
+                                                    <table className="w-full table-fixed text-sm border-separate border-spacing-y-1.5 px-1">
+                                                        <thead>
+                                                            <tr className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                                                <th className="px-2.5 py-2 text-left font-semibold w-[32%]">Sparepart</th>
+                                                                <th className="px-1.5 py-2 text-center font-semibold w-[9%]">Qty</th>
+                                                                <th className="px-1.5 py-2 text-right font-semibold w-[16%]">Harga</th>
+                                                                <th className="px-1.5 py-2 text-left font-semibold w-[25%]">Diskon</th>
+                                                                <th className="px-1.5 py-2 text-right font-semibold w-[12%]">Total</th>
+                                                                <th className="px-1.5 py-2 text-center font-semibold w-[6%]">Aksi</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {item.parts.map((part, partIndex) => {
+                                                                const selectedPart = parts.find((p) => p.id === parseInt(part.part_id));
+                                                                const stock = selectedPart?.stock ?? selectedPart?.qty ?? null;
+                                                                const base = (Number(part.price) || 0) * (Number(part.qty) || 0);
+                                                                const discount = calcDiscount(base, part.discount_type, part.discount_value);
+                                                                const total = Math.max(0, base - discount);
 
-                                                        <div className="md:col-span-2">
-                                                            <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
-                                                                Qty
-                                                            </label>
-                                                            <input
-                                                                type="number"
-                                                                min="1"
-                                                                value={part.qty}
-                                                                onChange={(e) => handlePartChange(itemIndex, partIndex, 'qty', e.target.value)}
-                                                                className="block w-full rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                                                            />
-                                                        </div>
+                                                                return (
+                                                                    <tr key={partIndex} className="bg-gray-50 align-middle shadow-sm ring-1 ring-gray-200/70 dark:bg-gray-800/40 dark:ring-gray-600/70">
+                                                                        <td className="px-2.5 py-2 rounded-l-lg">
+                                                                            <div className="flex items-center gap-1.5">
+                                                                                <div className="flex h-9 items-center rounded-lg border border-gray-300 bg-gray-50 px-2.5 text-xs font-semibold text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 truncate" title={selectedPart?.name || `Part #${part.part_id}`}>
+                                                                                    {selectedPart?.name || `Part #${part.part_id}`}
+                                                                                </div>
+                                                                                {stock !== null && (
+                                                                                    <span
+                                                                                        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                                                                                        title={`Stok tersedia: ${stock}`}
+                                                                                    >
+                                                                                        <IconInfoCircle size={12} />
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="px-1.5 py-2">
+                                                                            <input
+                                                                                type="number"
+                                                                                min="1"
+                                                                                value={part.qty}
+                                                                                onChange={(e) => handlePartChange(itemIndex, partIndex, 'qty', e.target.value)}
+                                                                                onKeyDown={(e) => handlePartInputEnter(e, itemIndex, partIndex, 'qty')}
+                                                                                data-item-index={itemIndex}
+                                                                                data-part-index={partIndex}
+                                                                                data-part-field="qty"
+                                                                                className="block h-9 w-full rounded-lg border border-gray-300 bg-white px-2 text-center text-xs tabular-nums text-gray-900 transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                                                                            />
+                                                                        </td>
+                                                                        <td className="px-1.5 py-2">
+                                                                            <input
+                                                                                type="number"
+                                                                                value={part.price}
+                                                                                onChange={(e) => handlePartChange(itemIndex, partIndex, 'price', e.target.value)}
+                                                                                onKeyDown={(e) => handlePartInputEnter(e, itemIndex, partIndex, 'price')}
+                                                                                data-item-index={itemIndex}
+                                                                                data-part-index={partIndex}
+                                                                                data-part-field="price"
+                                                                                className="block h-9 w-full rounded-lg border border-gray-300 bg-white px-2.5 text-right text-xs tabular-nums text-gray-900 transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                                                                            />
+                                                                        </td>
+                                                                        <td className="px-1.5 py-2 align-middle">
+                                                                            <div className="flex items-center gap-1.5">
+                                                                                <div className="inline-flex h-9 rounded-lg border-2 border-slate-300 dark:border-slate-700 overflow-hidden">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => handlePartChange(itemIndex, partIndex, 'discount_type', 'percent')}
+                                                                                        className={`px-2 text-[10px] font-bold transition-all ${(part.discount_type || 'percent') === 'percent' ? 'bg-primary-600 text-white' : 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}
+                                                                                    >
+                                                                                        %
+                                                                                    </button>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => handlePartChange(itemIndex, partIndex, 'discount_type', 'fixed')}
+                                                                                        className={`px-2 text-[10px] font-bold transition-all ${(part.discount_type || 'percent') === 'fixed' ? 'bg-emerald-600 text-white' : 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}
+                                                                                    >
+                                                                                        Rp
+                                                                                    </button>
+                                                                                </div>
+                                                                                <input
+                                                                                    type="number"
+                                                                                    min="0"
+                                                                                    value={part.discount_value || 0}
+                                                                                    onChange={(e) => handlePartChange(itemIndex, partIndex, 'discount_value', e.target.value)}
+                                                                                    onKeyDown={(e) => handlePartInputEnter(e, itemIndex, partIndex, 'discount_value')}
+                                                                                    data-item-index={itemIndex}
+                                                                                    data-part-index={partIndex}
+                                                                                    data-part-field="discount_value"
+                                                                                    className="w-full h-9 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-xs font-semibold focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-right px-2.5"
+                                                                                />
+                                                                            </div>
+                                                                            <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-300">
+                                                                                Subtotal: <span className="font-semibold tabular-nums">{formatCurrency(base)}</span>
+                                                                                {discount > 0 && (
+                                                                                    <span className="ml-2 text-red-600">Diskon: -<span className="tabular-nums">{formatCurrency(discount)}</span></span>
+                                                                                )}
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="px-1.5 py-2 text-right align-middle">
+                                                                            <div className="inline-flex h-9 min-w-[94px] items-center justify-end rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 text-xs font-bold tabular-nums text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300">
+                                                                                {formatCurrency(total)}
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="px-1.5 py-2 text-center align-middle rounded-r-lg">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleRemovePart(itemIndex, partIndex)}
+                                                                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-700 transition hover:bg-red-100 dark:border-red-900/50 dark:bg-red-900/10 dark:text-red-400 dark:hover:bg-red-900/20"
+                                                                                title="Hapus sparepart"
+                                                                            >
+                                                                                <IconX size={13} />
+                                                                            </button>
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
 
-                                                        <div className="md:col-span-3">
-                                                            <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
-                                                                Harga
-                                                            </label>
-                                                            <input
-                                                                type="number"
-                                                                value={part.price}
-                                                                onChange={(e) => handlePartChange(itemIndex, partIndex, 'price', e.target.value)}
-                                                                className="block w-full rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                                                            />
-                                                        </div>
+                                                <div className="space-y-3 lg:hidden">
+                                                    {item.parts.map((part, partIndex) => {
+                                                        const selectedPart = parts.find((p) => p.id === parseInt(part.part_id));
+                                                        const stock = selectedPart?.stock ?? selectedPart?.qty ?? null;
+                                                        const base = (Number(part.price) || 0) * (Number(part.qty) || 0);
+                                                        const discount = calcDiscount(base, part.discount_type, part.discount_value);
+                                                        const total = Math.max(0, base - discount);
 
-                                                        <div className="flex items-end">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleRemovePart(itemIndex, partIndex)}
-                                                                className="rounded-lg bg-red-100 p-1.5 text-red-700 transition hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
-                                                            >
-                                                                <IconX size={14} />
-                                                            </button>
-                                                        </div>
-
-                                                        <div className="md:col-span-12 grid gap-2 md:grid-cols-12 pt-2 border-t border-gray-200 dark:border-gray-500/50">
-                                                            <div className="md:col-span-8">
-                                                                <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Diskon Part</label>
-                                                                <div className="flex items-center gap-2">
-                                                                    <div className="inline-flex h-9 rounded-lg border-2 border-slate-300 dark:border-slate-700 overflow-hidden">
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => handlePartChange(itemIndex, partIndex, 'discount_type', 'percent')}
-                                                                            className={`px-2 text-[10px] font-bold transition-all ${(part.discount_type || 'percent') === 'percent'
-                                                                                ? 'bg-purple-600 text-white'
-                                                                                : 'bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                                                                            }`}
-                                                                        >
-                                                                            %
-                                                                        </button>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => handlePartChange(itemIndex, partIndex, 'discount_type', 'fixed')}
-                                                                            className={`px-2 text-[10px] font-bold transition-all ${part.discount_type === 'fixed'
-                                                                                ? 'bg-emerald-600 text-white'
-                                                                                : 'bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                                                                            }`}
-                                                                        >
-                                                                            Rp
-                                                                        </button>
+                                                        return (
+                                                            <div key={partIndex} className="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-500/60 dark:bg-gray-600">
+                                                                <div>
+                                                                    <label className="mb-1 block text-[11px] font-semibold text-gray-700 dark:text-gray-300">Sparepart</label>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <div className="flex h-9 items-center rounded-lg border border-gray-300 bg-white px-2.5 text-xs font-semibold text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
+                                                                            {selectedPart?.name || `Part #${part.part_id}`}
+                                                                        </div>
+                                                                        {stock !== null && (
+                                                                            <span
+                                                                                className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                                                                                title={`Stok tersedia: ${stock}`}
+                                                                            >
+                                                                                <IconInfoCircle size={12} />
+                                                                            </span>
+                                                                        )}
                                                                     </div>
-                                                                    <div className="relative flex-1">
-                                                                        {part.discount_type === 'fixed' && (
-                                                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500">Rp</span>
-                                                                        )}
-                                                                        {part.discount_type !== 'fixed' && (
-                                                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500">%</span>
-                                                                        )}
+                                                                </div>
+
+                                                                <div className="grid grid-cols-2 gap-2">
+                                                                    <div>
+                                                                        <label className="mb-1 block text-[11px] font-semibold text-gray-700 dark:text-gray-300">Qty</label>
+                                                                        <input
+                                                                            type="number"
+                                                                            min="1"
+                                                                            value={part.qty}
+                                                                            onChange={(e) => handlePartChange(itemIndex, partIndex, 'qty', e.target.value)}
+                                                                            onKeyDown={(e) => handlePartInputEnter(e, itemIndex, partIndex, 'qty')}
+                                                                            data-item-index={itemIndex}
+                                                                            data-part-index={partIndex}
+                                                                            data-part-field="qty"
+                                                                            className="block h-9 w-full rounded-lg border border-gray-300 bg-white px-2 text-center text-xs tabular-nums text-gray-900 transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                                                        />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="mb-1 block text-[11px] font-semibold text-gray-700 dark:text-gray-300">Harga</label>
+                                                                        <input
+                                                                            type="number"
+                                                                            value={part.price}
+                                                                            onChange={(e) => handlePartChange(itemIndex, partIndex, 'price', e.target.value)}
+                                                                            onKeyDown={(e) => handlePartInputEnter(e, itemIndex, partIndex, 'price')}
+                                                                            data-item-index={itemIndex}
+                                                                            data-part-index={partIndex}
+                                                                            data-part-field="price"
+                                                                            className="block h-9 w-full rounded-lg border border-gray-300 bg-white px-2.5 text-right text-xs tabular-nums text-gray-900 transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+
+                                                                <div>
+                                                                    <label className="mb-1 block text-[11px] font-semibold text-gray-700 dark:text-gray-300">Diskon</label>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <div className="inline-flex h-9 rounded-lg border-2 border-slate-300 dark:border-slate-700 overflow-hidden">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handlePartChange(itemIndex, partIndex, 'discount_type', 'percent')}
+                                                                                className={`px-2 text-[10px] font-bold transition-all ${(part.discount_type || 'percent') === 'percent' ? 'bg-primary-600 text-white' : 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}
+                                                                            >
+                                                                                %
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handlePartChange(itemIndex, partIndex, 'discount_type', 'fixed')}
+                                                                                className={`px-2 text-[10px] font-bold transition-all ${(part.discount_type || 'percent') === 'fixed' ? 'bg-emerald-600 text-white' : 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}
+                                                                            >
+                                                                                Rp
+                                                                            </button>
+                                                                        </div>
                                                                         <input
                                                                             type="number"
                                                                             min="0"
                                                                             value={part.discount_value || 0}
                                                                             onChange={(e) => handlePartChange(itemIndex, partIndex, 'discount_value', e.target.value)}
-                                                                            className={`w-full h-9 rounded-lg border-2 border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-xs font-semibold focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-right ${part.discount_type === 'fixed' ? 'pl-6 pr-2' : 'px-2 pr-6'}`}
+                                                                            onKeyDown={(e) => handlePartInputEnter(e, itemIndex, partIndex, 'discount_value')}
+                                                                            data-item-index={itemIndex}
+                                                                            data-part-index={partIndex}
+                                                                            data-part-field="discount_value"
+                                                                            className="w-full h-9 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-xs font-semibold focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-right px-2.5"
                                                                         />
                                                                     </div>
                                                                 </div>
+
+                                                                <div className="flex items-center justify-between gap-2 text-[11px] text-gray-500 dark:text-gray-300">
+                                                                    <span />
+                                                                    <span>Subtotal: <span className="font-semibold tabular-nums">{formatCurrency(base)}</span></span>
+                                                                </div>
+
+                                                                <div className="flex items-center justify-between">
+                                                                    <div className="text-xs text-gray-600 dark:text-gray-300">
+                                                                        {discount > 0 && (
+                                                                            <span className="text-red-600">Diskon: -<span className="tabular-nums">{formatCurrency(discount)}</span></span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold tabular-nums text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300">
+                                                                            {formatCurrency(total)}
+                                                                        </div>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleRemovePart(itemIndex, partIndex)}
+                                                                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-700 transition hover:bg-red-100 dark:border-red-900/50 dark:bg-red-900/10 dark:text-red-400 dark:hover:bg-red-900/20"
+                                                                            title="Hapus sparepart"
+                                                                        >
+                                                                            <IconX size={13} />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                            <div className="md:col-span-4 text-right self-center space-y-0.5">
-                                                                {(() => {
-                                                                    const base = (Number(part.price) || 0) * (Number(part.qty) || 0);
-                                                                    const discount = calcDiscount(base, part.discount_type, part.discount_value);
-                                                                    const total = Math.max(0, base - discount);
-                                                                    return (
-                                                                        <>
-                                                                            <div className="text-xs text-gray-500 dark:text-gray-300">Subtotal: {formatCurrency(base)}</div>
-                                                                            {discount > 0 && (
-                                                                                <div className="text-xs text-red-600">Diskon: -{formatCurrency(discount)}</div>
-                                                                            )}
-                                                                            <div className="text-sm font-semibold text-gray-900 dark:text-white">Total: {formatCurrency(total)}</div>
-                                                                        </>
-                                                                    );
-                                                                })()}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </>
                                         ) : (
                                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                Belum ada sparepart. Klik "Tambah Part" untuk menambahkan.
+                                                Belum ada sparepart. Gunakan form input di atas untuk menambahkan.
                                             </p>
                                         )}
                                     </div>

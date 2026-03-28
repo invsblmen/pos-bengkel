@@ -40,16 +40,16 @@ function StatCard({ title, value, subtitle, icon, tone }) {
         yellow: 'from-yellow-50 to-yellow-100 border-yellow-200 dark:from-yellow-900/20 dark:to-yellow-800/20 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200',
         blue: 'from-blue-50 to-blue-100 border-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 dark:border-blue-800 text-blue-800 dark:text-blue-200',
         green: 'from-green-50 to-green-100 border-green-200 dark:from-green-900/20 dark:to-green-800/20 dark:border-green-800 text-green-800 dark:text-green-200',
-        purple: 'from-purple-50 to-purple-100 border-purple-200 dark:from-purple-900/20 dark:to-purple-800/20 dark:border-purple-800 text-purple-800 dark:text-purple-200',
+        indigo: 'from-indigo-50 to-indigo-100 border-indigo-200 dark:from-indigo-900/20 dark:to-indigo-800/20 dark:border-indigo-800 text-indigo-800 dark:text-indigo-200',
         primary: 'from-primary-50 to-primary-100 border-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 dark:border-primary-800 text-primary-800 dark:text-primary-200',
     };
 
     return (
-        <div className={`rounded-2xl border bg-gradient-to-br p-4 ${tones[tone]}`}>
+        <div className={`h-full rounded-2xl border bg-gradient-to-br p-4 ${tones[tone]}`}>
             <div className="flex items-center justify-between gap-3">
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wide opacity-80">{title}</p>
-                    <p className="mt-1 text-2xl font-black">{value}</p>
+                    <p className="mt-1 text-2xl font-black tabular-nums">{value}</p>
                     <p className="text-xs opacity-80">{subtitle}</p>
                 </div>
                 <div className="rounded-xl bg-white/70 dark:bg-slate-900/40 p-2.5">{icon}</div>
@@ -293,11 +293,11 @@ export default function Index({ orders, stats, mechanics, filters }) {
                         </div>
                     </div>
 
-                    <div className="mt-5 grid grid-cols-2 lg:grid-cols-5 gap-3">
+                    <div className="mt-5 grid grid-cols-2 auto-rows-fr lg:grid-cols-5 gap-3">
                         <StatCard title="Menunggu" value={stats.pending} subtitle="Belum dikerjakan" icon={<IconFileDescription size={20} />} tone="yellow" />
                         <StatCard title="Dikerjakan" value={stats.in_progress} subtitle="Dalam proses" icon={<IconClockHour4 size={20} />} tone="blue" />
                         <StatCard title="Selesai" value={stats.completed} subtitle="Order selesai" icon={<IconCircleCheck size={20} />} tone="green" />
-                        <StatCard title="Lunas" value={stats.paid} subtitle="Sudah dibayar" icon={<IconWallet size={20} />} tone="purple" />
+                        <StatCard title="Lunas" value={stats.paid} subtitle="Sudah dibayar" icon={<IconWallet size={20} />} tone="indigo" />
                         <StatCard title="Revenue" value={compactRevenue} subtitle="Completed + Paid" icon={<IconCurrencyDollar size={20} />} tone="primary" />
                     </div>
                 </div>
@@ -463,8 +463,8 @@ export default function Index({ orders, stats, mechanics, filters }) {
                                                         </td>
                                                         <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">{order.mechanic?.name || '-'}</td>
                                                         <td className="px-4 py-3 text-center">
-                                                            <div className="text-sm font-bold text-slate-900 dark:text-slate-100">{formatPrice(totalCost)}</div>
-                                                            <div className="text-[11px] text-slate-500 dark:text-slate-400">Jasa {formatPrice(order.labor_cost || 0)}</div>
+                                                            <div className="text-sm font-bold tabular-nums text-slate-900 dark:text-slate-100">{formatPrice(totalCost)}</div>
+                                                            <div className="text-[11px] tabular-nums text-slate-500 dark:text-slate-400">Jasa {formatPrice(order.labor_cost || 0)}</div>
                                                         </td>
                                                         <td className="px-4 py-3 text-center">
                                                             <div className="relative inline-block">
@@ -484,10 +484,10 @@ export default function Index({ orders, stats, mechanics, filters }) {
                                                         </td>
                                                         <td className="px-4 py-3">
                                                             <div className="flex items-center justify-center gap-1">
-                                                                <Link href={route('service-orders.edit', order.id)} className="inline-flex items-center gap-1 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-amber-200 dark:hover:bg-amber-900/50">
+                                                                <Link href={route('service-orders.edit', order.id)} className="inline-flex min-w-[72px] items-center justify-center gap-1 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-amber-200 dark:hover:bg-amber-900/50">
                                                                     <IconEdit size={14} /> Edit
                                                                 </Link>
-                                                                <Link href={route('service-orders.show', order.id)} className="inline-flex items-center gap-1 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-blue-200 dark:hover:bg-blue-900/50">
+                                                                <Link href={route('service-orders.show', order.id)} className="inline-flex min-w-[72px] items-center justify-center gap-1 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-blue-200 dark:hover:bg-blue-900/50">
                                                                     <IconEye size={14} /> Detail
                                                                 </Link>
                                                             </div>
@@ -522,7 +522,7 @@ export default function Index({ orders, stats, mechanics, filters }) {
                                                 {alert && <span className={`inline-flex mt-3 px-2 py-0.5 rounded text-[10px] font-semibold ${alert.color}`}>{alert.label}</span>}
 
                                                 <div className="mt-3 flex items-center justify-between">
-                                                    <p className="text-sm font-black text-primary-700 dark:text-primary-300">{formatPrice(order.total || 0)}</p>
+                                                    <p className="text-sm font-black tabular-nums text-primary-700 dark:text-primary-300">{formatPrice(order.total || 0)}</p>
                                                     <div className="relative inline-block">
                                                         <select
                                                             value={order.status}
@@ -540,10 +540,10 @@ export default function Index({ orders, stats, mechanics, filters }) {
                                                 </div>
 
                                                 <div className="mt-3 flex items-center gap-2">
-                                                    <Link href={route('service-orders.edit', order.id)} className="inline-flex items-center gap-1 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-amber-200 dark:hover:bg-amber-900/50">
+                                                    <Link href={route('service-orders.edit', order.id)} className="inline-flex min-w-[72px] items-center justify-center gap-1 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-amber-200 dark:hover:bg-amber-900/50">
                                                         <IconEdit size={14} /> Edit
                                                     </Link>
-                                                    <Link href={route('service-orders.show', order.id)} className="inline-flex items-center gap-1 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-blue-200 dark:hover:bg-blue-900/50">
+                                                    <Link href={route('service-orders.show', order.id)} className="inline-flex min-w-[72px] items-center justify-center gap-1 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-blue-200 dark:hover:bg-blue-900/50">
                                                         <IconEye size={14} /> Detail
                                                     </Link>
                                                 </div>

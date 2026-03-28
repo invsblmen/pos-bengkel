@@ -10,7 +10,6 @@ import {
     IconCalendar,
     IconClock,
     IconFileText,
-    IconCircleCheck,
     IconCurrencyDollar,
     IconPrinter,
     IconShieldCheck
@@ -147,283 +146,307 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
 
     const mechanicHref = getMechanicHref(order.mechanic?.id);
 
-    const quickLinks = [
-        { href: '#section-overview', label: 'Ringkasan' },
-        { href: '#section-main-info', label: 'Info Utama' },
-        { href: '#section-cost', label: 'Biaya' },
-        { href: '#section-items', label: 'Item' },
-        { href: '#section-notes', label: 'Catatan' },
-    ];
-
     return (
         <>
             <Head title={`Service Order ${order.order_number}`} />
 
-            <div className="space-y-6">
-                {/* Header */}
-                <div id="section-overview" className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                            Order #{order.order_number}
-                        </h1>
-                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            Detail Service Order
-                        </p>
-                    </div>
-                    <div className="flex gap-3">
-                        <Link
-                            href={route('service-orders.print', order.id)}
-                            className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-gray-200 transition hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-gray-700"
-                        >
-                            <IconPrinter size={18} />
-                            Cetak Nota
-                        </Link>
-                        <Link
-                            href={route('service-orders.index')}
-                            className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-gray-200 transition hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-gray-700"
-                        >
-                            <IconArrowLeft size={18} />
-                            Kembali
-                        </Link>
-                        <Link
-                            href={route('service-orders.edit', order.id)}
-                            className="inline-flex items-center gap-2 rounded-xl bg-primary-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-600"
-                        >
-                            <IconPencil size={18} />
-                            Edit Order
-                        </Link>
-                    </div>
-                </div>
+            <div className="space-y-5">
+                {/* Hero Header */}
+                <div
+                    id="section-overview"
+                    className="rounded-3xl border border-gray-200 bg-gradient-to-br from-white via-white to-primary-50/40 p-5 shadow-sm dark:border-gray-800 dark:from-gray-900 dark:via-gray-900 dark:to-primary-900/10 sm:p-6"
+                >
+                    <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+                        <div className="min-w-0 space-y-4">
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">Service Order</p>
+                                <h1 className="mt-2 break-words text-2xl font-bold leading-tight text-gray-900 dark:text-white sm:text-3xl">
+                                    Order #{order.order_number}
+                                </h1>
+                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                    Detail Service Order
+                                </p>
+                            </div>
 
-                {/* Status Badge */}
-                <div className="inline-flex">
-                    <span className={`rounded-full border px-4 py-2 text-sm font-semibold ${statusBadge.color}`}>
-                        {statusBadge.label}
-                    </span>
-                </div>
+                            <div className="flex flex-wrap items-center gap-2.5">
+                                <span className={`rounded-full border px-4 py-2 text-sm font-semibold ${statusBadge.color}`}>
+                                    {statusBadge.label}
+                                </span>
+                                <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                    {order.customer?.name || 'Tanpa pelanggan'}
+                                </span>
+                                <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                    {order.vehicle?.plate_number || 'Tanpa kendaraan'}
+                                </span>
+                            </div>
+                        </div>
 
-                {/* Quick Jump + Sticky Actions */}
-                <div className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                        {quickLinks.map((item) => (
-                            <a
-                                key={item.href}
-                                href={item.href}
-                                className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                        <div className="grid w-full gap-2 sm:grid-cols-3 xl:w-auto xl:min-w-[420px]">
+                            <Link
+                                href={route('service-orders.print', order.id)}
+                                className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                             >
-                                {item.label}
-                            </a>
-                        ))}
+                                <IconPrinter size={18} />
+                                Cetak Nota
+                            </Link>
+                            <Link
+                                href={route('service-orders.index')}
+                                className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                            >
+                                <IconArrowLeft size={18} />
+                                Kembali
+                            </Link>
+                            <Link
+                                href={route('service-orders.edit', order.id)}
+                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-600"
+                            >
+                                <IconPencil size={18} />
+                                Edit Order
+                            </Link>
+                        </div>
                     </div>
 
-                    <div className="hidden lg:flex sticky top-20 z-20 items-center justify-end gap-2 rounded-xl border border-gray-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur dark:border-gray-700 dark:bg-gray-900/90">
-                        <Link
-                            href={route('service-orders.index')}
-                            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
-                        >
-                            <IconArrowLeft size={14} /> Kembali
-                        </Link>
-                        <Link
-                            href={route('service-orders.print', order.id)}
-                            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
-                        >
-                            <IconPrinter size={14} /> Cetak
-                        </Link>
-                        <Link
-                            href={route('service-orders.edit', order.id)}
-                            className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-600"
-                        >
-                            <IconPencil size={14} /> Edit
-                        </Link>
-                    </div>
-                </div>
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800/70">
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Total Item</p>
+                                <IconTool size={16} className="text-primary-500" />
+                            </div>
+                            <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{totalItems}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Layanan + sparepart</p>
+                        </div>
 
-                {/* Quick Insights */}
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Total Item</p>
-                        <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{totalItems}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Layanan + sparepart</p>
-                    </div>
-                    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Garansi Aktif</p>
-                        <p className="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400">{warrantyActiveCount}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Siap klaim jika diperlukan</p>
-                    </div>
-                    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Dibuat</p>
-                        <p className="mt-1 text-sm font-bold text-gray-900 dark:text-white">{formatDate(order.created_at)}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Waktu order masuk</p>
-                    </div>
-                    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Estimasi Selesai</p>
-                        <p className="mt-1 text-sm font-bold text-gray-900 dark:text-white">{formatDate(order.estimated_finish_at)}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Target pengerjaan</p>
+                        <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800/70">
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Garansi Aktif</p>
+                                <IconShieldCheck size={16} className="text-emerald-500" />
+                            </div>
+                            <p className="mt-2 text-2xl font-bold text-emerald-600 dark:text-emerald-400">{warrantyActiveCount}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Siap klaim jika diperlukan</p>
+                        </div>
+
+                        <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800/70">
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Dibuat</p>
+                                <IconClock size={16} className="text-blue-500" />
+                            </div>
+                            <p className="mt-2 text-sm font-bold text-gray-900 dark:text-white">{formatDate(order.created_at)}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Waktu order masuk</p>
+                        </div>
+
+                        <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800/70">
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Estimasi Selesai</p>
+                                <IconCalendar size={16} className="text-violet-500" />
+                            </div>
+                            <p className="mt-2 text-sm font-bold text-gray-900 dark:text-white">{formatDate(order.estimated_finish_at)}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Target pengerjaan</p>
+                        </div>
                     </div>
                 </div>
 
                 {/* Main Info Grid */}
-                <div id="section-main-info" className="grid gap-6 md:grid-cols-2 scroll-mt-24">
+                <div id="section-main-info" className="grid gap-6 md:auto-rows-fr md:grid-cols-2 scroll-mt-24">
                     {/* Customer Info */}
-                    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                        <div className="mb-4 flex items-center gap-2">
-                            <IconUser size={20} className="text-primary-600 dark:text-primary-400" />
-                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                Informasi Pelanggan
-                            </h2>
+                    <div className="flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                                <IconUser size={20} className="text-primary-600 dark:text-primary-400" />
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Informasi Pelanggan</h2>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] font-semibold text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                    Ref: {order.customer?.id ? `CUST-${String(order.customer.id).padStart(4, '0')}` : '-'}
+                                </span>
+                            </div>
                         </div>
-                        <div className="space-y-3">
+
+                        <div className="grid flex-1 gap-3 sm:grid-cols-2">
                             <div>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">Nama</p>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Nama</p>
+                                <p className="mt-1 break-words font-semibold text-gray-900 dark:text-white">{order.customer?.name || '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Telepon</p>
+                                {order.customer?.phone ? (
+                                    <a href={`tel:${order.customer.phone}`} className="mt-1 inline-flex break-all font-semibold text-primary-600 hover:underline dark:text-primary-400">
+                                        {order.customer.phone}
+                                    </a>
+                                ) : (
+                                    <p className="mt-1 break-words font-semibold text-gray-900 dark:text-white">-</p>
+                                )}
+                            </div>
+                            <div className="sm:col-span-2">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Email</p>
+                                <p className="mt-1 break-all font-semibold text-gray-900 dark:text-white">{order.customer?.email || '-'}</p>
+                            </div>
+                        </div>
+
+                        <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50/70 p-3 dark:border-gray-700 dark:bg-gray-800/60">
+                            <p className="text-xs text-gray-600 dark:text-gray-300">Referensi pelanggan untuk service order ini</p>
+                            <div className="mt-3">
                                 {permissions?.can_view_customers && order.customer?.id ? (
                                     <Link
                                         href={route('customers.show', order.customer.id)}
-                                        className="font-medium text-primary-600 hover:underline dark:text-primary-400"
+                                        className="inline-flex items-center rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-semibold text-primary-700 transition hover:bg-primary-50 dark:border-primary-700 dark:bg-gray-900 dark:text-primary-300"
                                     >
-                                        {order.customer?.name || '-'}
+                                        Lihat Detail Pelanggan
                                     </Link>
                                 ) : (
-                                    <p className="font-medium text-gray-900 dark:text-white">
-                                        {order.customer?.name || '-'}
-                                    </p>
+                                    <span className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
+                                        Detail pelanggan tidak tersedia
+                                    </span>
                                 )}
                             </div>
-                            <div>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">Telepon</p>
-                                <p className="font-medium text-gray-900 dark:text-white">
-                                    {order.customer?.phone || '-'}
-                                </p>
-                            </div>
-                            {order.customer?.email && (
-                                <div>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">Email</p>
-                                    <p className="font-medium text-gray-900 dark:text-white">
-                                        {order.customer.email}
-                                    </p>
-                                </div>
-                            )}
                         </div>
                     </div>
 
                     {/* Vehicle Info */}
-                    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                        <div className="mb-4 flex items-center gap-2">
-                            <IconCar size={20} className="text-primary-600 dark:text-primary-400" />
-                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                Informasi Kendaraan
-                            </h2>
+                    <div className="flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                                <IconCar size={20} className="text-primary-600 dark:text-primary-400" />
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Informasi Kendaraan</h2>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] font-semibold text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                    Ref: {order.vehicle?.id ? `VEH-${String(order.vehicle.id).padStart(4, '0')}` : '-'}
+                                </span>
+                            </div>
                         </div>
-                        <div className="space-y-3">
+
+                        <div className="grid flex-1 gap-3 sm:grid-cols-2">
+                            <div className="sm:col-span-2">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Merek & Model</p>
+                                <p className="mt-1 break-words font-semibold text-gray-900 dark:text-white">{order.vehicle ? `${order.vehicle.brand} ${order.vehicle.model}` : '-'}</p>
+                            </div>
                             <div>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">Merek & Model</p>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Plat Nomor</p>
+                                <p className="mt-1 break-words font-semibold text-gray-900 dark:text-white">{order.vehicle?.plate_number || '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Tahun</p>
+                                <p className="mt-1 font-semibold text-gray-900 dark:text-white">{order.vehicle?.year || '-'}</p>
+                            </div>
+                        </div>
+
+                        <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50/70 p-3 dark:border-gray-700 dark:bg-gray-800/60">
+                            <p className="text-xs text-gray-600 dark:text-gray-300">Referensi kendaraan untuk service order ini</p>
+                            <div className="mt-3">
                                 {permissions?.can_view_vehicles && order.vehicle?.id ? (
                                     <Link
                                         href={route('vehicles.show', order.vehicle.id)}
-                                        className="font-medium text-primary-600 hover:underline dark:text-primary-400"
+                                        className="inline-flex items-center rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-semibold text-primary-700 transition hover:bg-primary-50 dark:border-primary-700 dark:bg-gray-900 dark:text-primary-300"
                                     >
-                                        {order.vehicle ? `${order.vehicle.brand} ${order.vehicle.model}` : '-'}
+                                        Lihat Detail Kendaraan
                                     </Link>
                                 ) : (
-                                    <p className="font-medium text-gray-900 dark:text-white">
-                                        {order.vehicle ? `${order.vehicle.brand} ${order.vehicle.model}` : '-'}
-                                    </p>
+                                    <span className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
+                                        Detail kendaraan tidak tersedia
+                                    </span>
                                 )}
                             </div>
-                            <div>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">Plat Nomor</p>
-                                <p className="font-medium text-gray-900 dark:text-white">
-                                    {order.vehicle?.plate_number || '-'}
-                                </p>
-                            </div>
-                            {order.vehicle?.year && (
-                                <div>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">Tahun</p>
-                                    <p className="font-medium text-gray-900 dark:text-white">
-                                        {order.vehicle.year}
-                                    </p>
-                                </div>
-                            )}
                         </div>
                     </div>
 
                     {/* Mechanic Info */}
-                    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                        <div className="mb-4 flex items-center gap-2">
-                            <IconTool size={20} className="text-primary-600 dark:text-primary-400" />
-                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                Mekanik
-                            </h2>
+                    <div className="flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                                <IconTool size={20} className="text-primary-600 dark:text-primary-400" />
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Mekanik</h2>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] font-semibold text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                    Ref: {order.mechanic?.id ? `MEC-${String(order.mechanic.id).padStart(4, '0')}` : '-'}
+                                </span>
+                            </div>
                         </div>
-                        <div className="space-y-3">
-                            <div>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">Nama Mekanik</p>
+
+                        <div className="grid flex-1 gap-3 sm:grid-cols-2">
+                            <div className="sm:col-span-2">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Nama Mekanik</p>
+                                <p className="mt-1 break-words font-semibold text-gray-900 dark:text-white">{order.mechanic?.name || 'Belum ditentukan'}</p>
+                            </div>
+                            <div className="sm:col-span-2">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Spesialisasi</p>
+                                <p className="mt-1 break-words font-semibold text-gray-900 dark:text-white">{order.mechanic?.specialty || '-'}</p>
+                            </div>
+                            {!order.mechanic?.id && (
+                                <div className="sm:col-span-2 rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:border-gray-600 dark:bg-gray-800/70 dark:text-gray-300">
+                                    Mekanik belum ditetapkan. Silakan pilih mekanik melalui tombol Edit Order.
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50/70 p-3 dark:border-gray-700 dark:bg-gray-800/60">
+                            <p className="text-xs text-gray-600 dark:text-gray-300">Referensi mekanik untuk service order ini</p>
+                            <div className="mt-3">
                                 {permissions?.can_view_mechanics && mechanicHref ? (
                                     <Link
                                         href={mechanicHref}
-                                        className="font-medium text-primary-600 hover:underline dark:text-primary-400"
+                                        className="inline-flex items-center rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-semibold text-primary-700 transition hover:bg-primary-50 dark:border-primary-700 dark:bg-gray-900 dark:text-primary-300"
                                     >
-                                        {order.mechanic?.name || 'Belum ditentukan'}
+                                        Lihat Detail Mekanik
                                     </Link>
                                 ) : (
-                                    <p className="font-medium text-gray-900 dark:text-white">
-                                        {order.mechanic?.name || 'Belum ditentukan'}
-                                    </p>
+                                    <span className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
+                                        Mekanik belum ditentukan
+                                    </span>
                                 )}
                             </div>
-                            {order.mechanic?.specialty && (
-                                <div>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">Spesialisasi</p>
-                                    <p className="font-medium text-gray-900 dark:text-white">
-                                        {order.mechanic.specialty}
-                                    </p>
-                                </div>
-                            )}
                         </div>
                     </div>
 
                     {/* Schedule Info */}
-                    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                        <div className="mb-4 flex items-center gap-2">
-                            <IconCalendar size={20} className="text-primary-600 dark:text-primary-400" />
-                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                Jadwal
-                            </h2>
+                    <div className="flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                                <IconCalendar size={20} className="text-primary-600 dark:text-primary-400" />
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                    Jadwal
+                                </h2>
+                            </div>
+                            <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] font-semibold text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                Timeline
+                            </span>
                         </div>
-                        <div className="space-y-3">
+
+                        <div className="grid flex-1 gap-3 sm:grid-cols-2">
                             <div>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">Odometer (Km)</p>
-                                <p className="font-medium text-gray-900 dark:text-white">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Odometer (Km)</p>
+                                <p className="mt-1 font-semibold text-gray-900 dark:text-white tabular-nums">
                                     {order.odometer_km ? `${order.odometer_km.toLocaleString('id-ID')} km` : '-'}
                                 </p>
                             </div>
                             <div>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">Estimasi Mulai</p>
-                                <p className="font-medium text-gray-900 dark:text-white">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Estimasi Mulai</p>
+                                <p className="mt-1 font-semibold text-gray-900 dark:text-white">
                                     {formatDate(order.estimated_start_at)}
                                 </p>
                             </div>
                             <div>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">Estimasi Selesai</p>
-                                <p className="font-medium text-gray-900 dark:text-white">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Estimasi Selesai</p>
+                                <p className="mt-1 font-semibold text-gray-900 dark:text-white">
                                     {formatDate(order.estimated_finish_at)}
                                 </p>
                             </div>
-                            {order.actual_start_at && (
-                                <div>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">Aktual Mulai</p>
-                                    <p className="font-medium text-blue-600 dark:text-blue-400">
-                                        {formatDate(order.actual_start_at)}
-                                    </p>
-                                </div>
-                            )}
-                            {order.actual_finish_at && (
-                                <div>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">Aktual Selesai</p>
-                                    <p className="font-medium text-green-600 dark:text-green-400">
-                                        {formatDate(order.actual_finish_at)}
-                                    </p>
-                                </div>
-                            )}
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Aktual Mulai</p>
+                                <p className="mt-1 font-semibold text-blue-600 dark:text-blue-400">
+                                    {order.actual_start_at ? formatDate(order.actual_start_at) : '-'}
+                                </p>
+                            </div>
+                            <div className="sm:col-span-2">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Aktual Selesai</p>
+                                <p className="mt-1 font-semibold text-green-600 dark:text-green-400">
+                                    {order.actual_finish_at ? formatDate(order.actual_finish_at) : '-'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50/70 p-3 dark:border-gray-700 dark:bg-gray-800/60">
+                            <p className="text-xs text-gray-600 dark:text-gray-300">Ringkasan timeline pengerjaan service order</p>
                         </div>
                     </div>
                 </div>
@@ -438,26 +461,26 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                     </div>
                     <div className="grid gap-4 md:grid-cols-3">
                         <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-gray-800">
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-start gap-3">
                                 <div className="rounded-lg bg-blue-100 p-3 dark:bg-blue-900/30">
                                     <IconTool size={20} className="text-blue-600 dark:text-blue-400" />
                                 </div>
-                                <div>
+                                <div className="min-w-0">
                                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Biaya Jasa</p>
-                                    <p className="text-xl font-bold text-gray-900 dark:text-white">
+                                    <p className="break-words text-xl font-bold tabular-nums text-gray-900 dark:text-white">
                                         {formatPrice(order.labor_cost || 0)}
                                     </p>
                                 </div>
                             </div>
                         </div>
                         <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-gray-800">
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-start gap-3">
                                 <div className="rounded-lg bg-amber-100 p-3 dark:bg-amber-900/30">
                                     <IconCar size={20} className="text-amber-600 dark:text-amber-400" />
                                 </div>
-                                <div>
+                                <div className="min-w-0">
                                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Biaya Part</p>
-                                    <p className="text-xl font-bold text-gray-900 dark:text-white">
+                                    <p className="break-words text-xl font-bold tabular-nums text-gray-900 dark:text-white">
                                         {formatPrice(order.material_cost || 0)}
                                     </p>
                                 </div>
@@ -468,26 +491,26 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                                 <div className="rounded-lg bg-primary-200 p-3 dark:bg-primary-800">
                                     <IconCurrencyDollar size={20} className="text-primary-700 dark:text-primary-300" />
                                 </div>
-                                <div className="flex-1">
+                                <div className="min-w-0 flex-1">
                                     <p className="text-xs font-medium text-primary-700 dark:text-primary-300">Total</p>
                                     {(order.discount_amount > 0 || order.voucher_discount_amount > 0 || order.tax_amount > 0) ? (
                                         <div>
-                                            <p className="text-sm line-through text-primary-700 dark:text-primary-400">{formatPrice(order.total || 0)}</p>
-                                            <p className="text-xl font-bold text-primary-900 dark:text-primary-100">
+                                            <p className="break-words text-sm line-through tabular-nums text-primary-700 dark:text-primary-400">{formatPrice(order.total || 0)}</p>
+                                            <p className="break-words text-xl font-bold tabular-nums text-primary-900 dark:text-primary-100">
                                                 {formatPrice(order.grand_total || order.total || 0)}
                                             </p>
                                             {order.discount_amount > 0 && (
-                                                <p className="text-xs text-red-600">Diskon: -{formatPrice(order.discount_amount)}</p>
+                                                <p className="break-words text-xs tabular-nums text-red-600">Diskon: -{formatPrice(order.discount_amount)}</p>
                                             )}
                                             {order.voucher_discount_amount > 0 && (
-                                                <p className="text-xs text-violet-600">Voucher {order.voucher_code ? `(${order.voucher_code})` : ''}: -{formatPrice(order.voucher_discount_amount)}</p>
+                                                <p className="break-words text-xs tabular-nums text-violet-600">Voucher {order.voucher_code ? `(${order.voucher_code})` : ''}: -{formatPrice(order.voucher_discount_amount)}</p>
                                             )}
                                             {order.tax_amount > 0 && (
-                                                <p className="text-xs text-green-600">Pajak: +{formatPrice(order.tax_amount)}</p>
+                                                <p className="break-words text-xs tabular-nums text-green-600">Pajak: +{formatPrice(order.tax_amount)}</p>
                                             )}
                                         </div>
                                     ) : (
-                                        <p className="text-xl font-bold text-primary-900 dark:text-primary-100">
+                                        <p className="break-words text-xl font-bold tabular-nums text-primary-900 dark:text-primary-100">
                                             {formatPrice(order.total || 0)}
                                         </p>
                                     )}
@@ -525,9 +548,9 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                             const warranty = getWarrantyMeta(detail);
                             return (
                                 <div key={detail.id} className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
-                                    <div className="flex items-start justify-between gap-3">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                                         <div>
-                                            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                            <p className="break-words text-sm font-semibold text-gray-900 dark:text-white">
                                                 {detail.service?.title || detail.part?.name || '-'}
                                             </p>
                                             <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -723,7 +746,7 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                                 Catatan
                             </h2>
                         </div>
-                        <p className="text-gray-700 dark:text-gray-300 whitespace-pre-line">
+                        <p className="whitespace-pre-line break-words text-gray-700 dark:text-gray-300">
                             {order.notes}
                         </p>
                     </div>
