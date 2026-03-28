@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 
 class WarrantyAndVoucherPermissionTest extends TestCase
 {
@@ -16,6 +17,8 @@ class WarrantyAndVoucherPermissionTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->withoutMiddleware(ValidateCsrfToken::class);
 
         Role::create(['name' => 'super-admin']);
         Role::create(['name' => 'user']);

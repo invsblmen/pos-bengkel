@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import {
@@ -16,9 +16,17 @@ import {
     IconShieldCheck
 } from '@tabler/icons-react';
 import { toDisplayDateTime } from '@/Utils/datetime';
+import { Skeleton, SkeletonText } from '@/Components/Dashboard/Skeleton';
 import toast from 'react-hot-toast';
 
 export default function Show({ order, warrantyRegistrations = {}, permissions = {} }) {
+    const [detailsReady, setDetailsReady] = useState(false);
+
+    useEffect(() => {
+        const rafId = window.requestAnimationFrame(() => setDetailsReady(true));
+        return () => window.cancelAnimationFrame(rafId);
+    }, [order?.id]);
+
     const formatPrice = (price) => {
         return new Intl.NumberFormat('id-ID', {
             style: 'currency',
@@ -69,6 +77,7 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                 canClaim: false,
                 periodDays: registration.warranty_period_days || 0,
                 endDate: registration.warranty_end_date,
+                isNearExpiry: false,
             };
         }
 
@@ -79,8 +88,13 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                 canClaim: false,
                 periodDays: registration.warranty_period_days || 0,
                 endDate: registration.warranty_end_date,
+                isNearExpiry: false,
             };
         }
+
+        const warningThreshold = new Date(today);
+        warningThreshold.setDate(warningThreshold.getDate() + 7);
+        const isNearExpiry = endDate <= warningThreshold;
 
         return {
             label: 'Aktif',
@@ -88,6 +102,7 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
             canClaim: true,
             periodDays: registration.warranty_period_days || 0,
             endDate: registration.warranty_end_date,
+            isNearExpiry,
         };
     };
 
@@ -132,13 +147,21 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
 
     const mechanicHref = getMechanicHref(order.mechanic?.id);
 
+    const quickLinks = [
+        { href: '#section-overview', label: 'Ringkasan' },
+        { href: '#section-main-info', label: 'Info Utama' },
+        { href: '#section-cost', label: 'Biaya' },
+        { href: '#section-items', label: 'Item' },
+        { href: '#section-notes', label: 'Catatan' },
+    ];
+
     return (
         <>
             <Head title={`Service Order ${order.order_number}`} />
 
             <div className="space-y-6">
                 {/* Header */}
-                <div className="flex items-center justify-between">
+                <div id="section-overview" className="flex items-center justify-between">
                     <div>
                         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
                             Order #{order.order_number}
@@ -179,6 +202,42 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                     </span>
                 </div>
 
+                {/* Quick Jump + Sticky Actions */}
+                <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                        {quickLinks.map((item) => (
+                            <a
+                                key={item.href}
+                                href={item.href}
+                                className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                            >
+                                {item.label}
+                            </a>
+                        ))}
+                    </div>
+
+                    <div className="hidden lg:flex sticky top-20 z-20 items-center justify-end gap-2 rounded-xl border border-gray-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur dark:border-gray-700 dark:bg-gray-900/90">
+                        <Link
+                            href={route('service-orders.index')}
+                            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
+                        >
+                            <IconArrowLeft size={14} /> Kembali
+                        </Link>
+                        <Link
+                            href={route('service-orders.print', order.id)}
+                            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
+                        >
+                            <IconPrinter size={14} /> Cetak
+                        </Link>
+                        <Link
+                            href={route('service-orders.edit', order.id)}
+                            className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-600"
+                        >
+                            <IconPencil size={14} /> Edit
+                        </Link>
+                    </div>
+                </div>
+
                 {/* Quick Insights */}
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
@@ -204,7 +263,7 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                 </div>
 
                 {/* Main Info Grid */}
-                <div className="grid gap-6 md:grid-cols-2">
+                <div id="section-main-info" className="grid gap-6 md:grid-cols-2 scroll-mt-24">
                     {/* Customer Info */}
                     <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
                         <div className="mb-4 flex items-center gap-2">
@@ -370,7 +429,7 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                 </div>
 
                 {/* Cost Breakdown */}
-                <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-primary-50 to-white p-6 shadow-sm dark:border-gray-800 dark:from-primary-900/10 dark:to-gray-900">
+                <div id="section-cost" className="rounded-2xl border border-gray-200 bg-gradient-to-br from-primary-50 to-white p-6 shadow-sm dark:border-gray-800 dark:from-primary-900/10 dark:to-gray-900 scroll-mt-24">
                     <div className="mb-4 flex items-center gap-2">
                         <IconCurrencyDollar size={20} className="text-primary-600 dark:text-primary-400" />
                         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -439,7 +498,7 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                 </div>
 
                 {/* Items Detail */}
-                <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                <div id="section-items" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900 scroll-mt-24">
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                             Detail Layanan & Sparepart
@@ -450,7 +509,19 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                     </div>
 
                     <div className="space-y-3 md:hidden">
-                        {order.details?.map((detail) => {
+                        {!detailsReady ? (
+                            Array.from({ length: 3 }).map((_, idx) => (
+                                <div key={idx} className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+                                    <Skeleton className="h-4 w-2/3 mb-2" />
+                                    <Skeleton className="h-3 w-1/3 mb-3" />
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <Skeleton className="h-12 w-full" />
+                                        <Skeleton className="h-12 w-full" />
+                                        <Skeleton className="h-12 w-full" />
+                                    </div>
+                                </div>
+                            ))
+                        ) : order.details?.map((detail) => {
                             const warranty = getWarrantyMeta(detail);
                             return (
                                 <div key={detail.id} className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
@@ -486,6 +557,11 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                                             Garansi {warranty.periodDays} hari • s.d. {warranty.endDate ? formatDate(warranty.endDate) : '-'}
                                         </p>
                                     )}
+                                    {warranty.isNearExpiry && (
+                                        <p className="mt-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                                            Garansi mendekati expired (≤ 7 hari)
+                                        </p>
+                                    )}
                                     {warranty.canClaim && (
                                         <button
                                             type="button"
@@ -501,6 +577,12 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                     </div>
 
                     <div className="hidden overflow-x-auto md:block">
+                        {!detailsReady ? (
+                            <div className="space-y-3">
+                                <Skeleton className="h-10 w-full" />
+                                <SkeletonText lines={5} />
+                            </div>
+                        ) : (
                         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                             <thead className="bg-gray-50 dark:bg-gray-800">
                                 <tr>
@@ -555,6 +637,11 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                                                 {warranty.periodDays > 0 && (
                                                     <span className="text-[10px] text-gray-500 dark:text-gray-400">
                                                         {warranty.periodDays} hari • s.d. {warranty.endDate ? formatDate(warranty.endDate) : '-'}
+                                                    </span>
+                                                )}
+                                                {warranty.isNearExpiry && (
+                                                    <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                                                        Mendekati expired (≤ 7 hari)
                                                     </span>
                                                 )}
                                                 {warranty.canClaim && (
@@ -623,12 +710,13 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                                 </tr>
                             </tfoot>
                         </table>
+                        )}
                     </div>
                 </div>
 
                 {/* Notes */}
                 {order.notes && (
-                    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                    <div id="section-notes" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900 scroll-mt-24">
                         <div className="mb-4 flex items-center gap-2">
                             <IconFileText size={20} className="text-primary-600 dark:text-primary-400" />
                             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">

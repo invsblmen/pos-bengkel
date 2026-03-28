@@ -12,6 +12,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 
 class ServiceOrderWarrantyClaimTest extends TestCase
 {
@@ -22,6 +23,8 @@ class ServiceOrderWarrantyClaimTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->withoutMiddleware(ValidateCsrfToken::class);
 
         Role::create(['name' => 'tester']);
         Permission::create(['name' => 'service-orders-update']);

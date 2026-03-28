@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { router, usePage } from "@inertiajs/react";
 import Sidebar from "@/Components/Dashboard/Sidebar";
 import Navbar from "@/Components/Dashboard/Navbar";
 import { Toaster } from "react-hot-toast";
@@ -6,6 +7,8 @@ import { useTheme } from "@/Context/ThemeSwitcherContext";
 
 export default function AppLayout({ children }) {
     const { darkMode, themeSwitcher } = useTheme();
+    const { url } = usePage();
+    const reloadTimerRef = useRef(null);
 
     const [sidebarOpen, setSidebarOpen] = useState(
         localStorage.getItem("sidebarOpen") === "true"
@@ -14,6 +17,71 @@ export default function AppLayout({ children }) {
     useEffect(() => {
         localStorage.setItem("sidebarOpen", sidebarOpen);
     }, [sidebarOpen]);
+
+    const shouldEnableGlobalRealtime = useMemo(() => {
+        if (!url?.startsWith("/dashboard")) return false;
+
+        // Keep print pages stable during printing.
+        return !/\/print$/.test(url);
+    }, [url]);
+
+    useEffect(() => {
+        if (!shouldEnableGlobalRealtime) return;
+        if (!window.Echo) return;
+
+        const subscriptions = [
+            { channel: "workshop.customers", events: ["customer.created", "customer.updated", "customer.deleted"] },
+            { channel: "workshop.vehicles", events: ["vehicle.created", "vehicle.updated", "vehicle.deleted"] },
+            { channel: "workshop.suppliers", events: ["supplier.created", "supplier.updated", "supplier.deleted"] },
+            { channel: "workshop.mechanics", events: ["mechanic.created", "mechanic.updated", "mechanic.deleted"] },
+            { channel: "workshop.services", events: ["service.created", "service.updated", "service.deleted"] },
+            { channel: "workshop.servicecategories", events: ["servicecategory.created", "servicecategory.updated", "servicecategory.deleted"] },
+            { channel: "workshop.partcategories", events: ["partcategory.created", "partcategory.updated", "partcategory.deleted"] },
+            { channel: "workshop.parts", events: ["part.created", "part.updated", "part.deleted"] },
+            { channel: "workshop.vouchers", events: ["voucher.created", "voucher.updated", "voucher.deleted"] },
+            { channel: "workshop.serviceorders", events: ["serviceorder.created", "serviceorder.updated", "serviceorder.deleted"] },
+            { channel: "workshop.appointments", events: ["appointment.created", "appointment.updated", "appointment.deleted"] },
+            { channel: "workshop.partpurchases", events: ["partpurchase.created", "partpurchase.updated"] },
+            { channel: "workshop.partpurchaseorders", events: ["partpurchaseorder.created", "partpurchaseorder.deleted"] },
+            { channel: "workshop.partsales", events: ["partsale.created", "partsale.updated", "partsale.deleted"] },
+            { channel: "workshop.partsalesorders", events: ["partsalesorder.created", "partsalesorder.deleted"] },
+        ];
+
+        const listeners = [];
+
+        const scheduleReload = () => {
+            if (reloadTimerRef.current) {
+                clearTimeout(reloadTimerRef.current);
+            }
+
+            reloadTimerRef.current = setTimeout(() => {
+                router.reload({
+                    preserveScroll: true,
+                    preserveState: true,
+                });
+            }, 700);
+        };
+
+        subscriptions.forEach(({ channel, events }) => {
+            const echoChannel = window.Echo.channel(channel);
+
+            events.forEach((eventName) => {
+                const prefixedEvent = `.${eventName}`;
+                echoChannel.listen(prefixedEvent, scheduleReload);
+                listeners.push({ echoChannel, prefixedEvent });
+            });
+        });
+
+        return () => {
+            if (reloadTimerRef.current) {
+                clearTimeout(reloadTimerRef.current);
+            }
+
+            listeners.forEach(({ echoChannel, prefixedEvent }) => {
+                echoChannel.stopListening(prefixedEvent);
+            });
+        };
+    }, [shouldEnableGlobalRealtime]);
 
     const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 

@@ -106,7 +106,6 @@ php artisan db:seed --class=WorkshopSeeder
 Perubahan stabilisasi dan UX yang baru ditambahkan:
 
 - Hardening realtime event dispatch agar transaksi inti tidak gagal saat broadcaster (Reverb) tidak tersedia sementara.
-- Penambahan command health check Reverb: `php artisan reverb:health-check`.
 - Penambahan alert notifikasi in-app untuk kondisi Reverb down beruntun + recovery.
 - Penambahan konfigurasi host khusus backend broadcast: `REVERB_BROADCAST_HOST`.
 - Otomatisasi startup Reverb lokal (Windows startup + watchdog script) agar tidak perlu menjalankan perintah manual setiap kali login.
@@ -118,8 +117,14 @@ Perubahan stabilisasi dan UX yang baru ditambahkan:
 Perintah operasional tambahan:
 
 ```bash
-# Cek konektivitas Reverb dari runtime aplikasi
-php artisan reverb:health-check
+# Cek command reverb bawaan yang tersedia
+php artisan list | findstr /i reverb
+
+# Cek status watchdog reverb (pid, process, port, last logs)
+php artisan reverb:watchdog-status --lines=20
+
+# Trim log watchdog saat ukuran membesar
+php artisan reverb:watchdog-maintain --max-kb=1024 --keep-lines=600
 ```
 
 Script lokal (Windows) yang digunakan untuk auto-start watchdog Reverb:

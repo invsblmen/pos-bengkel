@@ -2,18 +2,24 @@
 
 namespace App\Http\Controllers\Apps;
 
+use App\Events\VoucherCreated;
+use App\Events\VoucherDeleted;
+use App\Events\VoucherUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Part;
 use App\Models\PartCategory;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\Voucher;
+use App\Support\DispatchesBroadcastSafely;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class VoucherController extends Controller
 {
+    use DispatchesBroadcastSafely;
+
     public function index(Request $request)
     {
         $q = trim((string) $request->query('q', ''));
@@ -64,9 +70,10 @@ class VoucherController extends Controller
     public function store(Request $request)
     {
         $validated = $this->validateVoucher($request);
+        $createdVoucher = null;
 
-        DB::transaction(function () use ($validated) {
-            $voucher = Voucher::query()->create([
+        DB::transaction(function () use ($validated, &$createdVoucher) {
+            $createdVoucher = Voucher::query()->create([
                 'code' => strtoupper(trim((string) $validated['code'])),
                 'name' => trim((string) $validated['name']),
                 'description' => $validated['description'] ?? null,
@@ -83,8 +90,15 @@ class VoucherController extends Controller
                 'can_combine_with_discount' => (bool) ($validated['can_combine_with_discount'] ?? false),
             ]);
 
-            $this->syncEligibility($voucher, $validated);
+            $this->syncEligibility($createdVoucher, $validated);
         });
+
+        if ($createdVoucher) {
+            $this->dispatchBroadcastSafely(
+                fn () => event(new VoucherCreated($this->toRealtimePayload($createdVoucher))),
+                'VoucherCreated'
+            );
+        }
 
         return redirect()->route('vouchers.index')->with('success', 'Voucher berhasil dibuat.');
     }
@@ -126,8 +140,9 @@ class VoucherController extends Controller
     public function update(Request $request, Voucher $voucher)
     {
         $validated = $this->validateVoucher($request, $voucher->id);
+        $updatedVoucher = null;
 
-        DB::transaction(function () use ($voucher, $validated) {
+        DB::transaction(function () use ($voucher, $validated, &$updatedVoucher) {
             $voucher->update([
                 'code' => strtoupper(trim((string) $validated['code'])),
                 'name' => trim((string) $validated['name']),
@@ -146,16 +161,48 @@ class VoucherController extends Controller
             ]);
 
             $this->syncEligibility($voucher, $validated);
+            $updatedVoucher = $voucher->fresh();
         });
+
+        if ($updatedVoucher) {
+            $this->dispatchBroadcastSafely(
+                fn () => event(new VoucherUpdated($this->toRealtimePayload($updatedVoucher))),
+                'VoucherUpdated'
+            );
+        }
 
         return redirect()->route('vouchers.index')->with('success', 'Voucher berhasil diperbarui.');
     }
 
     public function destroy(Voucher $voucher)
     {
+        $voucherId = $voucher->id;
         $voucher->delete();
 
+        $this->dispatchBroadcastSafely(
+            fn () => event(new VoucherDeleted($voucherId)),
+            'VoucherDeleted'
+        );
+
         return back()->with('success', 'Voucher berhasil dihapus.');
+    }
+
+    private function toRealtimePayload(Voucher $voucher): array
+    {
+        return [
+            'id' => $voucher->id,
+            'code' => $voucher->code,
+            'name' => $voucher->name,
+            'scope' => $voucher->scope,
+            'is_active' => (bool) $voucher->is_active,
+            'discount_type' => $voucher->discount_type,
+            'discount_value' => (float) $voucher->discount_value,
+            'quota_total' => $voucher->quota_total,
+            'quota_used' => (int) ($voucher->quota_used ?? 0),
+            'starts_at' => optional($voucher->starts_at)?->toIso8601String(),
+            'ends_at' => optional($voucher->ends_at)?->toIso8601String(),
+            'updated_at' => optional($voucher->updated_at)?->toIso8601String(),
+        ];
     }
 
     private function validateVoucher(Request $request, ?int $ignoreId = null): array

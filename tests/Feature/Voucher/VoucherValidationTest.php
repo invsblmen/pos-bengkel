@@ -235,4 +235,34 @@ class VoucherValidationTest extends TestCase
             'transaction_discount_value' => 5,
         ]);
     }
+
+    #[Test]
+    public function fixed_voucher_discount_is_capped_by_max_discount_and_subtotal()
+    {
+        Voucher::query()->create([
+            'code' => 'FIXEDHUGE',
+            'name' => 'Fixed Huge Voucher',
+            'is_active' => true,
+            'starts_at' => now()->subDay(),
+            'ends_at' => now()->addDay(),
+            'discount_type' => 'fixed',
+            'discount_value' => 500000,
+            'scope' => 'transaction',
+            'min_purchase' => 0,
+            'max_discount' => 120000,
+            'can_combine_with_discount' => true,
+        ]);
+
+        $resultHighSubtotal = $this->voucherService->validateForTransaction('FIXEDHUGE', [
+            'customer_id' => 1,
+            'subtotal' => 300000,
+        ]);
+        $this->assertEquals(120000, $resultHighSubtotal['discount_amount']);
+
+        $resultLowSubtotal = $this->voucherService->validateForTransaction('FIXEDHUGE', [
+            'customer_id' => 1,
+            'subtotal' => 100000,
+        ]);
+        $this->assertEquals(100000, $resultLowSubtotal['discount_amount']);
+    }
 }

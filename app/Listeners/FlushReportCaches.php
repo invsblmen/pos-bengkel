@@ -111,13 +111,13 @@ class FlushReportCaches
     private function flushFileCache(array $prefixes): void
     {
         $cacheDir = storage_path('framework/cache/data');
-        
+
         if (!is_dir($cacheDir)) {
             return;
         }
 
         $files = glob($cacheDir . '/*');
-        
+
         if ($files === false) {
             return;
         }

@@ -197,12 +197,16 @@ class CustomerController extends Controller
             'vehicles' => function ($query) {
                 $query->orderByDesc('created_at');
             },
-            'serviceOrders' => function ($query) {
-                $query->with(['vehicle:id,plate_number,brand,model', 'mechanic:id,name'])
-                    ->orderByDesc('created_at')
-                    ->limit(20);
-            },
         ]);
+
+        // Use direct relation query to avoid eager-limit window function issues on strict SQL modes.
+        $serviceOrders = $customer->serviceOrders()
+            ->with(['vehicle:id,plate_number,brand,model', 'mechanic:id,name'])
+            ->orderByDesc('created_at')
+            ->limit(20)
+            ->get();
+
+        $customer->setRelation('serviceOrders', $serviceOrders);
 
         return Inertia::render('Dashboard/Customers/Show', [
             'customer' => $customer,

@@ -241,6 +241,7 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
 
     // mechanics performance dashboard
     Route::get('/mechanics/performance/dashboard', [\App\Http\Controllers\Apps\MechanicPerformanceController::class, 'dashboard'])->middleware('permission:mechanics-access')->name('mechanics.performance.dashboard');
+    Route::get('/mechanics/{id}', [\App\Http\Controllers\Apps\MechanicPerformanceController::class, 'show'])->middleware('permission:mechanics-access')->name('mechanics.show');
     Route::get('/mechanics/{id}/performance', [\App\Http\Controllers\Apps\MechanicPerformanceController::class, 'show'])->middleware('permission:mechanics-access')->name('mechanics.performance.show');
     Route::get('/mechanics/performance/export', [\App\Http\Controllers\Apps\MechanicPerformanceController::class, 'export'])->middleware('permission:mechanics-access')->name('mechanics.performance.export');
 

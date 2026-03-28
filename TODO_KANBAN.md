@@ -10,23 +10,31 @@ Aturan pakai singkat:
 
 ## To Do
 
-- [ ] [TEST] Tambahkan feature test untuk `customers.show` (akses valid, akses unauthorized, data relasi terbaca).
-- [ ] [TEST] Tambahkan test fallback route referensi mekanik pada detail service order.
-- [ ] [UI] Tambahkan sticky action bar pada detail service order (cetak, edit, kembali).
-- [ ] [UI] Tambahkan loading skeleton untuk section detail item pada service order show.
-- [ ] [INFRA] Tambahkan rotasi sederhana untuk log watchdog (`reverb-autostart.log`, `reverb-watchdog.log`) agar ukuran file terkendali.
-- [ ] [INFRA] Tambahkan command status ringkas untuk watchdog Reverb (cek proses + port + pid file).
-- [ ] [SO-REF] Lengkapi endpoint detail mekanik (`mechanics.show`) atau finalisasi keputusan tetap di performance page.
-- [ ] [VOUCHER] Tambahkan validasi edge-case kombinasi voucher + diskon fixed besar di service order.
-- [ ] [GARANSI] Tambahkan indikator visual item garansi yang sudah mendekati expired pada detail service order.
+- [ ] [INFRA] Tambahkan guard agar launcher tidak spawn process orphan pada skenario logout/login berulang.
+- [ ] [DASHBOARD] Tambahkan dashboard conversion voucher (issued vs redeemed vs expired).
+- [ ] [UI] Optimasi spacing dan typographic hierarchy agar informasi finansial lebih mudah dipindai.
 
 ## In Progress
 
-- [ ] [TEST] Konsolidasi dan stabilisasi test suite domain garansi + voucher + service-order references.
+- [ ] (Kosong)
 
 ## Blocked
 
 - [ ] [INFRA] Otomatisasi startup berbasis Task Scheduler event Herd start (menunggu hak akses admin lokal).
+
+## Done
+
+- [x] [TEST] Tambahkan feature test untuk `customers.show` (akses valid, akses unauthorized, data relasi terbaca).
+- [x] [TEST] Tambahkan test fallback route referensi mekanik pada detail service order.
+- [x] [VOUCHER] Tambahkan validasi edge-case kombinasi voucher + diskon fixed besar di service order.
+- [x] [GARANSI] Tambahkan indikator visual item garansi yang sudah mendekati expired pada detail service order.
+- [x] [SO-REF] Finalisasi endpoint detail mekanik via alias route `mechanics.show`.
+- [x] [UI] Sticky action bar pada detail service order (desktop).
+- [x] [UI] Loading skeleton pada section detail item service order show.
+- [x] [UI] Quick jump anchor antar section detail service order.
+- [x] [INFRA] Command status ringkas watchdog Reverb (`reverb:watchdog-status`).
+- [x] [INFRA] Housekeeping/trim log watchdog terjadwal (`reverb:watchdog-maintain`).
+- [x] [TEST] Konsolidasi dan stabilisasi test suite domain garansi + voucher + service-order references (smoke suite hijau).
 
 ## Catatan Operasional
 
@@ -34,5 +42,5 @@ Aturan pakai singkat:
   - `php artisan ziggy:generate resources/js/ziggy.js`
 - Untuk cek scheduler aktif:
   - `php artisan schedule:list`
-- Untuk cek health Reverb dari app runtime:
-  - `php artisan reverb:health-check`
+- Untuk cek command Reverb yang tersedia:
+  - `php artisan list | findstr /i reverb`

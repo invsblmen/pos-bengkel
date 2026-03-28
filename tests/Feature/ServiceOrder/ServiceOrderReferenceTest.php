@@ -145,4 +145,42 @@ class ServiceOrderReferenceTest extends TestCase
                 ->where('order.mechanic.name', 'Budi')
         );
     }
+
+    #[Test]
+    public function service_order_mechanic_reference_uses_mechanics_show_route_alias_when_available()
+    {
+        $user = new User(['name' => 'Test User 4', 'email' => 'test4@example.com', 'password' => bcrypt('password')]);
+        $user->save();
+        $user->assignRole('super-admin');
+        $user->givePermissionTo('service-orders-access');
+        $user->givePermissionTo('customers-access');
+        $user->givePermissionTo('vehicles-access');
+        $user->givePermissionTo('mechanics-access');
+
+        $customer = Customer::create(['name' => 'Ref Customer', 'phone' => '08123330001']);
+        $vehicle = Vehicle::create(['customer_id' => $customer->id, 'brand' => 'Suzuki', 'model' => 'Ertiga', 'plate_number' => 'D-4321-XYZ']);
+        $mechanic = Mechanic::create(['name' => 'Ref Mechanic', 'phone' => '08911110000']);
+        $order = ServiceOrder::create([
+            'order_number' => 'SO-TEST004',
+            'customer_id' => $customer->id,
+            'vehicle_id' => $vehicle->id,
+            'mechanic_id' => $mechanic->id,
+            'status' => 'pending',
+            'odometer_km' => 12345,
+            'labor_cost' => 25000,
+            'total' => 25000,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('service-orders.show', $order->id));
+        $response->assertOk();
+
+        // Verify that all expected data is present with proper permissions
+        $response->assertInertia(
+            fn ($page) => $page
+                ->component('Dashboard/ServiceOrders/Show')
+                ->where('order.mechanic.id', $mechanic->id)
+                ->where('order.mechanic.name', 'Ref Mechanic')
+                ->where('permissions.can_view_mechanics', true)
+        );
+    }
 }

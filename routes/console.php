@@ -3,21 +3,15 @@
 use App\Models\LowStockAlert;
 use App\Models\Part;
 use App\Models\PartSaleDetail;
-use App\Models\WarrantyRegistration;
 use App\Models\User;
 use App\Notifications\PartSaleWarrantyExpiringNotification;
-use App\Notifications\ReverbHealthAlertNotification;
-use App\Services\WarrantyRegistrationService;
 use App\Http\Controllers\Apps\ServiceReportController;
 use App\Http\Controllers\Reports\PartSalesProfitReportController;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
-use Illuminate\Support\Facades\Schema;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -42,47 +36,45 @@ Artisan::command('low-stock:sync', function () {
 })->purpose('Sync low stock alerts based on minimal stock');
 
 Artisan::command('warranty:notify-expiring {--days=7}', function () {
-    if (!Schema::hasTable('warranty_registrations')) {
-        $this->warn('Table warranty_registrations not found. Run migrations first.');
-        return;
-    }
-
     $days = max(1, min((int) $this->option('days'), 60));
 
     $today = now()->startOfDay();
     $endDate = (clone $today)->addDays($days)->endOfDay();
 
-    $registrations = WarrantyRegistration::query()
+    $details = PartSaleDetail::query()
+        ->with([
+            'part:id,name,part_number',
+            'partSale:id,sale_number,customer_id,sale_date',
+            'partSale.customer:id,name',
+        ])
         ->where('warranty_period_days', '>', 0)
-        ->whereIn('status', ['active', 'expiring'])
+        ->whereNull('warranty_claimed_at')
         ->whereBetween('warranty_end_date', [$today, $endDate])
         ->get();
 
-    if ($registrations->isEmpty()) {
+    if ($details->isEmpty()) {
         $this->info('No expiring warranties found.');
         return;
     }
 
-    $recipients = User::all()->filter(function (User $user) {
-        return $user->can('part-sales-access') || $user->can('service-orders-access');
-    })->values();
+    $recipients = User::permission('part-sales-access')->get();
 
     if ($recipients->isEmpty()) {
-        $this->warn('No recipient with permission part-sales-access/service-orders-access found.');
+        $this->warn('No recipient with permission part-sales-access found.');
         return;
     }
 
     $sent = 0;
     $skipped = 0;
 
-    foreach ($registrations as $registration) {
-        $daysLeft = max(0, now()->startOfDay()->diffInDays($registration->warranty_end_date, false));
+    foreach ($details as $detail) {
+        $daysLeft = max(0, now()->startOfDay()->diffInDays($detail->warranty_end_date, false));
 
         foreach ($recipients as $recipient) {
             $alreadySentToday = $recipient->notifications()
                 ->where('type', PartSaleWarrantyExpiringNotification::class)
                 ->whereDate('created_at', now()->toDateString())
-                ->where('data->warranty_registration_id', $registration->id)
+                ->where('data->part_sale_detail_id', $detail->id)
                 ->exists();
 
             if ($alreadySentToday) {
@@ -90,7 +82,7 @@ Artisan::command('warranty:notify-expiring {--days=7}', function () {
                 continue;
             }
 
-            $recipient->notify(new PartSaleWarrantyExpiringNotification($registration, $daysLeft));
+            $recipient->notify(new PartSaleWarrantyExpiringNotification($detail, $daysLeft));
             $sent++;
         }
     }
@@ -98,136 +90,123 @@ Artisan::command('warranty:notify-expiring {--days=7}', function () {
     $this->info("Expiring warranty notifications sent: {$sent}, skipped: {$skipped}");
 })->purpose('Notify users about sparepart warranties that are nearing expiration');
 
-Artisan::command('warranty:backfill-registrations {--chunk=200} {--dry-run}', function () {
-    $chunk = max(50, min((int) $this->option('chunk'), 2000));
-    $dryRun = (bool) $this->option('dry-run');
-    $service = app(WarrantyRegistrationService::class);
+Artisan::command('reverb:watchdog-status {--lines=20}', function () {
+    $lineCount = max(1, min((int) $this->option('lines'), 200));
 
-    $query = PartSaleDetail::query()
-        ->with([
-            'part:id,name,part_number,has_warranty,warranty_duration_days,warranty_terms',
-            'partSale:id,sale_number,customer_id,sale_date',
-        ])
-        ->where('warranty_period_days', '>', 0)
-        ->orderBy('id');
+    $logDir = storage_path('logs');
+    $watchdogLog = $logDir . DIRECTORY_SEPARATOR . 'reverb-watchdog.log';
+    $autostartLog = $logDir . DIRECTORY_SEPARATOR . 'reverb-autostart.log';
+    $pidFile = $logDir . DIRECTORY_SEPARATOR . 'reverb-watchdog.pid';
 
-    $total = (clone $query)->count();
-    if ($total === 0) {
-        $this->info('No historical part sale warranties found to backfill.');
-        return;
-    }
+    $this->line('Reverb Watchdog Status');
+    $this->line('Project: ' . base_path());
 
-    $this->info("Backfill warranty registrations started. Total candidates: {$total}");
-    if ($dryRun) {
-        $this->warn('Dry-run mode enabled. No database write will be performed.');
-    }
-
-    $processed = 0;
-    $createdOrUpdated = 0;
-    $skipped = 0;
-
-    $query->chunkById($chunk, function ($details) use (&$processed, &$createdOrUpdated, &$skipped, $dryRun, $service) {
-        foreach ($details as $detail) {
-            $processed++;
-
-            if (!$detail->partSale || !$detail->part) {
-                $skipped++;
-                continue;
-            }
-
-            if ($dryRun) {
-                $createdOrUpdated++;
-                continue;
-            }
-
-            $service->registerFromPartSaleDetail($detail->partSale, $detail, $detail->part);
-            $createdOrUpdated++;
-        }
-    });
-
-    $this->info("Backfill finished. processed={$processed}, upserted={$createdOrUpdated}, skipped={$skipped}");
-})->purpose('Backfill unified warranty registrations from historical part sale details');
-
-Artisan::command('reverb:health-check {--threshold=3}', function () {
-    $host = (string) config('broadcasting.connections.reverb.options.host', '127.0.0.1');
-    $port = (int) config('broadcasting.connections.reverb.options.port', 8080);
-    $threshold = max(1, (int) $this->option('threshold'));
-    $timeoutSeconds = 2;
-    $startedAt = microtime(true);
-    $cacheScope = md5("{$host}:{$port}");
-    $countKey = "reverb:health:fail-count:{$cacheScope}";
-    $alertOpenKey = "reverb:health:alert-open:{$cacheScope}";
-
-    $errno = 0;
-    $errstr = '';
-    $socket = @fsockopen($host, $port, $errno, $errstr, $timeoutSeconds);
-
-    if (!$socket) {
-        $failureCount = (int) Cache::increment($countKey);
-        Cache::put($countKey, $failureCount, now()->addDay());
-
-        Log::warning('Reverb health check failed.', [
-            'host' => $host,
-            'port' => $port,
-            'errno' => $errno,
-            'error' => $errstr,
-            'failure_count' => $failureCount,
-            'threshold' => $threshold,
-        ]);
-
-        $alertAlreadyOpen = (bool) Cache::get($alertOpenKey, false);
-        if ($failureCount >= $threshold && !$alertAlreadyOpen && Schema::hasTable('notifications')) {
-            $recipients = User::query()
-                ->get()
-                ->filter(fn (User $user) => $user->hasRole('super-admin') || $user->can('service-orders-access'))
-                ->values();
-
-            foreach ($recipients as $recipient) {
-                $recipient->notify(new ReverbHealthAlertNotification(
-                    status: 'down',
-                    host: $host,
-                    port: $port,
-                    failureCount: $failureCount,
-                    error: "({$errno}) {$errstr}"
-                ));
-            }
-
-            Cache::put($alertOpenKey, true, now()->addDay());
-        }
-
-        $this->warn("Reverb DOWN at {$host}:{$port} ({$errno}) {$errstr} | failure={$failureCount}/{$threshold}");
-        return 1;
-    }
-
-    fclose($socket);
-
-    $alertWasOpen = (bool) Cache::get($alertOpenKey, false);
-    if ($alertWasOpen && Schema::hasTable('notifications')) {
-        $recipients = User::query()
-            ->get()
-            ->filter(fn (User $user) => $user->hasRole('super-admin') || $user->can('service-orders-access'))
-            ->values();
-
-        foreach ($recipients as $recipient) {
-            $recipient->notify(new ReverbHealthAlertNotification(
-                status: 'recovered',
-                host: $host,
-                port: $port
-            ));
+    $watchdogPid = null;
+    if (File::exists($pidFile)) {
+        $rawPid = trim((string) File::get($pidFile));
+        if (ctype_digit($rawPid)) {
+            $watchdogPid = (int) $rawPid;
         }
     }
 
-    Cache::forget($countKey);
-    Cache::forget($alertOpenKey);
+    $watchdogRunning = false;
+    if ($watchdogPid) {
+        $taskListResult = @shell_exec('tasklist /FI "PID eq ' . $watchdogPid . '" /FO CSV /NH');
+        $watchdogRunning = is_string($taskListResult)
+            && $taskListResult !== ''
+            && stripos($taskListResult, 'INFO: No tasks are running') === false;
+    }
 
-    $latencyMs = (int) round((microtime(true) - $startedAt) * 1000);
-    $this->info("Reverb UP at {$host}:{$port} ({$latencyMs}ms)");
-    return 0;
-})->purpose('Check whether Reverb host/port is reachable from the app runtime');
+    $reverbReachable = false;
+    $socket = @fsockopen('127.0.0.1', 8080, $errno, $errstr, 1);
+    if ($socket) {
+        $reverbReachable = true;
+        fclose($socket);
+    }
+
+    $rows = [
+        ['Watchdog PID File', File::exists($pidFile) ? $pidFile : 'Tidak ditemukan'],
+        ['Watchdog PID', $watchdogPid ? (string) $watchdogPid : '-'],
+        ['Watchdog Process', $watchdogRunning ? 'RUNNING' : 'NOT RUNNING'],
+        ['Reverb Port 8080', $reverbReachable ? 'REACHABLE' : 'UNREACHABLE'],
+        ['Watchdog Log', File::exists($watchdogLog) ? $watchdogLog : 'Tidak ditemukan'],
+        ['Autostart Log', File::exists($autostartLog) ? $autostartLog : 'Tidak ditemukan'],
+    ];
+
+    $this->table(['Check', 'Value'], $rows);
+
+    $tailLines = function (string $path, int $limit): array {
+        if (!File::exists($path)) {
+            return ['(file not found)'];
+        }
+
+        $content = (string) File::get($path);
+        $allLines = preg_split('/\r\n|\r|\n/', trim($content));
+        if (!is_array($allLines) || count($allLines) === 0 || (count($allLines) === 1 && $allLines[0] === '')) {
+            return ['(empty)'];
+        }
+
+        return array_slice($allLines, -1 * $limit);
+    };
+
+    $this->line('');
+    $this->line('Last ' . $lineCount . ' lines: reverb-watchdog.log');
+    foreach ($tailLines($watchdogLog, $lineCount) as $line) {
+        $this->line('  ' . $line);
+    }
+
+    $this->line('');
+    $this->line('Last ' . $lineCount . ' lines: reverb-autostart.log');
+    foreach ($tailLines($autostartLog, $lineCount) as $line) {
+        $this->line('  ' . $line);
+    }
+})->purpose('Show Reverb watchdog process, PID, port reachability, and recent logs');
+
+Artisan::command('reverb:watchdog-maintain {--max-kb=1024} {--keep-lines=600}', function () {
+    $maxKb = max(64, min((int) $this->option('max-kb'), 10240));
+    $keepLines = max(50, min((int) $this->option('keep-lines'), 5000));
+    $maxBytes = $maxKb * 1024;
+
+    $logDir = storage_path('logs');
+    $targets = [
+        $logDir . DIRECTORY_SEPARATOR . 'reverb-watchdog.log',
+        $logDir . DIRECTORY_SEPARATOR . 'reverb-autostart.log',
+    ];
+
+    $trimmed = 0;
+    $untouched = 0;
+
+    foreach ($targets as $target) {
+        if (!File::exists($target)) {
+            $this->line('Skip (not found): ' . $target);
+            continue;
+        }
+
+        $size = (int) File::size($target);
+        if ($size <= $maxBytes) {
+            $untouched++;
+            $this->line('OK: ' . basename($target) . ' (' . $size . ' bytes)');
+            continue;
+        }
+
+        $content = (string) File::get($target);
+        $lines = preg_split('/\r\n|\r|\n/', trim($content));
+        $lines = is_array($lines) ? array_slice($lines, -1 * $keepLines) : [];
+        $newContent = implode(PHP_EOL, $lines) . PHP_EOL;
+
+        File::put($target, $newContent);
+        $trimmed++;
+
+        $newSize = (int) File::size($target);
+        $this->line('Trimmed: ' . basename($target) . ' (' . $size . ' -> ' . $newSize . ' bytes)');
+    }
+
+    $this->info("Watchdog maintenance complete. trimmed={$trimmed}, untouched={$untouched}");
+})->purpose('Trim Reverb watchdog log files when they exceed the configured size');
 
 Schedule::command('low-stock:sync')->hourly();
 Schedule::command('warranty:notify-expiring --days=7')->dailyAt('07:30');
-Schedule::command('reverb:health-check')->everyMinute()->withoutOverlapping();
+Schedule::command('reverb:watchdog-maintain --max-kb=1024 --keep-lines=600')->weeklyOn(0, '03:10');
 Schedule::command('benchmark:reports --iterations=2 --warmup=1 --save-history')->dailyAt('02:30');
 
 Artisan::command('benchmark:reports {--iterations=3} {--warmup=1} {--start_date=} {--end_date=} {--save-history}', function () {
