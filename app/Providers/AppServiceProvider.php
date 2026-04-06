@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\PartSale;
 use App\Observers\PartSaleObserver;
 use App\Listeners\FlushReportCaches;
+use App\Listeners\SendServiceOrderWhatsAppNotification;
 use App\Events\ServiceOrderCreated;
 use App\Events\ServiceOrderUpdated;
 use App\Events\ServiceOrderDeleted;
@@ -48,11 +49,18 @@ class AppServiceProvider extends ServiceProvider
     private function registerCacheInvalidationListeners(): void
     {
         $listener = new FlushReportCaches();
+        $whatsAppListener = new SendServiceOrderWhatsAppNotification();
 
         // Service order events
         $this->app['events']->listen(
             [ServiceOrderCreated::class, ServiceOrderUpdated::class, ServiceOrderDeleted::class],
             [$listener, 'handleServiceOrderEvent']
+        );
+
+        // Service order WhatsApp notifications (queued)
+        $this->app['events']->listen(
+            [ServiceOrderCreated::class, ServiceOrderUpdated::class],
+            [$whatsAppListener, 'handle']
         );
 
         // Part sale events
