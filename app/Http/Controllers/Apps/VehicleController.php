@@ -10,35 +10,49 @@ use App\Models\Vehicle;
 use App\Models\Customer;
 use App\Support\DispatchesBroadcastSafely;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class VehicleController extends Controller
 {
     use DispatchesBroadcastSafely;
 
-    public function index()
+    public function index(Request $request)
     {
-        $sortBy = request('sort_by', 'created_at');
-        $sortDirection = request('sort_direction', 'desc');
-        $perPage = request('per_page', 8);
+        if ((bool) config('go_backend.features.vehicle_index', false)) {
+            $proxied = $this->vehicleIndexViaGo($request);
+            if ($proxied !== null) {
+                return inertia('Dashboard/Vehicles/Index', $proxied);
+            }
+        }
+
+        $sortBy = $request->input('sort_by', 'created_at');
+        $sortDirection = $request->input('sort_direction', 'desc');
+        $perPage = $request->input('per_page', 8);
+        $search = $request->input('search');
+        $brand = $request->input('brand');
+        $year = $request->input('year');
+        $transmission = $request->input('transmission');
+        $serviceStatus = $request->input('service_status');
 
         $vehicles = Vehicle::with('customer')
-            ->when(request('search'), function ($query) {
-                $query->where('plate_number', 'like', '%' . request('search') . '%')
-                    ->orWhere('brand', 'like', '%' . request('search') . '%')
-                    ->orWhere('model', 'like', '%' . request('search') . '%')
-                    ->orWhereHas('customer', function ($q) {
-                        $q->where('name', 'like', '%' . request('search') . '%');
+            ->when($search, function ($query) use ($search) {
+                $query->where('plate_number', 'like', '%' . $search . '%')
+                    ->orWhere('brand', 'like', '%' . $search . '%')
+                    ->orWhere('model', 'like', '%' . $search . '%')
+                    ->orWhereHas('customer', function ($q) use ($search) {
+                        $q->where('name', 'like', '%' . $search . '%');
                     });
             })
-            ->when(request('brand'), function ($query) {
-                $query->where('brand', request('brand'));
+            ->when($brand, function ($query) use ($brand) {
+                $query->where('brand', $brand);
             })
-            ->when(request('year'), function ($query) {
-                $query->where('year', request('year'));
+            ->when($year, function ($query) use ($year) {
+                $query->where('year', $year);
             })
-            ->when(request('transmission'), function ($query) {
-                $query->where('transmission_type', request('transmission'));
+            ->when($transmission, function ($query) use ($transmission) {
+                $query->where('transmission_type', $transmission);
             })
             ->orderBy($sortBy, $sortDirection)
             ->paginate($perPage);
@@ -76,16 +90,53 @@ class VehicleController extends Controller
             'vehicles' => $vehicles,
             'stats'    => $stats,
             'filters' => [
-                'search' => request('search'),
-                'brand' => request('brand'),
-                'year' => request('year'),
-                'transmission' => request('transmission'),
-                'service_status' => request('service_status'),
+                'search' => $search,
+                'brand' => $brand,
+                'year' => $year,
+                'transmission' => $transmission,
+                'service_status' => $serviceStatus,
                 'sort_by' => $sortBy,
                 'sort_direction' => $sortDirection,
                 'per_page' => $perPage,
             ],
         ]);
+    }
+
+    private function vehicleIndexViaGo(Request $request): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/vehicles', $request->query());
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Vehicle index Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['vehicles'], $json['stats'], $json['filters'])) {
+                Log::warning('Vehicle index Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     public function create()
@@ -99,6 +150,50 @@ class VehicleController extends Controller
 
     public function store(Request $request)
     {
+        if ((bool) config('go_backend.features.vehicle_store', false)) {
+            $proxied = $this->vehicleStoreViaGo($request);
+            if ($proxied !== null) {
+                if ($proxied['status'] === 'validation_error') {
+                    if ($request->expectsJson()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => $proxied['message'] ?? 'Data kendaraan tidak valid.',
+                            'errors' => $proxied['errors'] ?? [],
+                        ], 422);
+                    }
+
+                    return back()->withInput()->withErrors($proxied['errors'] ?? ['plate_number' => 'Data kendaraan tidak valid.']);
+                }
+
+                $vehiclePayload = $proxied['vehicle'] ?? [
+                    'customer_id' => $request->input('customer_id'),
+                    'plate_number' => preg_replace('/\s+/', '', strtoupper((string) $request->input('plate_number'))),
+                    'brand' => $request->input('brand'),
+                    'model' => $request->input('model'),
+                    'year' => $request->input('year'),
+                    'color' => $request->input('color'),
+                ];
+
+                $this->dispatchBroadcastSafely(
+                    fn () => event(new VehicleCreated($vehiclePayload)),
+                    'VehicleCreated'
+                );
+
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => $proxied['message'] ?? 'Kendaraan berhasil ditambahkan!',
+                        'vehicle' => $vehiclePayload,
+                    ]);
+                }
+
+                return redirect()->route('vehicles.index')->with([
+                    'success' => $proxied['message'] ?? 'Kendaraan berhasil ditambahkan!',
+                    'vehicle' => $vehiclePayload,
+                ]);
+            }
+        }
+
         $request->validate([
             'customer_id' => 'required|exists:customers,id',
             'plate_number' => 'required|string|max:20|unique:vehicles,plate_number|regex:/^[A-Z0-9]{1,20}$/i',
@@ -177,6 +272,83 @@ class VehicleController extends Controller
         ]);
     }
 
+    private function vehicleStoreViaGo(Request $request): ?array
+    {
+        $validated = $request->validate([
+            'customer_id' => 'required|exists:customers,id',
+            'plate_number' => 'required|string|max:20|unique:vehicles,plate_number|regex:/^[A-Z0-9]{1,20}$/i',
+            'brand' => 'required|string|max:100',
+            'model' => 'required|string|max:100',
+            'year' => 'nullable|integer|min:1900|max:' . (date('Y') + 1),
+            'color' => 'nullable|string|max:50',
+            'engine_type' => 'nullable|string|max:100',
+            'transmission_type' => 'nullable|in:manual,automatic,semi-automatic',
+            'cylinder_volume' => 'nullable|integer|min:50|max:10000',
+            'features' => 'nullable|array',
+            'notes' => 'nullable|string',
+            'chassis_number' => 'nullable|string|max:100',
+            'engine_number' => 'nullable|string|max:100',
+            'manufacture_year' => 'nullable|integer|min:1900|max:' . (date('Y') + 1),
+            'registration_number' => 'nullable|string|max:100',
+            'registration_date' => 'nullable|date',
+            'stnk_expiry_date' => 'nullable|date',
+            'previous_owner' => 'nullable|string|max:255',
+        ], [
+            'plate_number.regex' => 'Nomor plat hanya boleh berisi huruf dan angka (tanpa spasi).',
+        ]);
+
+        $validated['plate_number'] = preg_replace('/\s+/', '', strtoupper((string) $validated['plate_number']));
+
+        try {
+            $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+            $timeout = (int) config('go_backend.timeout_seconds', 5);
+            $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->post($baseUrl . '/api/v1/vehicles', $validated);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Vehicle store Go bridge returned a non-array response', [
+                    'status' => $response->status(),
+                ]);
+                return null;
+            }
+
+            if ($response->status() === 422) {
+                return [
+                    'status' => 'validation_error',
+                    'message' => $json['message'] ?? 'Data kendaraan tidak valid.',
+                    'errors' => $json['errors'] ?? [],
+                ];
+            }
+
+            if (! $response->successful()) {
+                Log::warning('Vehicle store Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'keys' => array_keys($json),
+                ]);
+                return null;
+            }
+
+            return [
+                'status' => 'ok',
+                'message' => $json['message'] ?? 'Kendaraan berhasil ditambahkan!',
+                'vehicle' => $json['vehicle'] ?? null,
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Vehicle store Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+        }
+
+        return null;
+    }
+
     public function edit($id)
     {
         $vehicle = Vehicle::findOrFail($id);
@@ -190,6 +362,20 @@ class VehicleController extends Controller
 
     public function show($id)
     {
+        if ((bool) config('go_backend.features.vehicle_detail', false)) {
+            $proxied = $this->vehicleDetailViaGo((string) $id, request());
+            if ($proxied !== null) {
+                if (request()->expectsJson() || request()->wantsJson()) {
+                    return response()->json($proxied);
+                }
+
+                return inertia('Dashboard/Vehicles/Show', [
+                    'vehicle' => $proxied['vehicle'] ?? null,
+                    'service_orders' => $proxied['service_orders'] ?? [],
+                ]);
+            }
+        }
+
         $vehicle = Vehicle::with(['customer', 'serviceOrders' => function ($q) {
             $q->with(['mechanic:id,name', 'details.service:id,title,price', 'details.part:id,name,sell_price'])
               ->orderByDesc('created_at');
@@ -260,8 +446,79 @@ class VehicleController extends Controller
         ]);
     }
 
+    private function vehicleDetailViaGo(string $vehicleId, Request $request): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/vehicles/' . urlencode($vehicleId));
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Vehicle detail Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['vehicle'], $json['service_orders'])) {
+                Log::warning('Vehicle detail Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            Log::warning('Vehicle detail Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
     public function update(Request $request, $id)
     {
+        if ((bool) config('go_backend.features.vehicle_update', false)) {
+            $proxied = $this->vehicleUpdateViaGo($request, (string) $id);
+            if ($proxied !== null) {
+                if ($proxied['status'] === 'validation_error') {
+                    return back()->withInput()->withErrors($proxied['errors'] ?? ['plate_number' => 'Data kendaraan tidak valid.']);
+                }
+
+                if ($proxied['status'] === 'not_found') {
+                    abort(404);
+                }
+
+                $vehiclePayload = $proxied['vehicle'] ?? [
+                    'id' => (int) $id,
+                    'customer_id' => $request->input('customer_id'),
+                    'plate_number' => preg_replace('/\s+/', '', strtoupper((string) $request->input('plate_number'))),
+                    'brand' => $request->input('brand'),
+                    'model' => $request->input('model'),
+                    'year' => $request->input('year'),
+                    'color' => $request->input('color'),
+                ];
+
+                $this->dispatchBroadcastSafely(
+                    fn () => event(new VehicleUpdated($vehiclePayload)),
+                    'VehicleUpdated'
+                );
+
+                return redirect()->route('vehicles.index')->with('success', $proxied['message'] ?? 'Kendaraan berhasil diperbarui!');
+            }
+        }
+
         $vehicle = Vehicle::findOrFail($id);
 
         $request->validate([
@@ -330,8 +587,113 @@ class VehicleController extends Controller
         return redirect()->route('vehicles.index')->with('success', 'Kendaraan berhasil diperbarui!');
     }
 
+    private function vehicleUpdateViaGo(Request $request, string $vehicleId): ?array
+    {
+        $validated = $request->validate([
+            'customer_id' => 'required|exists:customers,id',
+            'plate_number' => 'required|string|max:20|unique:vehicles,plate_number,' . $vehicleId . '|regex:/^[A-Z0-9]{1,20}$/i',
+            'brand' => 'required|string|max:100',
+            'model' => 'required|string|max:100',
+            'year' => 'nullable|integer|min:1900|max:' . (date('Y') + 1),
+            'color' => 'nullable|string|max:50',
+            'engine_type' => 'nullable|string|max:100',
+            'transmission_type' => 'nullable|in:manual,automatic,semi-automatic',
+            'cylinder_volume' => 'nullable|integer|min:50|max:10000',
+            'features' => 'nullable|array',
+            'notes' => 'nullable|string',
+            'chassis_number' => 'nullable|string|max:100',
+            'engine_number' => 'nullable|string|max:100',
+            'manufacture_year' => 'nullable|integer|min:1900|max:' . (date('Y') + 1),
+            'registration_number' => 'nullable|string|max:100',
+            'registration_date' => 'nullable|date',
+            'stnk_expiry_date' => 'nullable|date',
+            'previous_owner' => 'nullable|string|max:255',
+        ], [
+            'plate_number.regex' => 'Nomor plat hanya boleh berisi huruf dan angka (tanpa spasi).',
+        ]);
+
+        $validated['plate_number'] = preg_replace('/\s+/', '', strtoupper((string) $validated['plate_number']));
+
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->put($baseUrl . '/api/v1/vehicles/' . urlencode($vehicleId), $validated);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Vehicle update Go bridge returned a non-array response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if ($response->status() === 404) {
+                return [
+                    'status' => 'not_found',
+                    'message' => $json['message'] ?? 'Kendaraan tidak ditemukan.',
+                ];
+            }
+
+            if ($response->status() === 422) {
+                return [
+                    'status' => 'validation_error',
+                    'message' => $json['message'] ?? 'Data kendaraan tidak valid.',
+                    'errors' => $json['errors'] ?? [],
+                ];
+            }
+
+            if (! $response->successful()) {
+                Log::warning('Vehicle update Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return [
+                'status' => 'ok',
+                'message' => $json['message'] ?? 'Kendaraan berhasil diperbarui!',
+                'vehicle' => $json['vehicle'] ?? null,
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Vehicle update Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
     public function destroy($id)
     {
+        if ((bool) config('go_backend.features.vehicle_destroy', false)) {
+            $proxied = $this->vehicleDestroyViaGo((string) $id, request());
+            if ($proxied !== null) {
+                if ($proxied['status'] === 'not_found') {
+                    abort(404);
+                }
+
+                $vehicleId = (int) ($proxied['vehicle_id'] ?? $id);
+                if ($vehicleId > 0) {
+                    $this->dispatchBroadcastSafely(
+                        fn () => event(new VehicleDeleted($vehicleId)),
+                        'VehicleDeleted'
+                    );
+                }
+
+                return redirect()->route('vehicles.index')->with('success', $proxied['message'] ?? 'Kendaraan berhasil dihapus!');
+            }
+        }
+
         $vehicle = Vehicle::findOrFail($id);
         $vehicleId = $vehicle->id;
         $vehicle->delete();
@@ -345,8 +707,68 @@ class VehicleController extends Controller
         return redirect()->route('vehicles.index')->with('success', 'Kendaraan berhasil dihapus!');
     }
 
+    private function vehicleDestroyViaGo(string $vehicleId, Request $request): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->delete($baseUrl . '/api/v1/vehicles/' . urlencode($vehicleId));
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Vehicle destroy Go bridge returned a non-array response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if ($response->status() === 404) {
+                return [
+                    'status' => 'not_found',
+                    'message' => $json['message'] ?? 'Kendaraan tidak ditemukan.',
+                ];
+            }
+
+            if (! $response->successful()) {
+                Log::warning('Vehicle destroy Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return [
+                'status' => 'ok',
+                'message' => $json['message'] ?? 'Kendaraan berhasil dihapus!',
+                'vehicle_id' => $json['vehicle_id'] ?? (int) $vehicleId,
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Vehicle destroy Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
     public function maintenanceInsights($id)
     {
+        if ((bool) config('go_backend.features.vehicle_insights', false)) {
+            $proxied = $this->maintenanceInsightsViaGo((string) $id, request());
+            if ($proxied !== null) {
+                return $proxied;
+            }
+        }
+
         $vehicle = Vehicle::findOrFail($id);
 
         // Get real-time vehicle data
@@ -406,8 +828,43 @@ class VehicleController extends Controller
         ]);
     }
 
+    private function maintenanceInsightsViaGo(string $vehicleId, Request $request): ?\Illuminate\Http\JsonResponse
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/vehicles/' . urlencode($vehicleId) . '/maintenance-insights');
+
+            $json = $response->json();
+            if (is_array($json)) {
+                return response()->json($json, $response->status());
+            }
+
+            return response()->json([
+                'message' => 'Bridge ke Go aktif, tetapi respons maintenance insights tidak valid JSON object.',
+            ], 502);
+        } catch (\Throwable $e) {
+            // Fallback ke local handler untuk memastikan endpoint tetap tersedia.
+            return null;
+        }
+    }
+
     public function getWithHistory($id)
     {
+        if ((bool) config('go_backend.features.vehicle_with_history', false)) {
+            $proxied = $this->withHistoryViaGo((string) $id, request());
+            if ($proxied !== null) {
+                return $proxied;
+            }
+        }
+
         $vehicle = Vehicle::with('customer')->findOrFail($id);
 
         // Calculate real-time data from service orders
@@ -447,6 +904,36 @@ class VehicleController extends Controller
             ],
             'recent_orders' => $recentOrders,
         ]);
+    }
+
+    private function withHistoryViaGo(string $vehicleId, Request $request): ?\Illuminate\Http\JsonResponse
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/vehicles/' . urlencode($vehicleId) . '/with-history');
+
+            $json = $response->json();
+            if (is_array($json)) {
+                return response()->json($json, $response->status());
+            }
+
+            return response()->json([
+                'vehicle' => null,
+                'recent_orders' => [],
+                'message' => 'Bridge ke Go aktif, tetapi respons with-history tidak valid JSON object.',
+            ], 502);
+        } catch (\Throwable $e) {
+            // Fallback ke local handler untuk memastikan endpoint tetap tersedia.
+            return null;
+        }
     }
 
     /**
@@ -498,6 +985,13 @@ class VehicleController extends Controller
 
     public function getServiceHistory($id)
     {
+        if ((bool) config('go_backend.features.vehicle_service_history', false)) {
+            $proxied = $this->serviceHistoryViaGo((string) $id, request());
+            if ($proxied !== null) {
+                return $proxied;
+            }
+        }
+
         try {
             $vehicle = Vehicle::findOrFail($id);
 
@@ -551,6 +1045,35 @@ class VehicleController extends Controller
                 'service_orders' => [],
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    private function serviceHistoryViaGo(string $vehicleId, Request $request): ?\Illuminate\Http\JsonResponse
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/vehicles/' . urlencode($vehicleId) . '/service-history');
+
+            $json = $response->json();
+            if (is_array($json)) {
+                return response()->json($json, $response->status());
+            }
+
+            return response()->json([
+                'service_orders' => [],
+                'message' => 'Bridge ke Go aktif, tetapi respons service history tidak valid JSON object.',
+            ], 502);
+        } catch (\Throwable $e) {
+            // Fallback ke local handler untuk memastikan endpoint tetap tersedia.
+            return null;
         }
     }
 }

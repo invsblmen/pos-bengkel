@@ -1,0 +1,1065 @@
+openapi: 3.0.3
+info:
+  title: POS Bengkel Go API (Wave 1)
+  version: 0.1.0
+servers:
+  - url: http://localhost:8081
+paths:
+  /health:
+    get:
+      summary: Service health check
+      responses:
+        '200':
+          description: OK
+  /ready:
+    get:
+      summary: Readiness check
+      responses:
+        '200':
+          description: Ready
+  /live:
+    get:
+      summary: Liveness check
+      responses:
+        '200':
+          description: Alive
+  /api/v1/appointments:
+    get:
+      summary: Appointment list with filters, pagination, stats, and mechanics
+      responses:
+        '200':
+          description: Appointment index payload compatible with Laravel Inertia props
+    post:
+      summary: Create an appointment booking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                customer_id:
+                  type: integer
+                  nullable: true
+                vehicle_id:
+                  type: integer
+                  nullable: true
+                mechanic_id:
+                  type: integer
+                scheduled_at:
+                  type: string
+                notes:
+                  type: string
+                  nullable: true
+      responses:
+        '201':
+          description: Appointment created
+  /api/v1/appointments/{id}:
+    get:
+      summary: Load a single appointment for editing
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Appointment detail payload with mechanics list
+        '404':
+          description: Appointment not found
+  /api/v1/appointments/{id}/export:
+    get:
+      summary: Export appointment as ICS calendar event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: ICS calendar payload
+        '404':
+          description: Appointment not found
+    put:
+      summary: Update an appointment booking
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                customer_id:
+                  type: integer
+                  nullable: true
+                vehicle_id:
+                  type: integer
+                  nullable: true
+                mechanic_id:
+                  type: integer
+                scheduled_at:
+                  type: string
+                notes:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: Appointment updated
+        '404':
+          description: Appointment not found
+        '409':
+          description: Slot conflict
+        '422':
+          description: Invalid appointment payload
+    delete:
+      summary: Cancel appointment
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Appointment cancelled
+        '404':
+          description: Appointment not found
+  /api/v1/appointments/{id}/status:
+    patch:
+      summary: Update appointment status
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+      responses:
+        '200':
+          description: Appointment status updated
+        '404':
+          description: Appointment not found
+        '422':
+          description: Invalid status payload
+  /api/v1/appointments/calendar:
+    get:
+      summary: Appointment calendar payload for month view
+      parameters:
+        - in: query
+          name: year
+          schema:
+            type: integer
+          required: false
+        - in: query
+          name: month
+          schema:
+            type: integer
+          required: false
+      responses:
+        '200':
+          description: Calendar payload compatible with Laravel Inertia props
+  /api/v1/appointments/slots:
+    get:
+      summary: Available appointment slots for a mechanic on a specific date
+      parameters:
+        - in: query
+          name: mechanic_id
+          schema:
+            type: integer
+          required: true
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+          required: true
+      responses:
+        '200':
+          description: Available slots payload compatible with the booking modal
+  /api/v1/part-purchases/{id}/update-status:
+    post:
+      summary: Update status for part purchase and optionally post stock movements when received
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                actual_delivery_date:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: Part purchase status updated payload
+        '422':
+          description: Invalid status or date payload
+  /api/v1/part-sales:
+    post:
+      summary: Create part sale transaction and reserve stock by status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                customer_id:
+                  type: integer
+                sale_date:
+                  type: string
+                  format: date
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      part_id:
+                        type: integer
+                      quantity:
+                        type: integer
+                      unit_price:
+                        type: integer
+                status:
+                  type: string
+                actor_user_id:
+                  type: integer
+                  nullable: true
+      responses:
+        '200':
+          description: Part sale created payload
+        '422':
+          description: Invalid payload or insufficient stock
+    get:
+      summary: Part sales index list with pagination for dashboard page
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+          required: false
+        - in: query
+          name: search
+          schema:
+            type: string
+          required: false
+        - in: query
+          name: status
+          schema:
+            type: string
+          required: false
+        - in: query
+          name: payment_status
+          schema:
+            type: string
+          required: false
+        - in: query
+          name: customer_id
+          schema:
+            type: integer
+          required: false
+      responses:
+        '200':
+          description: Part sales payload compatible with Laravel Inertia props
+  /api/v1/part-sales/warranties:
+    get:
+      summary: Part sale warranties index with filters, summary cards, and pagination
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+          required: false
+        - in: query
+          name: search
+          schema:
+            type: string
+          required: false
+        - in: query
+          name: warranty_status
+          schema:
+            type: string
+          required: false
+        - in: query
+          name: source_type
+          schema:
+            type: string
+          required: false
+        - in: query
+          name: item_type
+          schema:
+            type: string
+          required: false
+        - in: query
+          name: customer_id
+          schema:
+            type: integer
+          required: false
+        - in: query
+          name: vehicle_id
+          schema:
+            type: integer
+          required: false
+        - in: query
+          name: mechanic_id
+          schema:
+            type: integer
+          required: false
+        - in: query
+          name: date_from
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: date_to
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: expiring_in_days
+          schema:
+            type: integer
+          required: false
+      responses:
+        '200':
+          description: Warranties payload compatible with Laravel Inertia props
+  /api/v1/part-sales/warranties/export:
+    get:
+      summary: Export part sale warranties as CSV
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+          required: false
+        - in: query
+          name: warranty_status
+          schema:
+            type: string
+          required: false
+        - in: query
+          name: source_type
+          schema:
+            type: string
+          required: false
+        - in: query
+          name: item_type
+          schema:
+            type: string
+          required: false
+        - in: query
+          name: customer_id
+          schema:
+            type: integer
+          required: false
+        - in: query
+          name: vehicle_id
+          schema:
+            type: integer
+          required: false
+        - in: query
+          name: mechanic_id
+          schema:
+            type: integer
+          required: false
+        - in: query
+          name: date_from
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: date_to
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: expiring_in_days
+          schema:
+            type: integer
+          required: false
+      responses:
+        '200':
+          description: CSV export payload for warranties list
+  /api/v1/part-sales/create-from-order:
+    post:
+      summary: Redirect creation flow from a part sales order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sales_order_id:
+                  type: integer
+      responses:
+        '200':
+          description: Validated sales order payload
+        '422':
+          description: Missing or invalid sales order id
+  /api/v1/part-sales/{id}/update-payment:
+    post:
+      summary: Update payment amount for part sale and optionally record cash denominations
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                payment_amount:
+                  type: integer
+                actor_user_id:
+                  type: integer
+                  nullable: true
+                received_denominations:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      denomination_id:
+                        type: integer
+                      quantity:
+                        type: integer
+      responses:
+        '200':
+          description: Part sale payment updated payload
+        '422':
+          description: Invalid payload or insufficient change denominations
+  /api/v1/part-sales/{id}:
+    get:
+      summary: Get part sale detail payload for dashboard show page
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Part sale detail payload
+        '404':
+          description: Part sale not found
+    put:
+      summary: Update draft part sale transaction
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                customer_id:
+                  type: integer
+                sale_date:
+                  type: string
+                  format: date
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      part_id:
+                        type: integer
+                      quantity:
+                        type: integer
+                      unit_price:
+                        type: integer
+                status:
+                  type: string
+                actor_user_id:
+                  type: integer
+                  nullable: true
+      responses:
+        '200':
+          description: Part sale updated payload
+        '422':
+          description: Invalid payload or sale is not draft
+    delete:
+      summary: Delete draft part sale transaction
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Part sale deleted payload
+        '422':
+          description: Part sale is not in draft status
+        '404':
+          description: Part sale not found
+  /api/v1/part-sales/{id}/update-status:
+    post:
+      summary: Update status for part sale transaction
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+      responses:
+        '200':
+          description: Part sale status updated payload
+        '422':
+          description: Invalid status or part sale already in final state
+  /api/v1/part-sales/{id}/print:
+    get:
+      summary: Get part sale payload for print page
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Part sale print payload
+        '404':
+          description: Part sale not found
+  /api/v1/part-sales/{id}/edit:
+    get:
+      summary: Get part sale payload for edit page
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Part sale edit payload with customers, parts, and available vouchers
+        '404':
+          description: Part sale not found
+        '422':
+          description: Part sale is not in draft status
+  /api/v1/part-sales/{partSale}/details/{detail}/claim-warranty:
+    post:
+      summary: Claim warranty for a part sale detail
+      parameters:
+        - in: path
+          name: partSale
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: detail
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                warranty_claim_notes:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: Warranty claim recorded payload
+        '422':
+          description: Invalid mapping, expired warranty, or claim already recorded
+  /api/v1/part-stock-history:
+    get:
+      summary: Part stock movement history list with filters and pagination
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+          required: false
+        - in: query
+          name: part_id
+          schema:
+            type: integer
+          required: false
+        - in: query
+          name: type
+          schema:
+            type: string
+          required: false
+        - in: query
+          name: date_from
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: date_to
+          schema:
+            type: string
+            format: date
+          required: false
+      responses:
+        '200':
+          description: Part stock history payload compatible with Laravel Inertia props
+  /api/v1/part-stock-history/export:
+    get:
+      summary: Export part stock movement history as CSV
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+          required: false
+        - in: query
+          name: part_id
+          schema:
+            type: integer
+          required: false
+        - in: query
+          name: type
+          schema:
+            type: string
+          required: false
+        - in: query
+          name: date_from
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: date_to
+          schema:
+            type: string
+            format: date
+          required: false
+      responses:
+        '200':
+          description: CSV export payload
+  /api/v1/cash-management/change/suggest:
+    post:
+      summary: Suggest optimal cash change breakdown based on available drawer stock
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                total_due:
+                  type: integer
+                received:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      denomination_id:
+                        type: integer
+                      quantity:
+                        type: integer
+      responses:
+        '200':
+          description: Change suggestion payload
+        '422':
+          description: Invalid payload or received amount is insufficient
+  /api/v1/cash-management/sale/settle:
+    post:
+      summary: Settle cash sale payment and persist change transactions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                total_due:
+                  type: integer
+                description:
+                  type: string
+                  nullable: true
+                actor_user_id:
+                  type: integer
+                  nullable: true
+                received:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      denomination_id:
+                        type: integer
+                      quantity:
+                        type: integer
+      responses:
+        '200':
+          description: Cash sale settled payload
+        '422':
+          description: Invalid payload or insufficient change stock
+  /api/v1/reports/part-sales-profit:
+    get:
+      summary: Part sales profit report with pagination and summary metrics
+      parameters:
+        - in: query
+          name: start_date
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: end_date
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: invoice
+          schema:
+            type: string
+          required: false
+      responses:
+        '200':
+          description: Profit report payload
+  /api/v1/reports/part-sales-profit/by-supplier:
+    get:
+      summary: Profit report breakdown by supplier
+      parameters:
+        - in: query
+          name: start_date
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: end_date
+          schema:
+            type: string
+            format: date
+          required: false
+      responses:
+        '200':
+          description: Supplier breakdown payload
+  /api/v1/reports/overall:
+    get:
+      summary: Overall report with summary cards, status insights, and transaction list
+      parameters:
+        - in: query
+          name: start_date
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: end_date
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: source
+          schema:
+            type: string
+            enum: [all, service_order, part_sale, cash_transaction]
+          required: false
+        - in: query
+          name: status
+          schema:
+            type: string
+          required: false
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+          required: false
+        - in: query
+          name: page
+          schema:
+            type: integer
+          required: false
+      responses:
+        '200':
+          description: Overall report payload compatible with Laravel Inertia props
+  /api/v1/reports/service-revenue:
+    get:
+      summary: Service revenue report grouped by period
+      parameters:
+        - in: query
+          name: start_date
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: end_date
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [daily, weekly, monthly]
+          required: false
+      responses:
+        '200':
+          description: Service revenue payload compatible with Laravel Inertia props
+  /api/v1/reports/mechanic-productivity:
+    get:
+      summary: Mechanic productivity report with earnings and performance metrics
+      parameters:
+        - in: query
+          name: start_date
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: end_date
+          schema:
+            type: string
+            format: date
+          required: false
+      responses:
+        '200':
+          description: Mechanic productivity payload compatible with Laravel Inertia props
+  /api/v1/reports/mechanic-payroll:
+    get:
+      summary: Mechanic payroll report with estimated base salary and incentives
+      parameters:
+        - in: query
+          name: start_date
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: end_date
+          schema:
+            type: string
+            format: date
+          required: false
+      responses:
+        '200':
+          description: Mechanic payroll payload compatible with Laravel Inertia props
+  /api/v1/reports/parts-inventory:
+    get:
+      summary: Parts inventory report with stock value and low stock status
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [all, low]
+          required: false
+      responses:
+        '200':
+          description: Parts inventory payload compatible with Laravel Inertia props
+  /api/v1/reports/outstanding-payments:
+    get:
+      summary: Outstanding payments report for completed service orders
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+          required: false
+      responses:
+        '200':
+          description: Outstanding payments payload compatible with Laravel Inertia props
+  /api/v1/reports/export:
+    get:
+      summary: Export selected report data as CSV
+      parameters:
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [revenue, mechanic_productivity, mechanic_payroll, overall]
+          required: false
+        - in: query
+          name: start_date
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: end_date
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: source
+          schema:
+            type: string
+            enum: [all, service_order, part_sale, cash_transaction]
+          required: false
+        - in: query
+          name: status
+          schema:
+            type: string
+          required: false
+      responses:
+        '200':
+          description: CSV export payload
+  /api/v1/parts/low-stock:
+    get:
+      summary: Low stock alerts list with sort and pagination
+      parameters:
+        - in: query
+          name: sort_by
+          schema:
+            type: string
+          required: false
+        - in: query
+          name: sort_direction
+          schema:
+            type: string
+            enum: [asc, desc]
+          required: false
+        - in: query
+          name: page
+          schema:
+            type: integer
+          required: false
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+          required: false
+      responses:
+        '200':
+          description: Low stock payload compatible with Laravel Inertia props
+  /api/v1/whatsapp/health/check:
+    get:
+      summary: WhatsApp Go dashboard health check adapter
+      responses:
+        '200':
+          description: Health status payload compatible with Laravel endpoint shape
+  /api/v1/webhooks/whatsapp:
+    post:
+      summary: WhatsApp webhook receiver with optional HMAC signature verification
+      parameters:
+        - in: header
+          name: X-Hub-Signature-256
+          schema:
+            type: string
+          required: false
+      responses:
+        '200':
+          description: Webhook accepted
+        '401':
+          description: Invalid webhook signature
+  /api/v1/vehicles/{id}/maintenance-insights:
+    get:
+      summary: Vehicle maintenance insights (km, service dates, and category-specific last km)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Insights payload
+        '500':
+          description: Failed to compute insights
+  /api/v1/vehicles/{id}/service-history:
+    get:
+      summary: Vehicle service history with mechanic and line details
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Service history payload
+        '500':
+          description: Failed to fetch service history
+  /api/v1/vehicles/{id}/with-history:
+    get:
+      summary: Vehicle summary with recent service order history
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Vehicle and recent history payload
+        '404':
+          description: Vehicle not found
+  /api/v1/vehicles/{id}/recommendations:
+    get:
+      summary: Vehicle recommendations based on recent usage history
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Recommendations payload
+        '404':
+          description: Vehicle not found
+  /api/v1/vehicles/{id}/maintenance-schedule:
+    get:
+      summary: Static maintenance schedule for vehicle
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Maintenance schedule payload
+        '404':
+          description: Vehicle not found

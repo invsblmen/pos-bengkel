@@ -11,6 +11,9 @@ use App\Services\CashChangeSuggestionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -246,6 +249,13 @@ class CashManagementController extends Controller
 
     public function suggestChange(Request $request, CashChangeSuggestionService $service)
     {
+        if ((bool) config('go_backend.features.cash_change_suggest', false)) {
+            $proxied = $this->suggestChangeViaGo($request);
+            if ($proxied !== null) {
+                return $proxied;
+            }
+        }
+
         $validated = $request->validate([
             'total_due' => 'required|integer|min:0',
             'received' => 'required|array|min:1',
@@ -331,8 +341,45 @@ class CashManagementController extends Controller
         ]);
     }
 
+    private function suggestChangeViaGo(Request $request): ?\Illuminate\Http\JsonResponse
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($baseUrl . '/api/v1/cash-management/change/suggest', $request->all());
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Cash change suggest Go bridge returned non JSON object response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            return response()->json($json, $response->status());
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     public function settleSaleCash(Request $request, CashChangeSuggestionService $service)
     {
+        if ((bool) config('go_backend.features.cash_sale_settle', false)) {
+            $proxied = $this->settleSaleCashViaGo($request);
+            if ($proxied !== null) {
+                return $proxied;
+            }
+        }
+
         $validated = $request->validate([
             'total_due' => 'required|integer|min:0',
             'description' => 'nullable|string|max:500',
@@ -478,5 +525,38 @@ class CashManagementController extends Controller
             'received_total' => $receivedTotal,
             'change_amount' => $changeAmount,
         ]);
+    }
+
+    private function settleSaleCashViaGo(Request $request): ?\Illuminate\Http\JsonResponse
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $payload = $request->all();
+            $payload['actor_user_id'] = $request->user()?->id;
+
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($baseUrl . '/api/v1/cash-management/sale/settle', $payload);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Cash sale settle Go bridge returned non JSON object response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            return response()->json($json, $response->status());
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }

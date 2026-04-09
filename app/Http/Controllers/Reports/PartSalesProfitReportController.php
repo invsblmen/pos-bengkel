@@ -5,17 +5,27 @@ namespace App\Http\Controllers\Reports;
 use App\Http\Controllers\Controller;
 use App\Models\PartSale;
 use App\Models\PartSaleDetail;
-use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class PartSalesProfitReportController extends Controller
 {
     public function index(Request $request)
     {
+        if ((bool) config('go_backend.features.report_part_sales_profit', false)) {
+            $proxied = $this->reportIndexViaGo($request);
+            if ($proxied !== null) {
+                return Inertia::render('Dashboard/Reports/PartSalesProfit', $proxied);
+            }
+        }
+
         $filters = [
             'start_date' => $request->input('start_date'),
             'end_date' => $request->input('end_date'),
@@ -194,6 +204,13 @@ class PartSalesProfitReportController extends Controller
      */
     public function bySupplier(Request $request)
     {
+        if ((bool) config('go_backend.features.report_part_sales_profit', false)) {
+            $proxied = $this->reportBySupplierViaGo($request);
+            if ($proxied !== null) {
+                return response()->json($proxied);
+            }
+        }
+
         $filters = [
             'start_date' => $request->input('start_date'),
             'end_date' => $request->input('end_date'),
@@ -236,5 +253,87 @@ class PartSalesProfitReportController extends Controller
             'supplier_performance' => $profitBySupplier,
             'filters' => $filters,
         ]);
+    }
+
+    private function reportIndexViaGo(Request $request): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/reports/part-sales-profit', $request->query());
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Part sales profit Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['sales'], $json['summary'], $json['topParts'], $json['filters'])) {
+                Log::warning('Part sales profit Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            Log::warning('Part sales profit Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    private function reportBySupplierViaGo(Request $request): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/reports/part-sales-profit/by-supplier', $request->query());
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Part sales profit by supplier Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['supplier_performance'], $json['filters'])) {
+                Log::warning('Part sales profit by supplier Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            Log::warning('Part sales profit by supplier Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 }

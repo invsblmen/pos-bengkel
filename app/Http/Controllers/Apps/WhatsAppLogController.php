@@ -10,6 +10,7 @@ use App\Models\WhatsAppWebhookEvent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class WhatsAppLogController extends Controller
@@ -123,6 +124,10 @@ class WhatsAppLogController extends Controller
 
     public function healthCheck(): JsonResponse
     {
+        if ((bool) config('whatsapp.go_backend.use_health_check', false)) {
+            return $this->healthCheckViaGo(request());
+        }
+
         $targetUrl = trim((string) config('whatsapp.go_dashboard_url', ''));
         $username = config('whatsapp.api.username');
         $password = config('whatsapp.api.password');
@@ -184,6 +189,45 @@ class WhatsAppLogController extends Controller
                 'http_status' => null,
                 'latency_ms' => $latencyMs,
                 'target_url' => $targetUrl,
+            ], 200);
+        }
+    }
+
+    private function healthCheckViaGo(Request $request): JsonResponse
+    {
+        $baseUrl = rtrim((string) config('whatsapp.go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('whatsapp.go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/whatsapp/health/check');
+            $json = $response->json();
+
+            if (is_array($json)) {
+                return response()->json($json, 200);
+            }
+
+            return response()->json([
+                'ok' => false,
+                'status' => 'down',
+                'message' => 'Bridge ke Go aktif, tetapi respons health check tidak valid JSON object.',
+                'http_status' => null,
+                'latency_ms' => null,
+                'target_url' => $baseUrl,
+            ], 200);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'ok' => false,
+                'status' => 'down',
+                'message' => 'Bridge ke Go gagal: ' . $e->getMessage(),
+                'http_status' => null,
+                'latency_ms' => null,
+                'target_url' => $baseUrl,
             ], 200);
         }
     }

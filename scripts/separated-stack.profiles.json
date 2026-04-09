@@ -1,0 +1,62 @@
+﻿{
+    "dev":  {
+                "laravel":  {
+            "url": "http://127.0.0.1:8010",
+            "apiPort": 8010,
+            "command": "php -S 127.0.0.1:8010 -t public",
+                                "viteCommand":  "npm run dev"
+                            },
+                "go":  {
+                           "projectPath":  "C:\\1. DANY ARDIANSYAH\\Project\\Laravel\\pos_bengkel\\go-backend",
+                           "healthUrl":  "http://127.0.0.1:8081/health",
+                           "port":  8081,
+                           "command":  "go run ./cmd/api"
+                       },
+                "frontend":  {
+                                 "projectPath":  "C:\\1. DANY ARDIANSYAH\\Project\\React\\reactfirstofficebwa",
+                    "url": "http://127.0.0.1:5180",
+                    "port": 5180,
+                    "command": "npx vite --host 127.0.0.1 --port 5180 --strictPort"
+                             }
+            },
+    "staging":  {
+                    "laravel":  {
+                                    "url":  "http://127.0.0.1:8001",
+                                    "apiPort":  8001,
+                    "command": "php -S 127.0.0.1:8001 -t public",
+                                    "viteCommand":  "npm run dev"
+                                },
+                    "go":  {
+                               "projectPath":  "C:\\1. DANY ARDIANSYAH\\Project\\Laravel\\pos_bengkel\\go-backend",
+                               "healthUrl":  "http://127.0.0.1:8081/health",
+                               "port":  8081,
+                               "command":  "go run ./cmd/api"
+                           },
+                    "frontend":  {
+                                     "projectPath":  "C:\\1. DANY ARDIANSYAH\\Project\\React\\reactfirstofficebwa",
+                                     "url":  "http://127.0.0.1:5174",
+                                     "port":  5174,
+                        "command": "npx vite --host 127.0.0.1 --port 5174 --strictPort"
+                                 }
+                },
+    "prod":  {
+                 "laravel":  {
+                                 "url":  "http://127.0.0.1:8002",
+                                 "apiPort":  8002,
+                        "command": "php -S 127.0.0.1:8002 -t public",
+                                 "viteCommand":  "npm run dev"
+                             },
+                 "go":  {
+                            "projectPath":  "C:\\1. DANY ARDIANSYAH\\Project\\Laravel\\pos_bengkel\\go-backend",
+                            "healthUrl":  "http://127.0.0.1:8081/health",
+                            "port":  8081,
+                            "command":  "go run ./cmd/api"
+                        },
+                 "frontend":  {
+                                  "projectPath":  "C:\\1. DANY ARDIANSYAH\\Project\\React\\reactfirstofficebwa",
+                                  "url":  "http://127.0.0.1:5175",
+                                  "port":  5175,
+                    "command": "npx vite --host 127.0.0.1 --port 5175 --strictPort"
+                              }
+             }
+}

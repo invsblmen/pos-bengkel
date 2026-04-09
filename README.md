@@ -36,6 +36,76 @@ Fokus repository saat ini adalah mode `workshop-only` (modul retail POS lama sud
 - Node.js 20+ dan npm
 - MySQL/MariaDB
 
+## Setup Lokal MariaDB
+
+Untuk local development, gunakan MariaDB dan jalankan skrip [LOCAL_MARIADB_SETUP.sql](LOCAL_MARIADB_SETUP.sql) agar schema dan user lokal siap.
+
+Kalau kamu mau jalankan otomatis dari PowerShell, pakai:
+
+```powershell
+scripts\setup-local-mariadb.ps1
+```
+
+Kalau lebih nyaman double-click di Windows, pakai:
+
+```bat
+scripts\setup-local-mariadb.bat
+```
+
+Rekomendasi yang dipakai di contoh env:
+
+- Laravel: `pos_bengkel_local`
+- Go backend: `pos_bengkel_go_local`
+- User lokal: `pos_bengkel` / `pos_bengkel_password`
+
+Setelah menjalankan skrip, update `.env` lalu jalankan `php artisan config:clear` dan restart service Go.
+
+## Menjalankan Laravel + Go + Frontend Terpisah
+
+Jika Go backend dan frontend baru dipindah ke folder lain, gunakan runbook:
+
+- [SEPARATED_STACK_RUNBOOK.md](SEPARATED_STACK_RUNBOOK.md)
+
+Helper script yang tersedia:
+
+```powershell
+# One-time setup profile config (opsional, direkomendasikan)
+Copy-Item scripts\separated-stack.profiles.json.example scripts\separated-stack.profiles.json
+
+# Atau bootstrap otomatis path Go/frontend
+scripts\configure-separated-stack.ps1 -Profile dev -ApplyToAllProfiles
+
+# Start Laravel + Go + frontend (masing-masing di terminal terpisah)
+scripts\start-separated-stack.ps1 -Profile dev -GoProjectPath "C:\Projects\pos_bengkel_go" -FrontendProjectPath "C:\Projects\pos_bengkel_frontend"
+
+# Atau kalau sudah isi profile config, cukup:
+scripts\start-separated-stack.ps1 -Profile dev
+
+# Jika Laravel pakai Herd + Vite Laravel sudah jalan manual:
+scripts\start-separated-stack.ps1 -Profile dev -UseHerd -SkipLaravelVite
+
+# Mode cepat (wrapper) untuk Herd:
+scripts\start-go-herd-mode.ps1 -Profile dev
+
+# Cek endpoint service
+scripts\check-separated-stack.ps1 -Profile dev
+
+# Cek parsial (contoh, lewati Laravel check)
+scripts\check-separated-stack.ps1 -Profile dev -SkipLaravel
+
+# Mode cepat check Go-only saat pakai Herd:
+scripts\check-go-herd-mode.ps1 -Profile dev
+
+# Restart Go-only saat pakai Herd:
+scripts\restart-go-herd-mode.ps1 -Env dev
+
+# Stop service terpusat
+scripts\stop-separated-stack.ps1 -Profile dev
+
+# Stop mode cepat Go-only saat pakai Herd:
+scripts\stop-go-herd-mode.ps1 -Profile dev
+```
+
 ## Instalasi
 
 ```bash
@@ -203,8 +273,8 @@ Perilaku script:
 ### 4) Akses dari Dashboard Laravel
 
 Menu yang tersedia:
-- `Laporan Lanjutan > WhatsApp Go`
-- `Laporan Lanjutan > Log WhatsApp`
+- `WhatsApp > Integrasi WhatsApp > WhatsApp Go`
+- `WhatsApp > Integrasi WhatsApp > Log WhatsApp`
 
 Halaman Log WhatsApp menyediakan:
 - monitor outbound/webhook,

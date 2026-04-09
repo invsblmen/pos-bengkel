@@ -10,6 +10,9 @@ use App\Models\Appointment;
 use App\Models\Mechanic;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class AppointmentController extends Controller
 {
@@ -18,6 +21,17 @@ class AppointmentController extends Controller
      */
     public function index(Request $request)
     {
+        if ((bool) config('go_backend.features.appointment_index', false)) {
+            $proxied = $this->appointmentIndexViaGo($request);
+            if ($proxied !== null) {
+                if ($request->expectsJson() || $request->wantsJson()) {
+                    return response()->json($proxied);
+                }
+
+                return inertia('Dashboard/Appointments/Index', $proxied);
+            }
+        }
+
         $query = Appointment::with('customer', 'vehicle', 'mechanic');
 
         // Filter by status
@@ -98,11 +112,65 @@ class AppointmentController extends Controller
         ]);
     }
 
+    private function appointmentIndexViaGo(Request $request): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/appointments', $request->query());
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Appointment index Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['appointments'], $json['stats'], $json['mechanics'], $json['filters'])) {
+                Log::warning('Appointment index Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            Log::warning('Appointment index Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
     /**
      * Display calendar view
      */
     public function calendar(Request $request)
     {
+        if ((bool) config('go_backend.features.appointment_calendar', false)) {
+            $proxied = $this->appointmentCalendarViaGo($request);
+            if ($proxied !== null) {
+                $proxied['csrf_token'] = $proxied['csrf_token'] ?? csrf_token();
+
+                if ($request->expectsJson() || $request->wantsJson()) {
+                    return response()->json($proxied);
+                }
+
+                return inertia('Dashboard/Appointments/Calendar', $proxied);
+            }
+        }
+
         $currentYear = now()->year;
         $currentMonth = now()->month;
 
@@ -179,11 +247,59 @@ class AppointmentController extends Controller
         ]);
     }
 
+    private function appointmentCalendarViaGo(Request $request): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/appointments/calendar', $request->query());
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Appointment calendar Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['calendar_days'], $json['current_date'], $json['year'], $json['month'], $json['mechanics'])) {
+                Log::warning('Appointment calendar Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            Log::warning('Appointment calendar Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
     /**
      * Show available time slots for a mechanic on a specific date
      */
     public function getAvailableSlots(Request $request)
     {
+        if ((bool) config('go_backend.features.appointment_slots', false)) {
+            $proxied = $this->appointmentAvailableSlotsViaGo($request);
+            if ($proxied !== null) {
+                return response()->json($proxied);
+            }
+        }
+
         $request->validate([
             'mechanic_id' => 'required|exists:mechanics,id',
             'date' => 'required|date',
@@ -229,11 +345,91 @@ class AppointmentController extends Controller
         ]);
     }
 
+    private function appointmentAvailableSlotsViaGo(Request $request): ?array
+    {
+        $validated = $request->validate([
+            'mechanic_id' => 'required|exists:mechanics,id',
+            'date' => 'required|date',
+        ]);
+
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/appointments/slots', $validated);
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Appointment slots Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['available_slots'], $json['mechanic_name'])) {
+                Log::warning('Appointment slots Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            Log::warning('Appointment slots Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
     /**
      * Store appointment with time slot
      */
     public function store(Request $request)
     {
+        if ((bool) config('go_backend.features.appointment_store', false)) {
+            $proxied = $this->appointmentStoreViaGo($request);
+            if ($proxied !== null) {
+                if ($proxied['status'] === 'validation_error') {
+                    return back()->withErrors($proxied['errors'] ?? ['scheduled_at' => 'Gagal membuat appointment.']);
+                }
+
+                if ($proxied['status'] === 'conflict') {
+                    return back()->withErrors(['scheduled_at' => $proxied['message'] ?? 'Slot ini sudah dibooking.']);
+                }
+
+                if (! empty($proxied['appointment'])) {
+                    try {
+                        $broadcast = broadcast(new AppointmentCreated($proxied['appointment']));
+                        unset($broadcast);
+                    } catch (\Throwable $e) {
+                        Log::warning('AppointmentCreated broadcast failed after Go proxy store', [
+                            'message' => $e->getMessage(),
+                        ]);
+                    }
+                }
+
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => $proxied['message'] ?? 'Appointment berhasil dijadwalkan.',
+                        'appointment' => $proxied['appointment'] ?? null,
+                    ]);
+                }
+
+                return redirect()->route('appointments.calendar')->with('success', $proxied['message'] ?? 'Appointment berhasil dijadwalkan.');
+            }
+        }
+
         $request->validate([
             'customer_id' => 'nullable|exists:customers,id',
             'vehicle_id' => 'nullable|exists:vehicles,id',
@@ -263,9 +459,85 @@ class AppointmentController extends Controller
             'notes' => $request->notes,
         ]);
 
-        broadcast(new AppointmentCreated($appointment->toArray()));
+        try {
+            $broadcast = broadcast(new AppointmentCreated($appointment->toArray()));
+            unset($broadcast);
+        } catch (\Throwable $e) {
+            Log::warning('AppointmentCreated broadcast failed after local store', [
+                'message' => $e->getMessage(),
+            ]);
+        }
 
         return redirect()->route('appointments.calendar')->with('success', 'Appointment berhasil dijadwalkan.');
+    }
+
+    private function appointmentStoreViaGo(Request $request): ?array
+    {
+        $validated = $request->validate([
+            'customer_id' => 'nullable|exists:customers,id',
+            'vehicle_id' => 'nullable|exists:vehicles,id',
+            'mechanic_id' => 'required|exists:mechanics,id',
+            'scheduled_at' => 'required|date',
+            'notes' => 'nullable|string',
+        ]);
+
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->post($baseUrl . '/api/v1/appointments', $validated);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Appointment store Go bridge returned a non-array response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if ($response->status() === 409) {
+                return [
+                    'status' => 'conflict',
+                    'message' => $json['message'] ?? 'Slot ini sudah dibooking.',
+                ];
+            }
+
+            if ($response->status() === 422) {
+                return [
+                    'status' => 'validation_error',
+                    'message' => $json['message'] ?? 'Data appointment tidak valid.',
+                    'errors' => $json['errors'] ?? [],
+                ];
+            }
+
+            if (! $response->successful() || ! isset($json['appointment'])) {
+                Log::warning('Appointment store Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return [
+                'status' => 'ok',
+                'message' => $json['message'] ?? 'Appointment berhasil dijadwalkan.',
+                'appointment' => $json['appointment'],
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Appointment store Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
     /**
@@ -273,6 +545,28 @@ class AppointmentController extends Controller
      */
     public function updateStatus(Request $request, $id)
     {
+        if ((bool) config('go_backend.features.appointment_update_status', false)) {
+            $proxied = $this->appointmentUpdateStatusViaGo($request, (string) $id);
+            if ($proxied !== null) {
+                if ($proxied['status'] === 'validation_error') {
+                    return back()->withErrors($proxied['errors'] ?? ['status' => 'Status tidak valid.']);
+                }
+
+                if ($proxied['status'] === 'not_found') {
+                    abort(404);
+                }
+
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => $proxied['message'] ?? 'Appointment updated.',
+                    ]);
+                }
+
+                return back()->with('success', $proxied['message'] ?? 'Appointment updated.');
+            }
+        }
+
         $request->validate(['status' => 'required|in:scheduled,confirmed,cancelled,completed']);
 
         $appointment = Appointment::findOrFail($id);
@@ -282,11 +576,90 @@ class AppointmentController extends Controller
         return back()->with('success', 'Appointment updated.');
     }
 
+    private function appointmentUpdateStatusViaGo(Request $request, string $appointmentId): ?array
+    {
+        $validated = $request->validate(['status' => 'required|in:scheduled,confirmed,cancelled,completed']);
+
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->patch($baseUrl . '/api/v1/appointments/' . urlencode($appointmentId) . '/status', $validated);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Appointment status Go bridge returned a non-array response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if ($response->status() === 404) {
+                return [
+                    'status' => 'not_found',
+                    'message' => $json['message'] ?? 'Appointment not found.',
+                ];
+            }
+
+            if ($response->status() === 422) {
+                return [
+                    'status' => 'validation_error',
+                    'message' => $json['message'] ?? 'Status tidak valid.',
+                    'errors' => $json['errors'] ?? [],
+                ];
+            }
+
+            if (! $response->successful()) {
+                Log::warning('Appointment status Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            return [
+                'status' => 'ok',
+                'message' => $json['message'] ?? 'Appointment updated.',
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Appointment status Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
     /**
      * Show edit form for appointment
      */
     public function edit($id)
     {
+        if ((bool) config('go_backend.features.appointment_edit', false)) {
+            $proxied = $this->appointmentEditViaGo((string) $id, request());
+            if ($proxied !== null) {
+                if ($proxied['status'] === 'not_found') {
+                    abort(404);
+                }
+
+                if (request()->expectsJson() || request()->wantsJson()) {
+                    return response()->json($proxied);
+                }
+
+                return inertia('Dashboard/Appointments/Edit', [
+                    'appointment' => $proxied['appointment'],
+                    'mechanics' => $proxied['mechanics'],
+                ]);
+            }
+        }
+
         $appointment = Appointment::with('customer', 'vehicle', 'mechanic')->findOrFail($id);
         // Normalize datetime to string to avoid timezone serialization issues
         $appointmentPayload = $appointment->toArray();
@@ -301,11 +674,102 @@ class AppointmentController extends Controller
         ]);
     }
 
+    private function appointmentEditViaGo(string $appointmentId, Request $request): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/appointments/' . urlencode($appointmentId));
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Appointment edit Go bridge returned a non-array response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if ($response->status() === 404) {
+                return [
+                    'status' => 'not_found',
+                    'message' => $json['message'] ?? 'Appointment not found.',
+                ];
+            }
+
+            if (! $response->successful() || ! isset($json['appointment'], $json['mechanics'])) {
+                Log::warning('Appointment edit Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return [
+                'status' => 'ok',
+                'appointment' => $json['appointment'],
+                'mechanics' => $json['mechanics'],
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Appointment edit Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
     /**
      * Update appointment
      */
     public function update(Request $request, $id)
     {
+        if ((bool) config('go_backend.features.appointment_update', false)) {
+            $proxied = $this->appointmentUpdateViaGo($request, (string) $id);
+            if ($proxied !== null) {
+                if ($proxied['status'] === 'validation_error') {
+                    return back()->withErrors($proxied['errors'] ?? ['scheduled_at' => 'Gagal memperbarui appointment.']);
+                }
+
+                if ($proxied['status'] === 'conflict') {
+                    return back()->withErrors(['scheduled_at' => $proxied['message'] ?? 'Slot ini sudah dibooking mekanik lain.']);
+                }
+
+                if ($proxied['status'] === 'not_found') {
+                    abort(404);
+                }
+
+                if (! empty($proxied['appointment'])) {
+                    try {
+                        $broadcast = broadcast(new AppointmentUpdated($proxied['appointment']));
+                        unset($broadcast);
+                    } catch (\Throwable $e) {
+                        Log::warning('AppointmentUpdated broadcast failed after Go proxy update', [
+                            'message' => $e->getMessage(),
+                        ]);
+                    }
+                }
+
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => $proxied['message'] ?? 'Appointment berhasil diperbarui.',
+                        'appointment' => $proxied['appointment'] ?? null,
+                    ]);
+                }
+
+                return redirect()->route('appointments.calendar')->with('success', $proxied['message'] ?? 'Appointment berhasil diperbarui.');
+            }
+        }
+
         $appointment = Appointment::findOrFail($id);
 
         $request->validate([
@@ -344,18 +808,171 @@ class AppointmentController extends Controller
         return redirect()->route('appointments.calendar')->with('success', 'Appointment berhasil diperbarui.');
     }
 
+    private function appointmentUpdateViaGo(Request $request, string $appointmentId): ?array
+    {
+        $validated = $request->validate([
+            'customer_id' => 'nullable|exists:customers,id',
+            'vehicle_id' => 'nullable|exists:vehicles,id',
+            'mechanic_id' => 'required|exists:mechanics,id',
+            'scheduled_at' => 'required|date',
+            'notes' => 'nullable|string',
+        ]);
+
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->put($baseUrl . '/api/v1/appointments/' . urlencode($appointmentId), $validated);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Appointment update Go bridge returned a non-array response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if ($response->status() === 404) {
+                return [
+                    'status' => 'not_found',
+                    'message' => $json['message'] ?? 'Appointment not found.',
+                ];
+            }
+
+            if ($response->status() === 409) {
+                return [
+                    'status' => 'conflict',
+                    'message' => $json['message'] ?? 'Slot ini sudah dibooking mekanik lain.',
+                    'errors' => $json['errors'] ?? [],
+                ];
+            }
+
+            if ($response->status() === 422) {
+                return [
+                    'status' => 'validation_error',
+                    'message' => $json['message'] ?? 'Data appointment tidak valid.',
+                    'errors' => $json['errors'] ?? [],
+                ];
+            }
+
+            if (! $response->successful() || ! isset($json['appointment'])) {
+                Log::warning('Appointment update Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return [
+                'status' => 'ok',
+                'message' => $json['message'] ?? 'Appointment berhasil diperbarui.',
+                'appointment' => $json['appointment'],
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Appointment update Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
     /**
      * Delete appointment
      */
     public function destroy($id)
     {
+        if ((bool) config('go_backend.features.appointment_destroy', false)) {
+            $proxied = $this->appointmentDestroyViaGo(request(), (string) $id);
+            if ($proxied !== null) {
+                if ($proxied['status'] === 'not_found') {
+                    abort(404);
+                }
+
+                if (request()->expectsJson()) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => $proxied['message'] ?? 'Appointment cancelled.',
+                    ]);
+                }
+
+                return back()->with('success', $proxied['message'] ?? 'Appointment cancelled.');
+            }
+        }
+
         $appointment = Appointment::findOrFail($id);
         $appointmentId = $appointment->id;
         $appointment->delete();
 
-        broadcast(new AppointmentDeleted($appointmentId));
+        try {
+            $broadcast = broadcast(new AppointmentDeleted($appointmentId));
+            unset($broadcast);
+        } catch (\Throwable $e) {
+            Log::warning('AppointmentDeleted broadcast failed after local delete', [
+                'message' => $e->getMessage(),
+            ]);
+        }
 
         return back()->with('success', 'Appointment cancelled.');
+    }
+
+    private function appointmentDestroyViaGo(Request $request, string $appointmentId): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->delete($baseUrl . '/api/v1/appointments/' . urlencode($appointmentId));
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Appointment destroy Go bridge returned a non-array response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if ($response->status() === 404) {
+                return [
+                    'status' => 'not_found',
+                    'message' => $json['message'] ?? 'Appointment not found.',
+                ];
+            }
+
+            if (! $response->successful()) {
+                Log::warning('Appointment destroy Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            return [
+                'status' => 'ok',
+                'message' => $json['message'] ?? 'Appointment cancelled.',
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Appointment destroy Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
     /**
@@ -363,6 +980,19 @@ class AppointmentController extends Controller
      */
     public function exportIcs($id)
     {
+        if ((bool) config('go_backend.features.appointment_export', false)) {
+            $proxied = $this->appointmentExportViaGo((string) $id, request());
+            if ($proxied !== null) {
+                if ($proxied['status'] === 'not_found') {
+                    abort(404);
+                }
+
+                return response($proxied['body'], $proxied['status'])
+                    ->header('Content-Type', $proxied['content_type'])
+                    ->header('Content-Disposition', $proxied['content_disposition']);
+            }
+        }
+
         $appointment = Appointment::with('customer', 'vehicle', 'mechanic')->findOrFail($id);
 
         $ics = "BEGIN:VCALENDAR\r\n";
@@ -385,5 +1015,48 @@ class AppointmentController extends Controller
         return response($ics, 200)
             ->header('Content-Type', 'text/calendar')
             ->header('Content-Disposition', 'attachment; filename="appointment_' . $appointment->id . '.ics"');
+    }
+
+    private function appointmentExportViaGo(string $appointmentId, Request $request): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->accept('text/calendar')
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/appointments/' . urlencode($appointmentId) . '/export');
+
+            if ($response->status() === 404) {
+                return [
+                    'status' => 'not_found',
+                ];
+            }
+
+            if (! $response->successful()) {
+                Log::warning('Appointment export Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            return [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'content_type' => $response->header('Content-Type', 'text/calendar'),
+                'content_disposition' => $response->header('Content-Disposition', 'attachment; filename="appointment.ics"'),
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Appointment export Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 }

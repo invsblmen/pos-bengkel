@@ -268,6 +268,7 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::put('/service-orders/{id}', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'update'])->middleware('permission:service-orders-update')->name('service-orders.update');
     Route::post('/service-orders/{id}/status', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'updateStatus'])->middleware('permission:service-orders-update')->name('service-orders.update-status');
     Route::post('/service-orders/{id}/details/{detailId}/claim-warranty', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'claimWarranty'])->middleware('permission:service-orders-update')->name('service-orders.details.claim-warranty');
+    Route::delete('/service-orders/{id}', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'destroy'])->middleware('permission:service-orders-delete')->name('service-orders.destroy');
 
     //appointments
     Route::get('/appointments', [\App\Http\Controllers\Apps\AppointmentController::class, 'index'])->middleware('permission:appointments-access')->name('appointments.index');

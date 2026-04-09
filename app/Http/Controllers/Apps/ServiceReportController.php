@@ -13,11 +13,21 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class ServiceReportController extends Controller
 {
     public function overall(Request $request)
     {
+        if ((bool) config('go_backend.features.report_overall', false)) {
+            $proxied = $this->overallViaGo($request);
+            if ($proxied !== null) {
+                return inertia('Dashboard/Reports/Overall', $proxied);
+            }
+        }
+
         $startDate = Carbon::parse($request->get('start_date', now()->firstOfMonth()))->startOfDay();
         $endDate = Carbon::parse($request->get('end_date', now()))->endOfDay();
         $source = $request->get('source', 'all');
@@ -237,6 +247,43 @@ class ServiceReportController extends Controller
         ]);
     }
 
+    private function overallViaGo(Request $request): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/reports/overall', $request->query());
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Overall report Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['filters'], $json['statusOptions'], $json['statusSummary'], $json['summary'], $json['transactions'])) {
+                Log::warning('Overall report Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     private function buildOverallRowsQuery(Carbon $startDate, Carbon $endDate)
     {
         $serviceRows = DB::table('service_orders')
@@ -270,6 +317,13 @@ class ServiceReportController extends Controller
      */
     public function revenue(Request $request)
     {
+        if ((bool) config('go_backend.features.report_service_revenue', false)) {
+            $proxied = $this->serviceRevenueViaGo($request);
+            if ($proxied !== null) {
+                return inertia('Dashboard/Reports/ServiceRevenue', $proxied);
+            }
+        }
+
         $startDate = $request->get('start_date', now()->firstOfMonth());
         $endDate = $request->get('end_date', now());
         $period = $request->get('period', 'daily'); // daily, weekly, monthly
@@ -335,11 +389,55 @@ class ServiceReportController extends Controller
         ]);
     }
 
+    private function serviceRevenueViaGo(Request $request): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/reports/service-revenue', $request->query());
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Service revenue report Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['report_data'], $json['filters'], $json['summary'])) {
+                Log::warning('Service revenue report Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     /**
      * Mechanic Productivity Report
      */
     public function mechanicProductivity(Request $request)
     {
+        if ((bool) config('go_backend.features.report_mechanic_productivity', false)) {
+            $proxied = $this->mechanicProductivityViaGo($request);
+            if ($proxied !== null) {
+                return inertia('Dashboard/Reports/MechanicProductivity', $proxied);
+            }
+        }
+
         $startDate = $request->get('start_date', now()->firstOfMonth());
         $endDate = $request->get('end_date', now());
 
@@ -397,8 +495,52 @@ class ServiceReportController extends Controller
         ]);
     }
 
+    private function mechanicProductivityViaGo(Request $request): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/reports/mechanic-productivity', $request->query());
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Mechanic productivity report Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['mechanics'], $json['filters'], $json['summary'])) {
+                Log::warning('Mechanic productivity report Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     public function mechanicPayroll(Request $request)
     {
+        if ((bool) config('go_backend.features.report_mechanic_payroll', false)) {
+            $proxied = $this->mechanicPayrollViaGo($request);
+            if ($proxied !== null) {
+                return inertia('Dashboard/Reports/MechanicPayroll', $proxied);
+            }
+        }
+
         $startDate = Carbon::parse($request->get('start_date', now()->firstOfMonth()))->startOfDay();
         $endDate = Carbon::parse($request->get('end_date', now()))->endOfDay();
 
@@ -438,6 +580,43 @@ class ServiceReportController extends Controller
                 'total_take_home_pay' => $mechanics->sum('take_home_pay'),
             ],
         ]);
+    }
+
+    private function mechanicPayrollViaGo(Request $request): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/reports/mechanic-payroll', $request->query());
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Mechanic payroll report Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['mechanics'], $json['filters'], $json['summary'])) {
+                Log::warning('Mechanic payroll report Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     private function getMechanicAggregates(Carbon $startDate, Carbon $endDate)
@@ -493,6 +672,13 @@ class ServiceReportController extends Controller
      */
     public function partsInventory(Request $request)
     {
+        if ((bool) config('go_backend.features.report_parts_inventory', false)) {
+            $proxied = $this->partsInventoryViaGo($request);
+            if ($proxied !== null) {
+                return inertia('Dashboard/Reports/PartsInventory', $proxied);
+            }
+        }
+
         $parts = Part::query()
             ->with('category:id,name')
             ->select(['id', 'name', 'part_category_id', 'stock', 'reorder_level', 'sell_price'])
@@ -528,11 +714,55 @@ class ServiceReportController extends Controller
         ]);
     }
 
+    private function partsInventoryViaGo(Request $request): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/reports/parts-inventory', $request->query());
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Parts inventory report Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['parts'], $json['filters'], $json['summary'])) {
+                Log::warning('Parts inventory report Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     /**
      * Outstanding Payments Report
      */
     public function outstandingPayments(Request $request)
     {
+        if ((bool) config('go_backend.features.report_outstanding_payments', false)) {
+            $proxied = $this->outstandingPaymentsViaGo($request);
+            if ($proxied !== null) {
+                return inertia('Dashboard/Reports/OutstandingPayments', $proxied);
+            }
+        }
+
         // Outstanding = completed but not paid yet
         $orders = ServiceOrder::with('customer', 'vehicle')
             ->where('status', 'completed')
@@ -570,11 +800,55 @@ class ServiceReportController extends Controller
         ]);
     }
 
+    private function outstandingPaymentsViaGo(Request $request): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/reports/outstanding-payments', $request->query());
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Outstanding payments report Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['orders'], $json['summary'])) {
+                Log::warning('Outstanding payments report Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     /**
      * Export report to CSV
      */
     public function exportCsv(Request $request)
     {
+        if ((bool) config('go_backend.features.report_export_csv', false)) {
+            $proxied = $this->reportExportCsvViaGo($request);
+            if ($proxied !== null) {
+                return $proxied;
+            }
+        }
+
         $type = $request->get('type', 'revenue');
         $startDate = Carbon::parse($request->get('start_date', now()->firstOfMonth()))->startOfDay();
         $endDate = Carbon::parse($request->get('end_date', now()))->endOfDay();
@@ -738,5 +1012,38 @@ class ServiceReportController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    private function reportExportCsvViaGo(Request $request): ?\Illuminate\Http\Response
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/reports/export', $request->query());
+
+            if (! $response->successful()) {
+                Log::warning('Report export CSV Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            $contentType = (string) $response->header('Content-Type', 'text/csv');
+            $contentDisposition = (string) $response->header('Content-Disposition', 'attachment; filename=report-export.csv');
+
+            return response($response->body(), $response->status(), [
+                'Content-Type' => $contentType,
+                'Content-Disposition' => $contentDisposition,
+            ]);
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }

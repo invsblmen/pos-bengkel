@@ -8,6 +8,8 @@ use App\Models\ServiceOrder;
 use App\Models\Service;
 use App\Models\Part;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class RecommendationController extends Controller
 {
@@ -17,6 +19,13 @@ class RecommendationController extends Controller
      */
     public function getVehicleRecommendations(Vehicle $vehicle)
     {
+        if ((bool) config('go_backend.features.vehicle_recommendations', false)) {
+            $proxied = $this->recommendationsViaGo((string) $vehicle->id, request());
+            if ($proxied !== null) {
+                return $proxied;
+            }
+        }
+
         try {
             // Get recent service orders to analyze patterns
             $recentOrders = $vehicle->serviceOrders()
@@ -96,6 +105,13 @@ class RecommendationController extends Controller
      */
     public function getMaintenanceSchedule(Vehicle $vehicle)
     {
+        if ((bool) config('go_backend.features.vehicle_maintenance_schedule', false)) {
+            $proxied = $this->maintenanceScheduleViaGo((string) $vehicle->id, request());
+            if ($proxied !== null) {
+                return $proxied;
+            }
+        }
+
         $schedule = [
             [
                 'interval' => '5,000 km / 3 months',
@@ -127,5 +143,65 @@ class RecommendationController extends Controller
             'vehicle_id' => $vehicle->id,
             'schedule' => $schedule,
         ]);
+    }
+
+    private function recommendationsViaGo(string $vehicleId, Request $request): ?\Illuminate\Http\JsonResponse
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/vehicles/' . urlencode($vehicleId) . '/recommendations');
+
+            $json = $response->json();
+            if (is_array($json)) {
+                return response()->json($json, $response->status());
+            }
+
+            return response()->json([
+                'vehicle_id' => (int) $vehicleId,
+                'recommended_parts' => [],
+                'recommended_services' => [],
+                'recent_history_count' => 0,
+                'message' => 'Bridge ke Go aktif, tetapi respons recommendations tidak valid JSON object.',
+            ], 502);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    private function maintenanceScheduleViaGo(string $vehicleId, Request $request): ?\Illuminate\Http\JsonResponse
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/vehicles/' . urlencode($vehicleId) . '/maintenance-schedule');
+
+            $json = $response->json();
+            if (is_array($json)) {
+                return response()->json($json, $response->status());
+            }
+
+            return response()->json([
+                'vehicle_id' => (int) $vehicleId,
+                'schedule' => [],
+                'message' => 'Bridge ke Go aktif, tetapi respons maintenance schedule tidak valid JSON object.',
+            ], 502);
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }

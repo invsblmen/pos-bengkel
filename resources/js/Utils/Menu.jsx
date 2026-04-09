@@ -255,6 +255,18 @@ export default function Menu() {
                             icon: <IconAlertCircle size={20} strokeWidth={1.5} />,
                             permissions: hasAnyPermission(["reports-access"]),
                         },
+                    ],
+                },
+            ],
+        },
+        {
+            title: "WhatsApp",
+            details: [
+                {
+                    title: "Integrasi WhatsApp",
+                    icon: <IconBrandWhatsapp size={20} strokeWidth={1.5} />,
+                    permissions: hasAnyPermission(["reports-access"]),
+                    subdetails: [
                         {
                             title: "WhatsApp Go",
                             href: route("whatsapp.go.index"),

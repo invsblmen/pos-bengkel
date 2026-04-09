@@ -7,12 +7,22 @@ use App\Models\Part;
 use App\Models\PartSale;
 use App\Models\PartStockMovement;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class PartStockHistoryController extends Controller
 {
     public function index(Request $request)
     {
+        if ((bool) config('go_backend.features.part_stock_history_index', false)) {
+            $proxied = $this->partStockHistoryIndexViaGo($request);
+            if ($proxied !== null) {
+                return Inertia::render('Dashboard/PartStockHistory/Index', $proxied);
+            }
+        }
+
         // Build query - only include references used by active workshop flows
         $query = PartStockMovement::query()
             ->where(function ($q) {
@@ -88,8 +98,52 @@ class PartStockHistoryController extends Controller
         ]);
     }
 
+    private function partStockHistoryIndexViaGo(Request $request): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/part-stock-history', $request->query());
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Part stock history Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['movements'], $json['parts'], $json['types'], $json['filters'])) {
+                Log::warning('Part stock history Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     public function export(Request $request)
     {
+        if ((bool) config('go_backend.features.part_stock_history_export', false)) {
+            $proxied = $this->partStockHistoryExportViaGo($request);
+            if ($proxied !== null) {
+                return $proxied;
+            }
+        }
+
         $query = PartStockMovement::with(['part', 'supplier', 'user', 'reference'])
             ->orderBy('created_at', 'desc');
 
@@ -157,6 +211,39 @@ class PartStockHistoryController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    private function partStockHistoryExportViaGo(Request $request): ?\Illuminate\Http\Response
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/part-stock-history/export', $request->query());
+
+            if (! $response->successful()) {
+                Log::warning('Part stock history export Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            $contentType = (string) $response->header('Content-Type', 'text/csv');
+            $contentDisposition = (string) $response->header('Content-Disposition', 'attachment; filename=part-stock-history-export.csv');
+
+            return response($response->body(), $response->status(), [
+                'Content-Type' => $contentType,
+                'Content-Disposition' => $contentDisposition,
+            ]);
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }
 

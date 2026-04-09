@@ -17,12 +17,23 @@ use App\Services\DiscountTaxService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class PartPurchaseController extends Controller
 {
     public function index(Request $request)
     {
+        if ((bool) config('go_backend.features.part_purchase_index', false)) {
+            $proxied = $this->partPurchaseIndexViaGo($request);
+            if ($proxied !== null) {
+                return inertia('Dashboard/PartPurchases/Index', $proxied);
+            }
+        }
+
         $query = PartPurchase::with(['supplier', 'details'])
             ->orderBy('purchase_date', 'desc')
             ->orderBy('created_at', 'desc');
@@ -74,8 +85,49 @@ class PartPurchaseController extends Controller
         ]);
     }
 
+    private function partPurchaseIndexViaGo(Request $request): ?array
+    {
+        try {
+            $baseUrl = config('go_backend.base_url');
+            $response = Http::timeout(config('go_backend.timeout_seconds'))
+                ->acceptJson()
+                ->get($baseUrl . '/api/v1/part-purchases', $request->query());
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Part purchase index Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['purchases'], $json['suppliers'], $json['filters'])) {
+                Log::warning('Part purchase index Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Exception $e) {
+            Log::warning('Part purchase index proxy failed', ['error' => $e->getMessage()]);
+        }
+
+        return null;
+    }
+
     public function create()
     {
+        if ((bool) config('go_backend.features.part_purchase_create', false)) {
+            $proxied = $this->partPurchaseCreateViaGo();
+            if ($proxied !== null) {
+                return inertia('Dashboard/PartPurchases/Create', $proxied);
+            }
+        }
+
         $suppliers = Supplier::orderBy('name')->get();
         $parts = Part::with('category')
             ->where('status', 'active')
@@ -90,8 +142,42 @@ class PartPurchaseController extends Controller
         ]);
     }
 
+    private function partPurchaseCreateViaGo(): ?array
+    {
+        try {
+            $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+            $response = Http::timeout((int) config('go_backend.timeout_seconds', 5))
+                ->acceptJson()
+                ->get($baseUrl . '/api/v1/part-purchases/create');
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json) || ! isset($json['suppliers'], $json['parts'], $json['categories'])) {
+                Log::warning('Part purchase create Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            Log::warning('Part purchase create proxy failed', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return null;
+    }
+
     public function store(Request $request)
     {
+        if ((bool) config('go_backend.features.part_purchase_store', false)) {
+            $proxied = $this->partPurchaseStoreViaGo($request);
+            if ($proxied !== null) {
+                return $proxied;
+            }
+        }
+
         $validated = $request->validate([
             'supplier_id' => 'required|exists:suppliers,id',
             'purchase_date' => 'required|date',
@@ -200,8 +286,74 @@ class PartPurchaseController extends Controller
         }
     }
 
+    private function partPurchaseStoreViaGo(Request $request): ?\Illuminate\Http\RedirectResponse
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $payload = $request->all();
+            $payload['actor_user_id'] = $request->user()?->id;
+
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($baseUrl . '/api/v1/part-purchases', $payload);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Part purchase store Go bridge returned non JSON object response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if ($response->successful()) {
+                $purchaseID = (int) ($json['purchase_id'] ?? 0);
+                if ($purchaseID <= 0) {
+                    Log::warning('Part purchase store Go bridge successful response missing purchase id', [
+                        'status' => $response->status(),
+                        'keys' => array_keys($json),
+                    ]);
+
+                    return null;
+                }
+
+                return redirect()
+                    ->route('part-purchases.show', ['id' => $purchaseID])
+                    ->with('success', (string) ($json['message'] ?? 'Purchase created successfully'));
+            }
+
+            if ($response->status() === 422 && isset($json['errors']) && is_array($json['errors'])) {
+                throw ValidationException::withMessages($json['errors']);
+            }
+
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'error' => (string) ($json['message'] ?? 'Failed to create purchase.'),
+                ]);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     public function show($id)
     {
+        if ((bool) config('go_backend.features.part_purchase_show', false)) {
+            $proxied = $this->partPurchaseShowViaGo($id);
+            if ($proxied !== null) {
+                return inertia('Dashboard/PartPurchases/Show', $proxied);
+            }
+        }
+
         $purchase = PartPurchase::with(['supplier', 'details.part.category'])
             ->findOrFail($id);
 
@@ -210,8 +362,44 @@ class PartPurchaseController extends Controller
         ]);
     }
 
+    private function partPurchaseShowViaGo($id): ?array
+    {
+        try {
+            $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+            $response = Http::timeout((int) config('go_backend.timeout_seconds', 5))
+                ->acceptJson()
+                ->get($baseUrl . '/api/v1/part-purchases/' . $id);
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json) || ! isset($json['purchase'])) {
+                Log::warning('Part purchase show Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'part_purchase_id' => $id,
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            Log::warning('Part purchase show proxy failed', [
+                'part_purchase_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return null;
+    }
+
     public function print($id)
     {
+        if ((bool) config('go_backend.features.part_purchase_print', false)) {
+            $proxied = $this->partPurchasePrintViaGo($id);
+            if ($proxied !== null) {
+                return inertia('Dashboard/PartPurchases/Print', $proxied);
+            }
+        }
+
         $purchase = PartPurchase::with(['supplier', 'details.part.category'])
             ->findOrFail($id);
 
@@ -221,8 +409,44 @@ class PartPurchaseController extends Controller
         ]);
     }
 
+    private function partPurchasePrintViaGo($id): ?array
+    {
+        try {
+            $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+            $response = Http::timeout((int) config('go_backend.timeout_seconds', 5))
+                ->acceptJson()
+                ->get($baseUrl . '/api/v1/part-purchases/' . $id . '/print');
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json) || ! isset($json['purchase']) || ! array_key_exists('businessProfile', $json)) {
+                Log::warning('Part purchase print Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'part_purchase_id' => $id,
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            Log::warning('Part purchase print proxy failed', [
+                'part_purchase_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return null;
+    }
+
     public function edit($id)
     {
+        if ((bool) config('go_backend.features.part_purchase_edit', false)) {
+            $proxied = $this->partPurchaseEditViaGo($id);
+            if ($proxied !== null) {
+                return inertia('Dashboard/PartPurchases/Edit', $proxied);
+            }
+        }
+
         $purchase = PartPurchase::with(['supplier', 'details.part.category'])
             ->findOrFail($id);
 
@@ -247,8 +471,44 @@ class PartPurchaseController extends Controller
         ]);
     }
 
+    private function partPurchaseEditViaGo($id): ?array
+    {
+        try {
+            $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+            $response = Http::timeout((int) config('go_backend.timeout_seconds', 5))
+                ->acceptJson()
+                ->get($baseUrl . '/api/v1/part-purchases/' . $id . '/edit');
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json) || ! isset($json['purchase'], $json['suppliers'], $json['parts'], $json['categories'])) {
+                Log::warning('Part purchase edit Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'part_purchase_id' => $id,
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            Log::warning('Part purchase edit proxy failed', [
+                'part_purchase_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return null;
+    }
+
     public function update(Request $request, $id)
     {
+        if ((bool) config('go_backend.features.part_purchase_update', false)) {
+            $proxied = $this->partPurchaseUpdateViaGo($request, $id);
+            if ($proxied !== null) {
+                return $proxied;
+            }
+        }
+
         $purchase = PartPurchase::findOrFail($id);
 
         // Only allow updating pending or ordered purchases
@@ -333,8 +593,70 @@ class PartPurchaseController extends Controller
         }
     }
 
+    private function partPurchaseUpdateViaGo(Request $request, $id): ?\Illuminate\Http\RedirectResponse
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $payload = $request->all();
+            $payload['actor_user_id'] = $request->user()?->id;
+
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                    'Content-Type' => 'application/json',
+                ])
+                ->put($baseUrl . '/api/v1/part-purchases/' . $id, $payload);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Part purchase update Go bridge returned non JSON object response', [
+                    'status' => $response->status(),
+                    'part_purchase_id' => $id,
+                ]);
+
+                return null;
+            }
+
+            if ($response->successful()) {
+                $purchaseID = (int) ($json['purchase_id'] ?? $id);
+                if ($purchaseID <= 0) {
+                    $purchaseID = (int) $id;
+                }
+
+                return redirect()
+                    ->route('part-purchases.show', ['id' => $purchaseID])
+                    ->with('success', (string) ($json['message'] ?? 'Purchase updated successfully'));
+            }
+
+            if ($response->status() === 422 && isset($json['errors']) && is_array($json['errors'])) {
+                throw ValidationException::withMessages($json['errors']);
+            }
+
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'error' => (string) ($json['message'] ?? 'Failed to update purchase.'),
+                ]);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     public function updateStatus(Request $request, $id)
     {
+        if ((bool) config('go_backend.features.part_purchase_update_status', false)) {
+            $proxied = $this->partPurchaseUpdateStatusViaGo($request, $id);
+            if ($proxied !== null) {
+                return $proxied;
+            }
+        }
+
         $validated = $request->validate([
             'status' => 'required|in:pending,ordered,received,cancelled',
             'actual_delivery_date' => 'nullable|date',
@@ -402,6 +724,52 @@ class PartPurchaseController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withErrors(['error' => 'Failed to update status: ' . $e->getMessage()]);
+        }
+    }
+
+    private function partPurchaseUpdateStatusViaGo(Request $request, $id): ?\Illuminate\Http\RedirectResponse
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $payload = $request->all();
+            $payload['actor_user_id'] = $request->user()?->id;
+
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($baseUrl . '/api/v1/part-purchases/' . $id . '/update-status', $payload);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Part purchase update status Go bridge returned non JSON object response', [
+                    'status' => $response->status(),
+                    'part_purchase_id' => $id,
+                ]);
+
+                return null;
+            }
+
+            if ($response->successful()) {
+                return back()->with('success', (string) ($json['message'] ?? 'Purchase status updated'));
+            }
+
+            if ($response->status() === 422 && isset($json['errors']) && is_array($json['errors'])) {
+                throw ValidationException::withMessages($json['errors']);
+            }
+
+            return back()->withErrors([
+                'error' => (string) ($json['message'] ?? 'Failed to update purchase status.'),
+            ]);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return null;
         }
     }
 

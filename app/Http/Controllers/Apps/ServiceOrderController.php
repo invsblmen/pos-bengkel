@@ -23,7 +23,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
 
 class ServiceOrderController extends Controller
 {
@@ -37,6 +40,13 @@ class ServiceOrderController extends Controller
 
     public function index(Request $request)
     {
+        if ((bool) config('go_backend.features.service_order_index', false)) {
+            $proxied = $this->serviceOrderIndexViaGo($request);
+            if ($proxied !== null) {
+                return Inertia::render('Dashboard/ServiceOrders/Index', $proxied);
+            }
+        }
+
         $query = ServiceOrder::with('customer', 'vehicle', 'mechanic', 'details.service', 'details.part');
 
         // Search filter
@@ -91,8 +101,47 @@ class ServiceOrderController extends Controller
         ]);
     }
 
+    private function serviceOrderIndexViaGo(Request $request): ?array
+    {
+        try {
+            $baseUrl = config('go_backend.base_url');
+            $response = Http::timeout(config('go_backend.timeout_seconds'))
+                ->acceptJson()
+                ->get($baseUrl . '/api/v1/service-orders', $request->query());
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Service order index Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+                return null;
+            }
+
+            if (! isset($json['orders'], $json['stats'], $json['mechanics'], $json['filters'])) {
+                Log::warning('Service order index Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+                return null;
+            }
+
+            return $json;
+        } catch (\Exception $e) {
+            Log::warning('Service order index proxy failed', ['error' => $e->getMessage()]);
+        }
+
+        return null;
+    }
+
     public function create()
     {
+        if ((bool) config('go_backend.features.service_order_create', false)) {
+            $proxied = $this->serviceOrderCreateViaGo();
+            if ($proxied !== null) {
+                return Inertia::render('Dashboard/ServiceOrders/Create', $proxied);
+            }
+        }
+
         // Get active service orders (pending and in_progress) to prevent double booking
         $activeServiceOrders = ServiceOrder::whereIn('status', ['pending', 'in_progress'])
             ->get(['id', 'vehicle_id', 'status', 'order_number']);
@@ -112,15 +161,97 @@ class ServiceOrderController extends Controller
         ]);
     }
 
+    private function serviceOrderCreateViaGo(): ?array
+    {
+        try {
+            $baseUrl = config('go_backend.base_url');
+            $response = Http::timeout(config('go_backend.timeout_seconds'))
+                ->acceptJson()
+                ->get($baseUrl . '/api/v1/service-orders/create');
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Service order create Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+                return null;
+            }
+
+            if (! isset($json['customers'], $json['vehicles'], $json['mechanics'], $json['services'], $json['parts'])) {
+                Log::warning('Service order create Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+                return null;
+            }
+
+            return $json;
+        } catch (\Exception $e) {
+            Log::warning('Service order create proxy failed', ['error' => $e->getMessage()]);
+        }
+
+        return null;
+    }
+
     public function createQuick()
     {
+        if ((bool) config('go_backend.features.service_order_quick_intake_create', false)) {
+            $proxied = $this->serviceOrderCreateQuickViaGo();
+            if ($proxied !== null) {
+                return inertia('Dashboard/ServiceOrders/QuickIntake', $proxied);
+            }
+        }
+
         return inertia('Dashboard/ServiceOrders/QuickIntake', [
             'mechanics' => Mechanic::all(['id', 'name']),
         ]);
     }
 
+    private function serviceOrderCreateQuickViaGo(): ?array
+    {
+        try {
+            $baseUrl = config('go_backend.base_url');
+            $response = Http::timeout(config('go_backend.timeout_seconds'))
+                ->acceptJson()
+                ->get($baseUrl . '/api/v1/service-orders/quick-intake');
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Service order quick intake create Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['mechanics']) || ! is_array($json['mechanics'])) {
+                Log::warning('Service order quick intake create Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return [
+                'mechanics' => $json['mechanics'],
+            ];
+        } catch (\Exception $e) {
+            Log::warning('Service order quick intake create proxy failed', ['error' => $e->getMessage()]);
+
+            return null;
+        }
+    }
+
     public function edit($id)
     {
+        if ((bool) config('go_backend.features.service_order_edit', false)) {
+            $proxied = $this->serviceOrderEditViaGo($id);
+            if ($proxied !== null) {
+                return Inertia::render('Dashboard/ServiceOrders/Edit', $proxied);
+            }
+        }
+
         $order = ServiceOrder::with('customer', 'vehicle', 'mechanic', 'details.service', 'details.part', 'tags')
             ->findOrFail($id);
 
@@ -139,8 +270,47 @@ class ServiceOrderController extends Controller
         ]);
     }
 
+    private function serviceOrderEditViaGo($id): ?array
+    {
+        try {
+            $baseUrl = config('go_backend.base_url');
+            $response = Http::timeout(config('go_backend.timeout_seconds'))
+                ->acceptJson()
+                ->get($baseUrl . '/api/v1/service-orders/' . $id . '/edit');
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Service order edit Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+                return null;
+            }
+
+            if (! isset($json['order'], $json['customers'], $json['vehicles'], $json['mechanics'], $json['services'], $json['parts'], $json['tags'], $json['availableVouchers'])) {
+                Log::warning('Service order edit Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+                return null;
+            }
+
+            return $json;
+        } catch (\Exception $e) {
+            Log::warning('Service order edit proxy failed', ['error' => $e->getMessage()]);
+        }
+
+        return null;
+    }
+
     public function show($id)
     {
+        if ((bool) config('go_backend.features.service_order_show', false)) {
+            $proxied = $this->serviceOrderShowViaGo($id);
+            if ($proxied !== null) {
+                return Inertia::render('Dashboard/ServiceOrders/Show', $proxied);
+            }
+        }
+
         $order = ServiceOrder::with('customer', 'vehicle', 'mechanic', 'details.service', 'details.part')
             ->findOrFail($id);
 
@@ -177,8 +347,47 @@ class ServiceOrderController extends Controller
         ]);
     }
 
+    private function serviceOrderShowViaGo($id): ?array
+    {
+        try {
+            $baseUrl = config('go_backend.base_url');
+            $response = Http::timeout(config('go_backend.timeout_seconds'))
+                ->acceptJson()
+                ->get($baseUrl . '/api/v1/service-orders/' . $id);
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Service order show Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+                return null;
+            }
+
+            if (! isset($json['order'], $json['warrantyRegistrations'], $json['permissions'])) {
+                Log::warning('Service order show Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+                return null;
+            }
+
+            return $json;
+        } catch (\Exception $e) {
+            Log::warning('Service order show proxy failed', ['error' => $e->getMessage()]);
+        }
+
+        return null;
+    }
+
     public function print($id)
     {
+        if ((bool) config('go_backend.features.service_order_print', false)) {
+            $proxied = $this->serviceOrderPrintViaGo($id);
+            if ($proxied !== null) {
+                return Inertia::render('Dashboard/ServiceOrders/Print', $proxied);
+            }
+        }
+
         $order = ServiceOrder::with('customer', 'vehicle', 'mechanic', 'details.service', 'details.part')
             ->findOrFail($id);
         $businessProfile = BusinessProfile::first();
@@ -189,8 +398,59 @@ class ServiceOrderController extends Controller
         ]);
     }
 
+    private function serviceOrderPrintViaGo($id): ?array
+    {
+        try {
+            $baseUrl = config('go_backend.base_url');
+            $response = Http::timeout(config('go_backend.timeout_seconds'))
+                ->acceptJson()
+                ->get($baseUrl . '/api/v1/service-orders/' . $id . '/print');
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Service order print Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+                return null;
+            }
+
+            if (! isset($json['order'], $json['businessProfile'])) {
+                Log::warning('Service order print Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+                return null;
+            }
+
+            return $json;
+        } catch (\Exception $e) {
+            Log::warning('Service order print proxy failed', ['error' => $e->getMessage()]);
+        }
+
+        return null;
+    }
+
     public function store(Request $request)
     {
+        if ((bool) config('go_backend.features.service_order_store', false)) {
+            $proxied = $this->serviceOrderStoreViaGo($request);
+            if ($proxied !== null) {
+                if ($proxied['status'] === 'validation_error') {
+                    return back()->withInput()->withErrors($proxied['errors'] ?? ['items' => 'Data service order tidak valid.']);
+                }
+
+                if ($proxied['status'] === 'already_processed') {
+                    $orderId = (int) ($proxied['order_id'] ?? 0);
+                    if ($orderId > 0) {
+                        return redirect()->route('service-orders.show', $orderId)
+                            ->with('info', $proxied['message'] ?? 'Permintaan sudah diproses sebelumnya.');
+                    }
+                }
+
+                return redirect()->route('service-orders.index')->with('success', $proxied['message'] ?? 'Service order created.');
+            }
+        }
+
         $request->validate([
             'submission_token' => 'required|string|max:100',
             'customer_id' => 'nullable|exists:customers,id',
@@ -307,8 +567,133 @@ class ServiceOrderController extends Controller
         }
     }
 
+    private function serviceOrderStoreViaGo(Request $request): ?array
+    {
+        $validated = $request->validate([
+            'submission_token' => 'required|string|max:100',
+            'customer_id' => 'nullable|exists:customers,id',
+            'vehicle_id' => 'nullable|exists:vehicles,id',
+            'mechanic_id' => 'nullable|exists:mechanics,id',
+            'status' => 'nullable|in:pending,in_progress,completed,paid,cancelled',
+            'odometer_km' => 'required|integer|min:0|max:1000000',
+            'estimated_start_at' => 'nullable|date',
+            'estimated_finish_at' => 'nullable|date',
+            'labor_cost' => 'nullable|integer|min:0',
+            'notes' => 'nullable|string',
+            'maintenance_type' => 'nullable|string',
+            'next_service_km' => 'nullable|integer|min:0',
+            'next_service_date' => 'nullable|date',
+            'tags' => 'nullable|array',
+            'tags.*' => 'integer|exists:tags,id',
+            'items' => 'required|array|min:1',
+            'items.*.service_id' => 'nullable|exists:services,id',
+            'items.*.service_discount_type' => 'nullable|in:none,percent,fixed',
+            'items.*.service_discount_value' => 'nullable|numeric|min:0',
+            'items.*.parts' => 'nullable|array',
+            'items.*.parts.*.part_id' => 'nullable|exists:parts,id',
+            'items.*.parts.*.qty' => 'required|integer|min:1',
+            'items.*.parts.*.price' => 'required|integer|min:0',
+            'items.*.parts.*.discount_type' => 'nullable|in:none,percent,fixed',
+            'items.*.parts.*.discount_value' => 'nullable|numeric|min:0',
+            'discount_type' => 'nullable|in:none,percent,fixed',
+            'discount_value' => 'nullable|numeric|min:0',
+            'tax_type' => 'nullable|in:none,percent,fixed',
+            'tax_value' => 'nullable|numeric|min:0',
+            'voucher_code' => 'nullable|string|max:50',
+        ]);
+
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->post($baseUrl . '/api/v1/service-orders', $validated);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Service order store Go bridge returned a non-array response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if ($response->status() === 422) {
+                return [
+                    'status' => 'validation_error',
+                    'message' => $json['message'] ?? 'Data service order tidak valid.',
+                    'errors' => $json['errors'] ?? [],
+                ];
+            }
+
+            if (($response->status() === 200 || $response->status() === 409) && (($json['status'] ?? '') === 'already_processed')) {
+                return [
+                    'status' => 'already_processed',
+                    'message' => $json['message'] ?? 'Permintaan sudah diproses sebelumnya.',
+                    'order_id' => $json['order_id'] ?? null,
+                ];
+            }
+
+            if (! $response->successful()) {
+                Log::warning('Service order store Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return [
+                'status' => 'ok',
+                'message' => $json['message'] ?? 'Service order created.',
+                'order' => $json['order'] ?? null,
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Service order store Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
     public function storeQuick(Request $request)
     {
+        if ((bool) config('go_backend.features.service_order_quick_intake_store', false)) {
+            $proxied = $this->serviceOrderStoreQuickViaGo($request);
+            if ($proxied !== null) {
+                if ($proxied['status'] === 'validation_error') {
+                    return back()->withInput()->withErrors($proxied['errors'] ?? ['customer_name' => 'Data quick intake tidak valid.']);
+                }
+
+                $orderPayload = $proxied['order'] ?? null;
+                if (is_array($orderPayload)) {
+                    $this->dispatchBroadcastSafely(
+                        fn () => ServiceOrderCreated::dispatch($orderPayload),
+                        'ServiceOrderCreated'
+                    );
+                }
+
+                if (($proxied['submit_mode'] ?? 'view_detail') === 'create_again') {
+                    return redirect()
+                        ->route('service-orders.quick-intake.create')
+                        ->with('success', $proxied['message'] ?? 'Penerimaan konsumen berhasil dibuat.');
+                }
+
+                $targetOrderId = (int) ($proxied['order_id'] ?? 0);
+                if ($targetOrderId > 0) {
+                    return redirect()
+                        ->route('service-orders.show', $targetOrderId)
+                        ->with('success', $proxied['message'] ?? 'Penerimaan konsumen berhasil dibuat.');
+                }
+            }
+        }
+
         $validated = $request->validate([
             'customer_name' => 'required|string|max:255',
             'customer_phone' => 'required|string|max:30',
@@ -403,8 +788,98 @@ class ServiceOrderController extends Controller
             ->with('success', 'Penerimaan konsumen berhasil dibuat.');
     }
 
+    private function serviceOrderStoreQuickViaGo(Request $request): ?array
+    {
+        $validated = $request->validate([
+            'customer_name' => 'required|string|max:255',
+            'customer_phone' => 'required|string|max:30',
+            'plate_number' => 'required|string|max:20',
+            'vehicle_brand' => 'nullable|string|max:100',
+            'vehicle_model' => 'nullable|string|max:100',
+            'odometer_km' => 'required|integer|min:0|max:1000000',
+            'complaint' => 'nullable|string|max:2000',
+            'mechanic_id' => 'nullable|exists:mechanics,id',
+            'submit_mode' => 'nullable|in:view_detail,create_again',
+        ]);
+
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->post($baseUrl . '/api/v1/service-orders/quick-intake', $validated);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Service order quick intake store Go bridge returned a non-array response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if ($response->status() === 422) {
+                return [
+                    'status' => 'validation_error',
+                    'message' => $json['message'] ?? 'Data quick intake tidak valid.',
+                    'errors' => $json['errors'] ?? [],
+                ];
+            }
+
+            if (! $response->successful()) {
+                Log::warning('Service order quick intake store Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return [
+                'status' => 'ok',
+                'message' => $json['message'] ?? 'Penerimaan konsumen berhasil dibuat.',
+                'order_id' => $json['order_id'] ?? null,
+                'order' => $json['order'] ?? null,
+                'submit_mode' => $json['submit_mode'] ?? ($validated['submit_mode'] ?? 'view_detail'),
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Service order quick intake store Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
     public function update(Request $request, $id)
     {
+        if ((bool) config('go_backend.features.service_order_update', false)) {
+            $proxied = $this->serviceOrderUpdateViaGo($request, (string) $id);
+            if ($proxied !== null) {
+                if ($proxied['status'] === 'validation_error') {
+                    return back()->withInput()->withErrors($proxied['errors'] ?? ['items' => 'Data service order tidak valid.']);
+                }
+
+                if ($proxied['status'] === 'not_found') {
+                    abort(404);
+                }
+
+                $orderPayload = $proxied['order'] ?? ['id' => (int) $id];
+                $this->dispatchBroadcastSafely(
+                    fn () => ServiceOrderUpdated::dispatch($orderPayload),
+                    'ServiceOrderUpdated'
+                );
+
+                $targetOrderId = (int) ($orderPayload['id'] ?? $id);
+                return redirect()->route('service-orders.show', $targetOrderId)->with('success', $proxied['message'] ?? 'Service order updated.');
+            }
+        }
+
         $request->validate([
             'customer_id' => 'nullable|exists:customers,id',
             'vehicle_id' => 'nullable|exists:vehicles,id',
@@ -492,8 +967,115 @@ class ServiceOrderController extends Controller
         return redirect()->route('service-orders.show', $order->id)->with('success', 'Service order updated.');
     }
 
+    private function serviceOrderUpdateViaGo(Request $request, string $orderId): ?array
+    {
+        $validated = $request->validate([
+            'customer_id' => 'nullable|exists:customers,id',
+            'vehicle_id' => 'nullable|exists:vehicles,id',
+            'mechanic_id' => 'nullable|exists:mechanics,id',
+            'odometer_km' => 'required_if:status,completed,paid|nullable|integer|min:0|max:1000000',
+            'estimated_start_at' => 'nullable|date',
+            'estimated_finish_at' => 'nullable|date',
+            'labor_cost' => 'nullable|integer|min:0',
+            'notes' => 'nullable|string',
+            'maintenance_type' => 'nullable|string',
+            'next_service_km' => 'nullable|integer|min:0',
+            'next_service_date' => 'nullable|date',
+            'tags' => 'nullable|array',
+            'tags.*' => 'integer|exists:tags,id',
+            'items' => 'required|array|min:1',
+            'items.*.service_id' => 'nullable|exists:services,id',
+            'items.*.service_discount_type' => 'nullable|in:none,percent,fixed',
+            'items.*.service_discount_value' => 'nullable|numeric|min:0',
+            'items.*.parts' => 'nullable|array',
+            'items.*.parts.*.part_id' => 'nullable|exists:parts,id',
+            'items.*.parts.*.qty' => 'required|integer|min:1',
+            'items.*.parts.*.price' => 'required|integer|min:0',
+            'items.*.parts.*.discount_type' => 'nullable|in:none,percent,fixed',
+            'items.*.parts.*.discount_value' => 'nullable|numeric|min:0',
+            'discount_type' => 'nullable|in:none,percent,fixed',
+            'discount_value' => 'nullable|numeric|min:0',
+            'tax_type' => 'nullable|in:none,percent,fixed',
+            'tax_value' => 'nullable|numeric|min:0',
+            'voucher_code' => 'nullable|string|max:50',
+        ]);
+
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->put($baseUrl . '/api/v1/service-orders/' . urlencode($orderId), $validated);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Service order update Go bridge returned a non-array response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if ($response->status() === 404) {
+                return [
+                    'status' => 'not_found',
+                    'message' => $json['message'] ?? 'Service order tidak ditemukan.',
+                ];
+            }
+
+            if ($response->status() === 422) {
+                return [
+                    'status' => 'validation_error',
+                    'message' => $json['message'] ?? 'Data service order tidak valid.',
+                    'errors' => $json['errors'] ?? [],
+                ];
+            }
+
+            if (! $response->successful()) {
+                Log::warning('Service order update Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return [
+                'status' => 'ok',
+                'message' => $json['message'] ?? 'Service order updated.',
+                'order' => $json['order'] ?? null,
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Service order update Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
     public function updateStatus(Request $request, $id)
     {
+        if ((bool) config('go_backend.features.service_order_update_status', false)) {
+            $proxied = $this->serviceOrderUpdateStatusViaGo($request, (string) $id);
+            if ($proxied !== null) {
+                if ($proxied['status'] === 'validation_error') {
+                    return back()->withInput()->withErrors($proxied['errors'] ?? ['status' => 'Status service order tidak valid.']);
+                }
+
+                if ($proxied['status'] === 'not_found') {
+                    abort(404);
+                }
+
+                return back()->with('success', $proxied['message'] ?? 'Status updated.');
+            }
+        }
+
         $request->validate([
             'status' => 'required|in:pending,in_progress,completed,paid,cancelled',
             'odometer_km' => 'nullable|integer|min:0|max:1000000',
@@ -552,8 +1134,90 @@ class ServiceOrderController extends Controller
         return back()->with('success', 'Status updated.');
     }
 
+    private function serviceOrderUpdateStatusViaGo(Request $request, string $orderId): ?array
+    {
+        $validated = $request->validate([
+            'status' => 'required|in:pending,in_progress,completed,paid,cancelled',
+            'odometer_km' => 'nullable|integer|min:0|max:1000000',
+            'notes' => 'nullable|string',
+        ]);
+
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->post($baseUrl . '/api/v1/service-orders/' . urlencode($orderId) . '/status', $validated);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Service order update status Go bridge returned a non-array response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if ($response->status() === 404) {
+                return [
+                    'status' => 'not_found',
+                    'message' => $json['message'] ?? 'Service order tidak ditemukan.',
+                ];
+            }
+
+            if ($response->status() === 422) {
+                return [
+                    'status' => 'validation_error',
+                    'message' => $json['message'] ?? 'Data status service order tidak valid.',
+                    'errors' => $json['errors'] ?? [],
+                ];
+            }
+
+            if (! $response->successful()) {
+                Log::warning('Service order update status Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return [
+                'status' => 'ok',
+                'message' => $json['message'] ?? 'Status updated.',
+                'order' => $json['order'] ?? null,
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Service order update status Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
     public function claimWarranty(Request $request, $id, $detailId)
     {
+        if ((bool) config('go_backend.features.service_order_claim_warranty', false)) {
+            $proxied = $this->serviceOrderClaimWarrantyViaGo($request, (string) $id, (string) $detailId);
+            if ($proxied !== null) {
+                if ($proxied['status'] === 'validation_error') {
+                    return back()->withErrors($proxied['errors'] ?? ['error' => 'Data klaim garansi tidak valid.'])->withInput();
+                }
+
+                if ($proxied['status'] === 'not_found') {
+                    abort(404);
+                }
+
+                return back()->with('success', $proxied['message'] ?? 'Klaim garansi berhasil dicatat');
+            }
+        }
+
         $order = ServiceOrder::findOrFail($id);
         $detail = ServiceOrderDetail::with(['service', 'part'])->findOrFail($detailId);
 
@@ -602,8 +1266,95 @@ class ServiceOrderController extends Controller
         return back()->with('success', 'Klaim garansi berhasil dicatat');
     }
 
+    private function serviceOrderClaimWarrantyViaGo(Request $request, string $orderId, string $detailId): ?array
+    {
+        $validated = $request->validate([
+            'claim_notes' => 'nullable|string|max:1000',
+        ]);
+
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        $payload = [
+            'claim_notes' => $validated['claim_notes'] ?? null,
+        ];
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->post($baseUrl . '/api/v1/service-orders/' . urlencode($orderId) . '/details/' . urlencode($detailId) . '/claim-warranty', $payload);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Service order claim warranty Go bridge returned a non-array response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if ($response->status() === 404) {
+                return [
+                    'status' => 'not_found',
+                    'message' => $json['message'] ?? 'Data garansi tidak ditemukan.',
+                ];
+            }
+
+            if ($response->status() === 422) {
+                return [
+                    'status' => 'validation_error',
+                    'message' => $json['message'] ?? 'Data klaim garansi tidak valid.',
+                    'errors' => $json['errors'] ?? [],
+                ];
+            }
+
+            if (! $response->successful()) {
+                Log::warning('Service order claim warranty Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return [
+                'status' => 'ok',
+                'message' => $json['message'] ?? 'Klaim garansi berhasil dicatat',
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Service order claim warranty Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
     public function destroy($id)
     {
+        if ((bool) config('go_backend.features.service_order_destroy', false)) {
+            $proxied = $this->serviceOrderDestroyViaGo((string) $id, request());
+            if ($proxied !== null) {
+                if ($proxied['status'] === 'not_found') {
+                    abort(404);
+                }
+
+                $orderId = (int) ($proxied['order_id'] ?? $id);
+                if ($orderId > 0) {
+                    $this->dispatchBroadcastSafely(
+                        fn () => ServiceOrderDeleted::dispatch($orderId),
+                        'ServiceOrderDeleted'
+                    );
+                }
+
+                return redirect()->route('service-orders.index')->with('success', $proxied['message'] ?? 'Service order deleted.');
+            }
+        }
+
         $order = ServiceOrder::findOrFail($id);
         $orderId = $order->id;
         $this->voucherService->clearUsageBySource(ServiceOrder::class, (int) $order->id);
@@ -615,6 +1366,59 @@ class ServiceOrderController extends Controller
         );
 
         return redirect()->route('service-orders.index')->with('success', 'Service order deleted.');
+    }
+
+    private function serviceOrderDestroyViaGo(string $orderId, Request $request): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->delete($baseUrl . '/api/v1/service-orders/' . urlencode($orderId));
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Service order destroy Go bridge returned a non-array response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if ($response->status() === 404) {
+                return [
+                    'status' => 'not_found',
+                    'message' => $json['message'] ?? 'Service order not found.',
+                ];
+            }
+
+            if (! $response->successful()) {
+                Log::warning('Service order destroy Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return [
+                'status' => 'ok',
+                'message' => $json['message'] ?? 'Service order deleted.',
+                'order_id' => $json['order_id'] ?? (int) $orderId,
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Service order destroy Go bridge failed and fallback will be used', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
     /**

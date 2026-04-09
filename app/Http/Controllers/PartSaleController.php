@@ -29,6 +29,9 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -56,6 +59,13 @@ class PartSaleController extends Controller
 
     public function index(Request $request)
     {
+        if ((bool) config('go_backend.features.part_sale_index', false)) {
+            $proxied = $this->partSaleIndexViaGo($request);
+            if ($proxied !== null) {
+                return Inertia::render('Dashboard/Parts/Sales/Index', $proxied);
+            }
+        }
+
         $this->syncWaitingStockOrders();
 
         $query = PartSale::with(['customer', 'creator', 'salesOrder'])
@@ -90,8 +100,52 @@ class PartSaleController extends Controller
         ]);
     }
 
+    private function partSaleIndexViaGo(Request $request): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/part-sales', $request->query());
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Part sale index Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['sales'], $json['filters'])) {
+                Log::warning('Part sale index Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     public function warranties(Request $request)
     {
+        if ((bool) config('go_backend.features.part_sale_warranties_index', false)) {
+            $proxied = $this->partSaleWarrantiesIndexViaGo($request);
+            if ($proxied !== null) {
+                return Inertia::render('Dashboard/Parts/Sales/Warranties/Index', $proxied);
+            }
+        }
+
         $search = trim((string) $request->input('search', ''));
         $status = (string) $request->input('warranty_status', 'all');
         $sourceType = (string) $request->input('source_type', 'all');
@@ -249,8 +303,56 @@ class PartSaleController extends Controller
         ]);
     }
 
+    private function partSaleWarrantiesIndexViaGo(Request $request): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/part-sales/warranties', $request->query());
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Part sale warranties index Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['warranties'], $json['summary'], $json['filters'])) {
+                Log::warning('Part sale warranties index Go bridge response is missing expected keys', [
+                    'keys' => array_keys($json),
+                ]);
+
+                return null;
+            }
+
+            $json['customers'] = is_array($json['customers'] ?? null) ? $json['customers'] : [];
+            $json['vehicles'] = is_array($json['vehicles'] ?? null) ? $json['vehicles'] : [];
+            $json['mechanics'] = is_array($json['mechanics'] ?? null) ? $json['mechanics'] : [];
+
+            return $json;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     public function exportWarranties(Request $request)
     {
+        if ((bool) config('go_backend.features.part_sale_warranties_export', false)) {
+            $proxied = $this->partSaleWarrantiesExportViaGo($request);
+            if ($proxied !== null) {
+                return $proxied;
+            }
+        }
+
         $search = trim((string) $request->input('search', ''));
         $status = (string) $request->input('warranty_status', 'all');
         $sourceType = (string) $request->input('source_type', 'all');
@@ -376,6 +478,39 @@ class PartSaleController extends Controller
         ]);
     }
 
+    private function partSaleWarrantiesExportViaGo(Request $request): ?\Illuminate\Http\Response
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/part-sales/warranties/export', $request->query());
+
+            if (! $response->successful()) {
+                Log::warning('Part sale warranties export Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            $contentType = (string) $response->header('Content-Type', 'text/csv');
+            $contentDisposition = (string) $response->header('Content-Disposition', 'attachment; filename=unified-warranties-export.csv');
+
+            return response($response->body(), $response->status(), [
+                'Content-Type' => $contentType,
+                'Content-Disposition' => $contentDisposition,
+            ]);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     public function create(Request $request)
     {
         $customers = Customer::orderBy('name')->get();
@@ -401,6 +536,13 @@ class PartSaleController extends Controller
 
     public function store(Request $request)
     {
+        if ((bool) config('go_backend.features.part_sale_store', false)) {
+            $proxied = $this->partSaleStoreViaGo($request);
+            if ($proxied !== null) {
+                return $proxied;
+            }
+        }
+
         $request->validate([
             'customer_id' => 'required|exists:customers,id',
             'sale_date' => 'required|date',
@@ -621,9 +763,75 @@ class PartSaleController extends Controller
         }
     }
 
-    public function show(PartSale $partSale)
+    private function partSaleStoreViaGo(Request $request): ?\Illuminate\Http\RedirectResponse
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $payload = $request->all();
+            $payload['actor_user_id'] = $request->user()?->id;
+
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($baseUrl . '/api/v1/part-sales', $payload);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Part sale store Go bridge returned non JSON object response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if ($response->successful()) {
+                $saleID = (int) ($json['sale_id'] ?? 0);
+                if ($saleID <= 0) {
+                    Log::warning('Part sale store Go bridge successful response missing sale id', [
+                        'status' => $response->status(),
+                        'keys' => array_keys($json),
+                    ]);
+
+                    return null;
+                }
+
+                return redirect()
+                    ->route('part-sales.show', ['partSale' => $saleID])
+                    ->with('success', (string) ($json['message'] ?? 'Penjualan berhasil dibuat'));
+            }
+
+            if ($response->status() === 422 && isset($json['errors']) && is_array($json['errors'])) {
+                throw ValidationException::withMessages($json['errors']);
+            }
+
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'error' => (string) ($json['message'] ?? 'Gagal membuat penjualan.'),
+                ]);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    public function show(Request $request, PartSale $partSale)
     {
         $this->tryFulfillWaitingStock($partSale);
+
+        if ((bool) config('go_backend.features.part_sale_show', false)) {
+            $proxied = $this->partSaleShowViaGo($request, $partSale);
+            if ($proxied !== null) {
+                return Inertia::render('Dashboard/Parts/Sales/Show', $proxied);
+            }
+        }
 
         $partSale->load([
             'customer',
@@ -652,9 +860,58 @@ class PartSaleController extends Controller
         ]);
     }
 
-    public function print(PartSale $partSale)
+    private function partSaleShowViaGo(Request $request, PartSale $partSale): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/part-sales/' . $partSale->id);
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Part sale show Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'part_sale_id' => $partSale->id,
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['sale']) || ! is_array($json['sale'])) {
+                Log::warning('Part sale show Go bridge missing sale payload', [
+                    'part_sale_id' => $partSale->id,
+                ]);
+
+                return null;
+            }
+
+            $json['cashDenominations'] = is_array($json['cashDenominations'] ?? null)
+                ? $json['cashDenominations']
+                : [];
+
+            return $json;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    public function print(Request $request, PartSale $partSale)
     {
         $this->tryFulfillWaitingStock($partSale);
+
+        if ((bool) config('go_backend.features.part_sale_print', false)) {
+            $proxied = $this->partSalePrintViaGo($request, $partSale);
+            if ($proxied !== null) {
+                return Inertia::render('Dashboard/Parts/Sales/Print', $proxied);
+            }
+        }
 
         $partSale->load([
             'customer',
@@ -668,11 +925,56 @@ class PartSaleController extends Controller
         ]);
     }
 
+    private function partSalePrintViaGo(Request $request, PartSale $partSale): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/part-sales/' . $partSale->id . '/print');
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Part sale print Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'part_sale_id' => $partSale->id,
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['sale']) || ! is_array($json['sale'])) {
+                Log::warning('Part sale print Go bridge missing sale payload', [
+                    'part_sale_id' => $partSale->id,
+                ]);
+
+                return null;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     public function edit(PartSale $partSale)
     {
         // Only allow editing draft sales
         if ($partSale->status !== 'draft') {
             return back()->withErrors(['error' => 'Hanya penjualan draft yang bisa diedit']);
+        }
+
+        if ((bool) config('go_backend.features.part_sale_edit', false)) {
+            $proxied = $this->partSaleEditViaGo(request(), $partSale);
+            if ($proxied !== null) {
+                return Inertia::render('Dashboard/Parts/Sales/Edit', $proxied);
+            }
         }
 
         $partSale->load('details.part');
@@ -690,11 +992,60 @@ class PartSaleController extends Controller
         ]);
     }
 
+    private function partSaleEditViaGo(Request $request, PartSale $partSale): ?array
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->get($baseUrl . '/api/v1/part-sales/' . $partSale->id . '/edit');
+
+            $json = $response->json();
+            if (! $response->successful() || ! is_array($json)) {
+                Log::warning('Part sale edit Go bridge returned an invalid response', [
+                    'status' => $response->status(),
+                    'part_sale_id' => $partSale->id,
+                ]);
+
+                return null;
+            }
+
+            if (! isset($json['sale']) || ! is_array($json['sale'])) {
+                Log::warning('Part sale edit Go bridge response is missing sale payload', [
+                    'part_sale_id' => $partSale->id,
+                ]);
+
+                return null;
+            }
+
+            $json['customers'] = is_array($json['customers'] ?? null) ? $json['customers'] : [];
+            $json['parts'] = is_array($json['parts'] ?? null) ? $json['parts'] : [];
+            $json['availableVouchers'] = is_array($json['availableVouchers'] ?? null) ? $json['availableVouchers'] : [];
+
+            return $json;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     public function update(Request $request, PartSale $partSale)
     {
         // Only allow updating draft sales
         if ($partSale->status !== 'draft') {
             return back()->withErrors(['error' => 'Hanya penjualan draft yang bisa diupdate']);
+        }
+
+        if ((bool) config('go_backend.features.part_sale_update', false)) {
+            $proxied = $this->partSaleUpdateViaGo($request, $partSale);
+            if ($proxied !== null) {
+                return $proxied;
+            }
         }
 
         $request->validate([
@@ -849,8 +1200,70 @@ class PartSaleController extends Controller
         }
     }
 
-    public function destroy(PartSale $partSale)
+    private function partSaleUpdateViaGo(Request $request, PartSale $partSale): ?\Illuminate\Http\RedirectResponse
     {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $payload = $request->all();
+            $payload['actor_user_id'] = $request->user()?->id;
+
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                    'Content-Type' => 'application/json',
+                ])
+                ->put($baseUrl . '/api/v1/part-sales/' . $partSale->id, $payload);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Part sale update Go bridge returned non JSON object response', [
+                    'status' => $response->status(),
+                    'part_sale_id' => $partSale->id,
+                ]);
+
+                return null;
+            }
+
+            if ($response->successful()) {
+                $saleID = (int) ($json['sale_id'] ?? $partSale->id);
+                if ($saleID <= 0) {
+                    $saleID = $partSale->id;
+                }
+
+                return redirect()
+                    ->route('part-sales.show', ['partSale' => $saleID])
+                    ->with('success', (string) ($json['message'] ?? 'Penjualan berhasil diupdate'));
+            }
+
+            if ($response->status() === 422 && isset($json['errors']) && is_array($json['errors'])) {
+                throw ValidationException::withMessages($json['errors']);
+            }
+
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'error' => (string) ($json['message'] ?? 'Gagal mengupdate penjualan.'),
+                ]);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    public function destroy(Request $request, PartSale $partSale)
+    {
+        if ((bool) config('go_backend.features.part_sale_destroy', false)) {
+            $proxied = $this->partSaleDestroyViaGo($request, $partSale);
+            if ($proxied !== null) {
+                return $proxied;
+            }
+        }
+
         // Only allow deleting draft sales
         if ($partSale->status !== 'draft') {
             return back()->withErrors(['error' => 'Hanya penjualan draft yang bisa dihapus']);
@@ -876,8 +1289,59 @@ class PartSaleController extends Controller
         }
     }
 
+    private function partSaleDestroyViaGo(Request $request, PartSale $partSale): ?\Illuminate\Http\RedirectResponse
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                ])
+                ->delete($baseUrl . '/api/v1/part-sales/' . $partSale->id);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Part sale destroy Go bridge returned non JSON object response', [
+                    'status' => $response->status(),
+                    'part_sale_id' => $partSale->id,
+                ]);
+
+                return null;
+            }
+
+            if ($response->successful()) {
+                return redirect()
+                    ->route('part-sales.index')
+                    ->with('success', (string) ($json['message'] ?? 'Penjualan berhasil dihapus'));
+            }
+
+            if ($response->status() === 422 && isset($json['errors']) && is_array($json['errors'])) {
+                throw ValidationException::withMessages($json['errors']);
+            }
+
+            return back()->withErrors([
+                'error' => (string) ($json['message'] ?? 'Gagal menghapus penjualan.'),
+            ]);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     public function updatePayment(Request $request, PartSale $partSale)
     {
+        if ((bool) config('go_backend.features.part_sale_update_payment', false)) {
+            $proxied = $this->partSaleUpdatePaymentViaGo($request, $partSale);
+            if ($proxied !== null) {
+                return $proxied;
+            }
+        }
+
         $validated = $request->validate([
             'payment_amount' => 'required|integer|min:1',
             'received_denominations' => 'nullable|array',
@@ -936,6 +1400,52 @@ class PartSaleController extends Controller
         });
 
         return back()->with('success', 'Pembayaran berhasil dicatat');
+    }
+
+    private function partSaleUpdatePaymentViaGo(Request $request, PartSale $partSale): ?\Illuminate\Http\RedirectResponse
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $payload = $request->all();
+            $payload['actor_user_id'] = $request->user()?->id;
+
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($baseUrl . '/api/v1/part-sales/' . $partSale->id . '/update-payment', $payload);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Part sale update payment Go bridge returned non JSON object response', [
+                    'status' => $response->status(),
+                    'part_sale_id' => $partSale->id,
+                ]);
+
+                return null;
+            }
+
+            if ($response->successful()) {
+                return back()->with('success', (string) ($json['message'] ?? 'Pembayaran berhasil dicatat'));
+            }
+
+            if ($response->status() === 422 && isset($json['errors']) && is_array($json['errors'])) {
+                throw ValidationException::withMessages($json['errors']);
+            }
+
+            return back()->withErrors([
+                'error' => (string) ($json['message'] ?? 'Gagal mencatat pembayaran penjualan.'),
+            ]);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     private function recordCashPaymentWithDenominations(
@@ -1065,6 +1575,13 @@ class PartSaleController extends Controller
 
     public function updateStatus(Request $request, PartSale $partSale)
     {
+        if ((bool) config('go_backend.features.part_sale_update_status', false)) {
+            $proxied = $this->partSaleUpdateStatusViaGo($request, $partSale);
+            if ($proxied !== null) {
+                return $proxied;
+            }
+        }
+
         $request->validate([
             'status' => 'required|in:draft,confirmed,waiting_stock,ready_to_notify,waiting_pickup,completed,cancelled',
         ]);
@@ -1104,6 +1621,52 @@ class PartSaleController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withErrors(['error' => $e->getMessage()]);
+        }
+    }
+
+    private function partSaleUpdateStatusViaGo(Request $request, PartSale $partSale): ?\Illuminate\Http\RedirectResponse
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $payload = $request->all();
+            $payload['actor_user_id'] = $request->user()?->id;
+
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($baseUrl . '/api/v1/part-sales/' . $partSale->id . '/update-status', $payload);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Part sale update status Go bridge returned non JSON object response', [
+                    'status' => $response->status(),
+                    'part_sale_id' => $partSale->id,
+                ]);
+
+                return null;
+            }
+
+            if ($response->successful()) {
+                return back()->with('success', (string) ($json['message'] ?? 'Status penjualan berhasil diperbarui'));
+            }
+
+            if ($response->status() === 422 && isset($json['errors']) && is_array($json['errors'])) {
+                throw ValidationException::withMessages($json['errors']);
+            }
+
+            return back()->withErrors([
+                'error' => (string) ($json['message'] ?? 'Gagal memperbarui status penjualan.'),
+            ]);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return null;
         }
     }
 
@@ -1262,6 +1825,13 @@ class PartSaleController extends Controller
 
     public function createFromOrder(Request $request)
     {
+        if ((bool) config('go_backend.features.part_sale_create_from_order', false)) {
+            $proxied = $this->partSaleCreateFromOrderViaGo($request);
+            if ($proxied !== null) {
+                return $proxied;
+            }
+        }
+
         $request->validate([
             'sales_order_id' => 'required|exists:part_sales_orders,id',
         ]);
@@ -1271,8 +1841,62 @@ class PartSaleController extends Controller
         ]);
     }
 
+    private function partSaleCreateFromOrderViaGo(Request $request): ?\Illuminate\Http\RedirectResponse
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $payload = $request->only(['sales_order_id']);
+            $payload['actor_user_id'] = $request->user()?->id;
+
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($baseUrl . '/api/v1/part-sales/create-from-order', $payload);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Part sale create-from-order Go bridge returned non JSON object response', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            if ($response->successful()) {
+                return redirect()->route('part-sales.create', [
+                    'sales_order_id' => $json['sales_order_id'] ?? $request->sales_order_id,
+                ]);
+            }
+
+            if ($response->status() === 422 && isset($json['errors']) && is_array($json['errors'])) {
+                throw ValidationException::withMessages($json['errors']);
+            }
+
+            return back()->withErrors([
+                'error' => (string) ($json['message'] ?? 'Gagal memuat data sales order.'),
+            ]);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     public function claimWarranty(Request $request, PartSale $partSale, PartSaleDetail $detail)
     {
+        if ((bool) config('go_backend.features.part_sale_claim_warranty', false)) {
+            $proxied = $this->partSaleClaimWarrantyViaGo($request, $partSale, $detail);
+            if ($proxied !== null) {
+                return $proxied;
+            }
+        }
+
         if ((int) $detail->part_sale_id !== (int) $partSale->id) {
             throw ValidationException::withMessages([
                 'error' => ['Detail garansi tidak valid untuk transaksi ini.'],
@@ -1310,6 +1934,53 @@ class PartSaleController extends Controller
         $this->warrantyRegistrationService->markClaimedFromPartSaleDetail($detail, Auth::id());
 
         return back()->with('success', 'Klaim garansi berhasil dicatat');
+    }
+
+    private function partSaleClaimWarrantyViaGo(Request $request, PartSale $partSale, PartSaleDetail $detail): ?\Illuminate\Http\RedirectResponse
+    {
+        $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+        $timeout = (int) config('go_backend.timeout_seconds', 5);
+        $requestId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
+
+        try {
+            $payload = $request->only(['warranty_claim_notes']);
+            $payload['actor_user_id'] = $request->user()?->id;
+
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Request-Id' => $requestId,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($baseUrl . '/api/v1/part-sales/' . $partSale->id . '/details/' . $detail->id . '/claim-warranty', $payload);
+
+            $json = $response->json();
+            if (! is_array($json)) {
+                Log::warning('Part sale claim warranty Go bridge returned non JSON object response', [
+                    'status' => $response->status(),
+                    'part_sale_id' => $partSale->id,
+                    'detail_id' => $detail->id,
+                ]);
+
+                return null;
+            }
+
+            if ($response->successful()) {
+                return back()->with('success', (string) ($json['message'] ?? 'Klaim garansi berhasil dicatat'));
+            }
+
+            if ($response->status() === 422 && isset($json['errors']) && is_array($json['errors'])) {
+                throw ValidationException::withMessages($json['errors']);
+            }
+
+            return back()->withErrors([
+                'error' => (string) ($json['message'] ?? 'Gagal mencatat klaim garansi.'),
+            ]);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     private function applyUnifiedWarrantyFilters(
