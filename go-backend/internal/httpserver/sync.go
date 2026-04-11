@@ -59,39 +59,39 @@ type syncCreateRequest struct {
 }
 
 type syncBatchRecord struct {
-	ID               int64          `json:"id"`
-	SyncBatchID      string         `json:"sync_batch_id"`
-	Scope            string         `json:"scope"`
-	PayloadType      string         `json:"payload_type"`
-	SourceDate       sql.NullString `json:"-"`
-	SourceWorkshopID  sql.NullString `json:"-"`
-	PayloadHash      string         `json:"payload_hash"`
-	Status           string         `json:"status"`
-	AttemptCount     int            `json:"attempt_count"`
+	ID               int64           `json:"id"`
+	SyncBatchID      string          `json:"sync_batch_id"`
+	Scope            string          `json:"scope"`
+	PayloadType      string          `json:"payload_type"`
+	SourceDate       sql.NullString  `json:"-"`
+	SourceWorkshopID sql.NullString  `json:"-"`
+	PayloadHash      string          `json:"payload_hash"`
+	Status           string          `json:"status"`
+	AttemptCount     int             `json:"attempt_count"`
 	LastAttemptAt    sql.NullTime    `json:"-"`
 	AcknowledgedAt   sql.NullTime    `json:"-"`
 	SentAt           sql.NullTime    `json:"-"`
 	LastError        sql.NullString  `json:"-"`
-	ItemsCount       int            `json:"items_count"`
+	ItemsCount       int             `json:"items_count"`
 	PayloadJSON      json.RawMessage `json:"payload_json,omitempty"`
 	ResponseJSON     json.RawMessage `json:"response_json,omitempty"`
-	CreatedAt        time.Time      `json:"created_at"`
-	UpdatedAt        time.Time      `json:"updated_at"`
+	CreatedAt        time.Time       `json:"created_at"`
+	UpdatedAt        time.Time       `json:"updated_at"`
 }
 
 type syncItemRecord struct {
-	ID          int64          `json:"id"`
-	SyncBatchID string         `json:"sync_batch_id"`
-	EntityType  string         `json:"entity_type"`
-	EntityID    string         `json:"entity_id"`
-	EventType   string         `json:"event_type"`
-	PayloadHash string         `json:"payload_hash"`
-	Status      string         `json:"status"`
-	AttemptCount int           `json:"attempt_count"`
-	LastError   sql.NullString `json:"-"`
-	PayloadJSON json.RawMessage `json:"payload_json"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+	ID           int64           `json:"id"`
+	SyncBatchID  string          `json:"sync_batch_id"`
+	EntityType   string          `json:"entity_type"`
+	EntityID     string          `json:"entity_id"`
+	EventType    string          `json:"event_type"`
+	PayloadHash  string          `json:"payload_hash"`
+	Status       string          `json:"status"`
+	AttemptCount int             `json:"attempt_count"`
+	LastError    sql.NullString  `json:"-"`
+	PayloadJSON  json.RawMessage `json:"payload_json"`
+	CreatedAt    time.Time       `json:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at"`
 }
 
 func ensureSyncSchema(db *sql.DB) error {
@@ -167,13 +167,13 @@ func syncStatusHandler(db *sql.DB, cfg config.Config) http.HandlerFunc {
 
 		writeJSON(w, http.StatusOK, response{
 			"sync_enabled": cfg.SyncEnabled,
-			"host_url": cfg.SyncHostURL,
-			"source_id": cfg.SyncSourceID,
+			"host_url":     cfg.SyncHostURL,
+			"source_id":    cfg.SyncSourceID,
 			"schema_ready": true,
 			"summary": response{
-				"batch_total": batchCount,
-				"pending_total": pendingCount,
-				"failed_total": failedCount,
+				"batch_total":        batchCount,
+				"pending_total":      pendingCount,
+				"failed_total":       failedCount,
 				"acknowledged_total": acknowledgedCount,
 			},
 			"last_batch": lastBatch,
@@ -371,17 +371,17 @@ func syncBuildBatch(db *sql.DB, cfg config.Config, scope string, sourceDate time
 
 	batchID := newSyncBatchID()
 	batchPayload := response{
-		"sync_batch_id":       batchID,
-		"source_workshop_id":   cfg.SyncSourceID,
-		"scope":                scope,
-		"payload_type":         "daily_snapshot",
-		"source_date":          sourceDate.Format("2006-01-02"),
-		"payload_hash":         "",
-		"items":                items,
-		"generated_at":         time.Now().Format(time.RFC3339),
-		"schema_version":       1,
-		"source_system":        "go-backend",
-		"source_timezone":      time.Now().Format("MST"),
+		"sync_batch_id":      batchID,
+		"source_workshop_id": cfg.SyncSourceID,
+		"scope":              scope,
+		"payload_type":       "daily_snapshot",
+		"source_date":        sourceDate.Format("2006-01-02"),
+		"payload_hash":       "",
+		"items":              items,
+		"generated_at":       time.Now().Format(time.RFC3339),
+		"schema_version":     1,
+		"source_system":      "go-backend",
+		"source_timezone":    time.Now().Format("MST"),
 	}
 
 	payloadJSON, err := json.Marshal(batchPayload)
@@ -417,7 +417,7 @@ func syncBuildBatch(db *sql.DB, cfg config.Config, scope string, sourceDate time
 	}
 
 	return response{
-		"sync_batch_id":     batchID,
+		"sync_batch_id":      batchID,
 		"source_workshop_id": cfg.SyncSourceID,
 		"scope":              scope,
 		"payload_type":       "daily_snapshot",
@@ -549,7 +549,7 @@ func syncLoadBatch(db *sql.DB, batchID string) (response, error) {
 	}
 
 	return response{
-		"sync_batch_id":     syncBatchID,
+		"sync_batch_id":      syncBatchID,
 		"scope":              scope,
 		"payload_type":       payloadType,
 		"source_date":        sourceDate.String,
@@ -644,24 +644,24 @@ func syncStatusCounts(db *sql.DB) (int, int, int, int, error) {
 
 func scanSyncBatchRow(rows *sql.Rows) (response, error) {
 	var (
-		id              int64
-		syncBatchID     string
-		scope           string
-		payloadType     string
-		sourceDate      sql.NullString
-		sourceWorkshop  sql.NullString
-		payloadHash     string
-		status          string
-		attemptCount    int
-		lastAttemptAt   sql.NullTime
-		acknowledgedAt  sql.NullTime
-		sentAt          sql.NullTime
-		lastError       sql.NullString
-		payloadJSON     []byte
-		responseJSON    []byte
-		createdAt       time.Time
-		updatedAt       time.Time
-		itemsCount      int
+		id             int64
+		syncBatchID    string
+		scope          string
+		payloadType    string
+		sourceDate     sql.NullString
+		sourceWorkshop sql.NullString
+		payloadHash    string
+		status         string
+		attemptCount   int
+		lastAttemptAt  sql.NullTime
+		acknowledgedAt sql.NullTime
+		sentAt         sql.NullTime
+		lastError      sql.NullString
+		payloadJSON    []byte
+		responseJSON   []byte
+		createdAt      time.Time
+		updatedAt      time.Time
+		itemsCount     int
 	)
 
 	if err := rows.Scan(&id, &syncBatchID, &scope, &payloadType, &sourceDate, &sourceWorkshop, &payloadHash, &status, &attemptCount, &lastAttemptAt, &acknowledgedAt, &sentAt, &lastError, &payloadJSON, &responseJSON, &createdAt, &updatedAt, &itemsCount); err != nil {
@@ -674,7 +674,7 @@ func scanSyncBatchRow(rows *sql.Rows) (response, error) {
 		"scope":              scope,
 		"payload_type":       payloadType,
 		"source_date":        sourceDate.String,
-		"source_workshop_id":  sourceWorkshop.String,
+		"source_workshop_id": sourceWorkshop.String,
 		"payload_hash":       payloadHash,
 		"status":             status,
 		"attempt_count":      attemptCount,
@@ -790,11 +790,11 @@ func syncDateColumnStrategy(db *sql.DB, table string) (string, error) {
 
 func syncItemPayload(table string, scope string, sourceDate time.Time, row map[string]any) (map[string]any, error) {
 	payload := map[string]any{
-		"table":        table,
-		"scope":        scope,
-		"source_date":  sourceDate.Format("2006-01-02"),
-		"record":       row,
-		"synced_at":    time.Now().Format(time.RFC3339),
+		"table":       table,
+		"scope":       scope,
+		"source_date": sourceDate.Format("2006-01-02"),
+		"record":      row,
+		"synced_at":   time.Now().Format(time.RFC3339),
 	}
 
 	return payload, nil
