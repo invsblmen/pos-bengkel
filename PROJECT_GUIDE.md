@@ -400,6 +400,9 @@ GO_SYNC_RUN_TIMEOUT_SECONDS=60
 GO_SYNC_RETRY_TIMEOUT_SECONDS=60
 GO_SYNC_ALERT_TIMEOUT_SECONDS=30
 GO_SYNC_RECONCILIATION_TIMEOUT_SECONDS=45
+GO_SYNC_RETENTION_DAYS=30
+GO_SYNC_RETENTION_PURGE_ENABLED=true
+GO_SYNC_RETENTION_PURGE_DAILY_AT=03:20
 GO_SYNC_RETRY_DEFAULT_LIMIT=5
 GO_SYNC_RETRY_MAX_LIMIT=200
 GO_SYNC_SCHEDULE_ENABLED=true
@@ -420,6 +423,7 @@ php artisan go:sync:run --scope=daily
 php artisan go:sync:retry-failed --limit=5
 php artisan go:sync:alert-long-failed --minutes=120 --limit=20
 php artisan go:sync:reconciliation-daily --max-variance-percent=5
+php artisan go:sync:purge-old --days=30 --dry-run=1
 php artisan go:sync:benchmark-capacity --timeouts=60,120,180 --iterations=1
 ```
 
@@ -435,6 +439,7 @@ Jadwal yang terpasang saat scheduler aktif:
 2. `go:sync:retry-failed --limit={GO_SYNC_SCHEDULE_RETRY_LIMIT}` dijalankan tiap 30 menit.
 3. `go:sync:alert-long-failed` dijalankan tiap 30 menit saat `GO_SYNC_ALERT_ENABLED=true`.
 4. `go:sync:reconciliation-daily` dijalankan harian pada jam `GO_SYNC_RECONCILIATION_DAILY_AT` (default 00:15) saat `GO_SYNC_RECONCILIATION_ENABLED=true`.
+5. `go:sync:purge-old --days={GO_SYNC_RETENTION_DAYS}` dijalankan harian pada jam `GO_SYNC_RETENTION_PURGE_DAILY_AT` (default 03:20) saat `GO_SYNC_RETENTION_PURGE_ENABLED=true`.
 
 Verifikasi jadwal:
 

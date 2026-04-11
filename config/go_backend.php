@@ -7,6 +7,10 @@ return [
         'enabled' => env('GO_SYNC_ENABLED', false),
         'shared_token' => env('GO_SYNC_SHARED_TOKEN', ''),
         'retention_days' => max(1, (int) env('GO_SYNC_RETENTION_DAYS', 30)),
+        'retention' => [
+            'enabled' => env('GO_SYNC_RETENTION_PURGE_ENABLED', true),
+            'daily_at' => env('GO_SYNC_RETENTION_PURGE_DAILY_AT', '03:20'),
+        ],
         'timeout' => [
             'run_seconds' => max(5, min(600, (int) env('GO_SYNC_RUN_TIMEOUT_SECONDS', 60))),
             'retry_seconds' => max(5, min(600, (int) env('GO_SYNC_RETRY_TIMEOUT_SECONDS', 60))),

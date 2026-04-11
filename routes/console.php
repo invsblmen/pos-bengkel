@@ -782,9 +782,78 @@ Artisan::command('go:sync:benchmark-capacity {--scope=daily} {--source_date=} {-
     return self::SUCCESS;
 })->purpose('Benchmark Go sync throughput/latency for multiple timeout values');
 
+Artisan::command('go:sync:purge-old {--days=} {--dry-run=0}', function () {
+    $defaultDays = max(1, (int) config('go_backend.sync.retention_days', 30));
+    $daysInput = $this->option('days');
+    $days = max(1, min((int) ($daysInput === null || $daysInput === '' ? $defaultDays : $daysInput), 3650));
+    $dryRun = filter_var((string) $this->option('dry-run'), FILTER_VALIDATE_BOOL);
+    $cutoff = now()->subDays($days);
+
+    $batchQuery = DB::table('sync_batches')
+        ->whereIn('status', ['acknowledged', 'failed'])
+        ->where('created_at', '<', $cutoff);
+
+    $outboxQuery = DB::table('sync_outbox_items')
+        ->whereIn('status', ['sent', 'failed'])
+        ->where('created_at', '<', $cutoff);
+
+    $receivedQuery = DB::table('sync_received_batches')
+        ->whereIn('status', ['acknowledged', 'duplicate', 'invalid', 'failed'])
+        ->where(function ($query) use ($cutoff) {
+            $query->where('received_at', '<', $cutoff)
+                ->orWhere(function ($subQuery) use ($cutoff) {
+                    $subQuery->whereNull('received_at')
+                        ->where('created_at', '<', $cutoff);
+                });
+        });
+
+    $batchCount = (clone $batchQuery)->count();
+    $outboxCount = (clone $outboxQuery)->count();
+    $receivedCount = (clone $receivedQuery)->count();
+
+    $this->line('Sync retention purge preview:');
+    $this->table(['Target', 'Rows'], [
+        ['sync_batches', $batchCount],
+        ['sync_outbox_items', $outboxCount],
+        ['sync_received_batches', $receivedCount],
+    ]);
+    $this->line('Cutoff: ' . $cutoff->toDateTimeString());
+
+    if ($dryRun) {
+        $this->info('Dry run aktif, tidak ada data yang dihapus.');
+        return self::SUCCESS;
+    }
+
+    DB::transaction(function () use ($batchQuery, $outboxQuery, $receivedQuery, &$batchCount, &$outboxCount, &$receivedCount) {
+        $outboxCount = $outboxQuery->delete();
+        $receivedCount = $receivedQuery->delete();
+        $batchCount = $batchQuery->delete();
+    });
+
+    Log::info('go_sync_retention_purge', [
+        'days' => $days,
+        'cutoff' => $cutoff->toDateTimeString(),
+        'deleted' => [
+            'sync_batches' => $batchCount,
+            'sync_outbox_items' => $outboxCount,
+            'sync_received_batches' => $receivedCount,
+        ],
+    ]);
+
+    $this->info('Purge selesai.');
+    $this->table(['Target', 'Deleted'], [
+        ['sync_batches', $batchCount],
+        ['sync_outbox_items', $outboxCount],
+        ['sync_received_batches', $receivedCount],
+    ]);
+
+    return self::SUCCESS;
+})->purpose('Purge old sync records based on retention policy');
+
 if ((bool) config('go_backend.sync.schedule.enabled', false)) {
     $dailyAt = (string) config('go_backend.sync.schedule.daily_at', '23:40');
     $retryLimit = max(1, (int) config('go_backend.sync.schedule.retry_limit', 5));
+    $retentionDays = max(1, (int) config('go_backend.sync.retention_days', 30));
 
     Schedule::command('go:sync:run --scope=daily')
         ->dailyAt($dailyAt)
@@ -809,6 +878,14 @@ if ((bool) config('go_backend.sync.schedule.enabled', false)) {
 
         Schedule::command("go:sync:reconciliation-daily --max-variance-percent={$maxVariance}")
             ->dailyAt($reconciliationAt)
+            ->withoutOverlapping();
+    }
+
+    if ((bool) config('go_backend.sync.retention.enabled', true)) {
+        $retentionAt = (string) config('go_backend.sync.retention.daily_at', '03:20');
+
+        Schedule::command("go:sync:purge-old --days={$retentionDays}")
+            ->dailyAt($retentionAt)
             ->withoutOverlapping();
     }
 }

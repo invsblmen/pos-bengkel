@@ -44,7 +44,7 @@ Legend:
 - [x] Local sync tables in Go side bootstrapped by app startup.
 - [x] Hosting sync tables migration created in Laravel.
 - [x] Batch/outbox/received tracking structures available.
-- [~] Retention and purge policy implementation (including automatic cleanup jobs).
+- [x] Retention and purge policy implementation (including automatic cleanup jobs).
 
 ## 5) Go Backend Core Migration Work
 
@@ -143,6 +143,8 @@ Scheduling evidence:
 - [x] Timeout dan limit command kini configurable via env (`GO_SYNC_*_TIMEOUT_SECONDS`, `GO_SYNC_RETRY_DEFAULT_LIMIT`, `GO_SYNC_RETRY_MAX_LIMIT`) dengan cap aman hingga 600 detik.
 - [x] Command benchmark kapasitas ditambahkan: `go:sync:benchmark-capacity --timeouts=60,120,180 --iterations=10` untuk uji latency/sukses per timeout.
 - [x] Benchmark lanjutan tervalidasi: 30/30 percobaan sukses HTTP 200 acknowledged; p95 latency: 60s=351.94 ms, 120s=313.91 ms, 180s=269.08 ms.
+- [x] Retention purge command ditambahkan: `go:sync:purge-old {--days=} {--dry-run=0}` dengan filter status terminal dan jadwal harian otomatis.
+- [x] Scheduler retention aktif saat `GO_SYNC_SCHEDULE_ENABLED=true` dan `GO_SYNC_RETENTION_PURGE_ENABLED=true` (default 03:20).
 
 ## 13) Business Parity and Reconciliation
 
@@ -174,10 +176,10 @@ Reference: see FRONTEND_PARITY_MATRIX.md for screen-by-screen tracking and UAT s
 
 ## 14) Repo Hygiene and Change Management
 
-- [~] Major migration changes exist but still mixed in large working tree.
-- [ ] Remove local binary artifacts from tracked changes where not required.
-- [ ] Group and isolate commits by domain (sync core, rollout controls, import, UI).
-- [ ] Final review pass for accidental unrelated edits.
+- [x] Major migration changes cleaned and isolated into thematic commits.
+- [x] Remove local binary artifacts from tracked changes where not required.
+- [x] Group and isolate commits by domain (sync core, rollout controls, import, UI).
+- [x] Final review pass for accidental unrelated edits.
 
 ## 15) Documentation and Handover
 
@@ -185,7 +187,7 @@ Reference: see FRONTEND_PARITY_MATRIX.md for screen-by-screen tracking and UAT s
 - [x] Master project guide alignment with latest migration state.
 - [x] Operator playbook for daily sync + manual retry.
 - [x] Incident runbook for sync failures and rollback guidance.
-- [ ] Final handover checklist and sign-off sheet.
+- [x] Final handover checklist and sign-off sheet.
 
 ## 16) Completion Gate (Definition of Done)
 
