@@ -37,7 +37,7 @@ Status terbaru (2026-03-28):
 
 - [x] Tambah utilitas command status watchdog (`port`, `pid`, `process`, `last log lines`).
 - [x] Tambah housekeeping untuk log watchdog (truncate/rotate mingguan).
-- [ ] Tambah guard agar startup launcher tidak spawn process orphan saat logout/login berulang.
+- [x] Tambah guard agar startup launcher tidak spawn process orphan saat logout/login berulang.
 - [ ] Dokumentasikan troubleshooting standar saat Reverb unreachable di dev environment.
 
 Tambahan status (2026-03-28):
