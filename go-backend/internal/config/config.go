@@ -19,10 +19,10 @@ type Config struct {
 	WriteTimeout    time.Duration
 	ShutdownTimeout time.Duration
 
-	SyncEnabled       bool
-	SyncHostURL       string
-	SyncSharedToken   string
-	SyncSourceID      string
+	SyncEnabled        bool
+	SyncHostURL        string
+	SyncSharedToken    string
+	SyncSourceID       string
 	SyncRequestTimeout time.Duration
 
 	WhatsAppDashboardURL   string
@@ -56,10 +56,10 @@ func Load() (Config, error) {
 		WriteTimeout:    getDurationEnv("WRITE_TIMEOUT", 10*time.Second),
 		ShutdownTimeout: getDurationEnv("SHUTDOWN_TIMEOUT", 10*time.Second),
 
-		SyncEnabled:       getBoolEnv("GO_SYNC_ENABLED", false),
-		SyncHostURL:       getEnv("GO_SYNC_HOST_URL", "http://127.0.0.1:8000"),
-		SyncSharedToken:   getEnv("GO_SYNC_SHARED_TOKEN", ""),
-		SyncSourceID:      getEnv("GO_SYNC_SOURCE_ID", "local-workshop"),
+		SyncEnabled:        getBoolEnv("GO_SYNC_ENABLED", false),
+		SyncHostURL:        getEnv("GO_SYNC_HOST_URL", "http://127.0.0.1:8000"),
+		SyncSharedToken:    getEnv("GO_SYNC_SHARED_TOKEN", ""),
+		SyncSourceID:       getEnv("GO_SYNC_SOURCE_ID", "local-workshop"),
 		SyncRequestTimeout: getDurationEnv("GO_SYNC_REQUEST_TIMEOUT", 20*time.Second),
 
 		WhatsAppDashboardURL:   getEnv("WHATSAPP_GO_DASHBOARD_URL", ""),
