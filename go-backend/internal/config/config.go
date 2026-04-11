@@ -3,8 +3,11 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -15,6 +18,12 @@ type Config struct {
 	ReadTimeout     time.Duration
 	WriteTimeout    time.Duration
 	ShutdownTimeout time.Duration
+
+	SyncEnabled       bool
+	SyncHostURL       string
+	SyncSharedToken   string
+	SyncSourceID      string
+	SyncRequestTimeout time.Duration
 
 	WhatsAppDashboardURL   string
 	WhatsAppAPIUsername    string
@@ -35,6 +44,9 @@ func (c Config) Address() string {
 }
 
 func Load() (Config, error) {
+	// Best-effort local env loading; keep running even if .env is absent.
+	_ = loadEnvFiles()
+
 	cfg := Config{
 		AppName:         getEnv("APP_NAME", "posbengkel-go"),
 		AppEnv:          getEnv("APP_ENV", "local"),
@@ -44,6 +56,12 @@ func Load() (Config, error) {
 		WriteTimeout:    getDurationEnv("WRITE_TIMEOUT", 10*time.Second),
 		ShutdownTimeout: getDurationEnv("SHUTDOWN_TIMEOUT", 10*time.Second),
 
+		SyncEnabled:       getBoolEnv("GO_SYNC_ENABLED", false),
+		SyncHostURL:       getEnv("GO_SYNC_HOST_URL", "http://127.0.0.1:8000"),
+		SyncSharedToken:   getEnv("GO_SYNC_SHARED_TOKEN", ""),
+		SyncSourceID:      getEnv("GO_SYNC_SOURCE_ID", "local-workshop"),
+		SyncRequestTimeout: getDurationEnv("GO_SYNC_REQUEST_TIMEOUT", 20*time.Second),
+
 		WhatsAppDashboardURL:   getEnv("WHATSAPP_GO_DASHBOARD_URL", ""),
 		WhatsAppAPIUsername:    getEnv("WHATSAPP_API_USERNAME", ""),
 		WhatsAppAPIPassword:    getEnv("WHATSAPP_API_PASSWORD", ""),
@@ -52,13 +70,32 @@ func Load() (Config, error) {
 
 		DBHost:     getEnv("DB_HOST", "127.0.0.1"),
 		DBPort:     getEnv("DB_PORT", "3306"),
-		DBName:     getEnv("DB_DATABASE", ""),
-		DBUser:     getEnv("DB_USERNAME", ""),
-		DBPassword: getEnv("DB_PASSWORD", ""),
+		DBName:     getEnv("DB_DATABASE", "laravel12_pos_bengkel"),
+		DBUser:     getEnv("DB_USERNAME", "root"),
+		DBPassword: getEnv("DB_PASSWORD", "root"),
 		DBParams:   getEnv("DB_PARAMS", "parseTime=true&charset=utf8mb4&loc=Local"),
 	}
 
 	return cfg, nil
+}
+
+func loadEnvFiles() error {
+	candidates := []string{".env", filepath.Join("go-backend", ".env")}
+
+	if executablePath, err := os.Executable(); err == nil {
+		candidates = append(candidates, filepath.Join(filepath.Dir(executablePath), ".env"))
+	}
+
+	var lastErr error
+	for _, candidate := range candidates {
+		if err := godotenv.Overload(candidate); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+	}
+
+	return lastErr
 }
 
 func getEnv(key, fallback string) string {

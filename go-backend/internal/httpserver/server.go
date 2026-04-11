@@ -1,9 +1,12 @@
 package httpserver
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
+	"log"
 	"net/http"
+	"time"
 
 	"posbengkel/go-backend/internal/config"
 	"posbengkel/go-backend/internal/middleware"
@@ -13,13 +16,30 @@ import (
 
 type response map[string]any
 
-func New(cfg config.Config) *http.Server {
+func New(cfg config.Config) (*http.Server, error) {
 	var db *sql.DB
 	if cfg.DBName != "" && cfg.DBUser != "" {
 		dsn := dsnFromConfig(cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBParams)
 		openedDB, err := sql.Open("mysql", dsn)
 		if err == nil {
-			db = openedDB
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			if pingErr := openedDB.PingContext(ctx); pingErr == nil {
+				db = openedDB
+			} else {
+				_ = openedDB.Close()
+				log.Printf("database connection is unavailable, running in degraded mode: %v", pingErr)
+			}
+		} else {
+			log.Printf("database open failed, running in degraded mode: %v", err)
+		}
+	}
+
+	if db != nil {
+		if err := ensureSyncSchema(db); err != nil {
+			log.Printf("sync schema bootstrap failed, running without database: %v", err)
+			_ = db.Close()
+			db = nil
 		}
 	}
 
@@ -93,6 +113,12 @@ func New(cfg config.Config) *http.Server {
 	mux.HandleFunc("GET /api/v1/reports/parts-inventory", partsInventoryReportHandler(db))
 	mux.HandleFunc("GET /api/v1/reports/outstanding-payments", outstandingPaymentsReportHandler(db))
 	mux.HandleFunc("GET /api/v1/reports/export", reportExportCSVHandler(db))
+	mux.HandleFunc("GET /api/v1/sync/status", syncStatusHandler(db, cfg))
+	mux.HandleFunc("GET /api/v1/sync/batches", syncBatchesIndexHandler(db))
+	mux.HandleFunc("POST /api/v1/sync/batches", syncCreateBatchHandler(db, cfg))
+	mux.HandleFunc("POST /api/v1/sync/run", syncRunHandler(db, cfg))
+	mux.HandleFunc("POST /api/v1/sync/batches/{id}/send", syncSendBatchHandler(db, cfg))
+	mux.HandleFunc("POST /api/v1/sync/batches/{id}/retry", syncRetryBatchHandler(db, cfg))
 
 	mux.HandleFunc("GET /api/v1/vehicles", vehicleIndexHandler(db))
 	mux.HandleFunc("POST /api/v1/vehicles", vehicleStoreHandler(db))
@@ -130,7 +156,7 @@ func New(cfg config.Config) *http.Server {
 		Handler:      handler,
 		ReadTimeout:  cfg.ReadTimeout,
 		WriteTimeout: cfg.WriteTimeout,
-	}
+	}, nil
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload response) {

@@ -19,7 +19,10 @@ func main() {
 		log.Fatalf("load config: %v", err)
 	}
 
-	srv := httpserver.New(cfg)
+	srv, err := httpserver.New(cfg)
+	if err != nil {
+		log.Fatalf("init server: %v", err)
+	}
 
 	go func() {
 		log.Printf("%s listening on %s", cfg.AppName, cfg.Address())

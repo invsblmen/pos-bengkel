@@ -3,6 +3,68 @@
 return [
     'base_url' => env('GO_BACKEND_BASE_URL', 'http://127.0.0.1:8081'),
     'timeout_seconds' => (int) env('GO_BACKEND_TIMEOUT_SECONDS', 5),
+    'sync' => [
+        'enabled' => env('GO_SYNC_ENABLED', false),
+        'shared_token' => env('GO_SYNC_SHARED_TOKEN', ''),
+        'retention_days' => max(1, (int) env('GO_SYNC_RETENTION_DAYS', 30)),
+        'timeout' => [
+            'run_seconds' => max(5, min(600, (int) env('GO_SYNC_RUN_TIMEOUT_SECONDS', 60))),
+            'retry_seconds' => max(5, min(600, (int) env('GO_SYNC_RETRY_TIMEOUT_SECONDS', 60))),
+            'alert_seconds' => max(5, min(600, (int) env('GO_SYNC_ALERT_TIMEOUT_SECONDS', 30))),
+            'reconciliation_seconds' => max(5, min(600, (int) env('GO_SYNC_RECONCILIATION_TIMEOUT_SECONDS', 45))),
+        ],
+        'retry' => [
+            'default_limit' => max(1, min(1000, (int) env('GO_SYNC_RETRY_DEFAULT_LIMIT', 5))),
+            'max_limit' => max(1, min(1000, (int) env('GO_SYNC_RETRY_MAX_LIMIT', 200))),
+        ],
+        'schedule' => [
+            'enabled' => env('GO_SYNC_SCHEDULE_ENABLED', false),
+            'daily_at' => env('GO_SYNC_SCHEDULE_DAILY_AT', '23:40'),
+            'retry_limit' => max(1, min(100, (int) env('GO_SYNC_SCHEDULE_RETRY_LIMIT', 5))),
+        ],
+        'alert' => [
+            'enabled' => env('GO_SYNC_ALERT_ENABLED', false),
+            'failed_after_minutes' => max(5, min(10080, (int) env('GO_SYNC_ALERT_FAILED_MINUTES', 120))),
+            'limit' => max(1, min(200, (int) env('GO_SYNC_ALERT_LIMIT', 20))),
+        ],
+        'reconciliation' => [
+            'enabled' => env('GO_SYNC_RECONCILIATION_ENABLED', false),
+            'daily_at' => env('GO_SYNC_RECONCILIATION_DAILY_AT', '00:15'),
+            'max_variance_percent' => max(0, min(100, (int) env('GO_SYNC_RECONCILIATION_MAX_VARIANCE', 5))),
+        ],
+    ],
+    'canary' => [
+        'enabled' => env('GO_CANARY_ENABLED', false),
+        'default_percentage' => max(0, min(100, (int) env('GO_CANARY_DEFAULT_PERCENT', 100))),
+        'feature_percentages' => collect(explode(',', (string) env('GO_CANARY_FEATURES', '')))
+            ->map(fn ($item) => trim($item))
+            ->filter(fn ($item) => $item !== '' && str_contains($item, ':'))
+            ->mapWithKeys(function ($item) {
+                [$key, $value] = array_pad(explode(':', $item, 2), 2, '100');
+                return [trim($key) => max(0, min(100, (int) trim($value)))];
+            })
+            ->toArray(),
+    ],
+    'shadow_compare' => [
+        'enabled' => env('GO_SHADOW_COMPARE_ENABLED', false),
+        'sample_rate' => max(0, min(100, (int) env('GO_SHADOW_COMPARE_SAMPLE_RATE', 100))),
+        'max_skipped_rate' => max(0, min(100, (float) env('GO_SHADOW_COMPARE_MAX_SKIPPED_RATE', 20))),
+        'ignore_paths' => array_values(array_filter(array_map('trim', explode(',', (string) env(
+            'GO_SHADOW_COMPARE_IGNORE_PATHS',
+            'csrf_token,current_date,generated_at,server_time,timestamp,*.created_at,*.updated_at'
+        ))))),
+        'default_threshold' => env('GO_SHADOW_COMPARE_DEFAULT_THRESHOLD') !== null
+            ? max(0, (float) env('GO_SHADOW_COMPARE_DEFAULT_THRESHOLD'))
+            : null,
+        'feature_thresholds' => collect(explode(',', (string) env('GO_SHADOW_COMPARE_FEATURE_THRESHOLDS', '')))
+            ->map(fn ($item) => trim($item))
+            ->filter(fn ($item) => $item !== '' && str_contains($item, ':'))
+            ->mapWithKeys(function ($item) {
+                [$key, $value] = array_pad(explode(':', $item, 2), 2, '0');
+                return [trim($key) => max(0, (float) trim($value))];
+            })
+            ->toArray(),
+    ],
 
     'features' => [
         'appointment_index' => env('GO_APPOINTMENT_INDEX_USE_GO', false),
