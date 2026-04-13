@@ -40,6 +40,9 @@ type Config struct {
 	SyncSharedToken    string
 	SyncSourceID       string
 	SyncRequestTimeout time.Duration
+	SyncWorkerEnabled  bool
+	SyncWorkerInterval time.Duration
+	SyncWorkerLimit    int
 	WebSocketToken     string
 
 	WhatsAppDashboardURL   string
@@ -95,6 +98,9 @@ func Load() (Config, error) {
 		SyncSharedToken:    getEnv("GO_SYNC_SHARED_TOKEN", ""),
 		SyncSourceID:       getEnv("GO_SYNC_SOURCE_ID", "local-workshop"),
 		SyncRequestTimeout: getDurationEnv("GO_SYNC_REQUEST_TIMEOUT", 20*time.Second),
+		SyncWorkerEnabled:  getBoolEnv("GO_SYNC_WORKER_ENABLED", false),
+		SyncWorkerInterval: getDurationEnv("GO_SYNC_WORKER_INTERVAL", 30*time.Second),
+		SyncWorkerLimit:    maxInt(1, getIntEnv("GO_SYNC_WORKER_LIMIT", 3)),
 		WebSocketToken:     getEnv("GO_WS_TOKEN", ""),
 
 		WhatsAppDashboardURL:   getEnv("WHATSAPP_GO_DASHBOARD_URL", ""),
@@ -182,6 +188,14 @@ func getIntEnv(key string, fallback int) int {
 	}
 
 	return i
+}
+
+func maxInt(a int, b int) int {
+	if a > b {
+		return a
+	}
+
+	return b
 }
 
 func getCORSOrigins() []string {

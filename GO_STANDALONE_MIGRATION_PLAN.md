@@ -1,5 +1,19 @@
 # GO Standalone Migration Plan
 
+## Catatan Pengarah Tetap (Jangan Diubah)
+
+1. Go dan Laravel harus berjalan terpisah sebagai dua aplikasi mandiri.
+2. Frontend Go harus berdiri sendiri (bukan memakai frontend Laravel saat runtime).
+3. Isi/flow frontend Go harus setara dengan frontend Laravel agar transisi user tidak terasa.
+4. Operasional bengkel nyata berjalan di Go lokal (offline-first), lalu data disinkronkan ke Laravel hosting.
+5. Laravel hosting difungsikan untuk monitoring/reporting jarak jauh, bukan jalur transaksi utama bengkel.
+
+## Catatan Progres Yang Sudah Ada
+
+- Sebagian besar endpoint domain inti sudah tersedia di service Go (`go-backend/internal/httpserver/server.go`).
+- Sinkronisasi Go -> Laravel sudah memiliki fondasi tabel dan endpoint (`sync_batches`, `sync_outbox_items`, `/api/v1/sync/*`, `/api/sync/*`).
+- Tahap berikutnya fokus pada parity frontend Go dan hardening sync engine (idempotency, retry, observability).
+
 ## Tujuan Akhir
 
 Menjadikan aplikasi Go sebagai sistem operasional utama bengkel yang berjalan lokal (localhost) dengan frontend sendiri, tanpa dependensi runtime ke frontend Laravel.

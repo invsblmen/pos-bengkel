@@ -20,10 +20,10 @@ export function buildMenu(canAny) {
     {
       title: 'Transaksi',
       items: [
-        { title: 'Service Orders', permissions: ['service-orders-access'] },
-        { title: 'Penerimaan Cepat', permissions: ['service-orders-create'] },
-        { title: 'Penjualan Sparepart', permissions: ['part-sales-access'] },
-        { title: 'Pembelian Sparepart', permissions: ['part-purchases-access'] },
+        { title: 'Service Orders', path: '/service-orders', permissions: ['service-orders-access'] },
+        { title: 'Penerimaan Cepat', path: '/service-orders/create', permissions: ['service-orders-create'] },
+        { title: 'Penjualan Sparepart', path: '/part-sales', permissions: ['part-sales-access'] },
+        { title: 'Pembelian Sparepart', path: '/part-purchases', permissions: ['part-purchases-access'] },
         { title: 'Appointment', permissions: ['appointments-access'] },
       ],
     },

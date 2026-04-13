@@ -33,6 +33,10 @@ func New(cfg config.Config) (*http.Server, error) {
 		}
 	}
 
+	if db != nil {
+		startSyncWorker(db, cfg)
+	}
+
 	// Initialize auth services
 	var tokenService *services.TokenService
 	var authService *services.AuthService

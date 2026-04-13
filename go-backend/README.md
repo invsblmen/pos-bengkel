@@ -147,9 +147,13 @@ Isi env berikut di `go-backend/.env` untuk mengaktifkan sinkronisasi ke Laravel 
 - GO_SYNC_SHARED_TOKEN=isi-token-yang-sama-dengan-laravel
 - GO_SYNC_SOURCE_ID=local-workshop
 - GO_SYNC_REQUEST_TIMEOUT=20s
+- GO_SYNC_WORKER_ENABLED=false
+- GO_SYNC_WORKER_INTERVAL=30s
+- GO_SYNC_WORKER_LIMIT=3
 
 Catatan operasional:
 
 1. Saat startup, Go akan mencoba bootstrap tabel `sync_batches` dan `sync_outbox_items` secara otomatis.
 2. Jika koneksi DB sedang gagal, server tetap hidup dalam mode degraded (endpoint yang butuh DB akan memberi respons service unavailable).
 3. Endpoint `POST /api/v1/sync/run` akan membuat batch dan langsung mengirim ke Laravel (`/api/sync/batches`).
+4. Jika `GO_SYNC_WORKER_ENABLED=true`, background worker Go akan otomatis memproses batch `pending/retrying/failed` secara periodik.
