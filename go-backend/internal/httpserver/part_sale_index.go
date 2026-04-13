@@ -62,7 +62,7 @@ func queryPartSaleIndexRows(db *sql.DB, page, perPage int) ([]response, int64, e
 	q := `
 		SELECT ps.id,
 		       ps.sale_number,
-		       DATE_FORMAT(ps.sale_date, '%Y-%m-%d') AS sale_date,
+		       ps.sale_date,
 		       COALESCE(ps.grand_total, 0) AS grand_total,
 		       COALESCE(ps.payment_status, 'unpaid') AS payment_status,
 		       COALESCE(ps.status, 'draft') AS status,
@@ -84,7 +84,7 @@ func queryPartSaleIndexRows(db *sql.DB, page, perPage int) ([]response, int64, e
 	for rows.Next() {
 		var id sql.NullInt64
 		var saleNumber sql.NullString
-		var saleDate sql.NullString
+		var saleDate sql.NullTime
 		var grandTotal sql.NullInt64
 		var paymentStatus sql.NullString
 		var status sql.NullString
@@ -96,9 +96,14 @@ func queryPartSaleIndexRows(db *sql.DB, page, perPage int) ([]response, int64, e
 		}
 
 		item := response{
-			"id":             int64OrZero(id),
-			"sale_number":    overallNullStringValue(saleNumber),
-			"sale_date":      overallNullStringValue(saleDate),
+			"id":          int64OrZero(id),
+			"sale_number": overallNullStringValue(saleNumber),
+			"sale_date": func() string {
+				if saleDate.Valid {
+					return saleDate.Time.Format("2006-01-02")
+				}
+				return ""
+			}(),
 			"grand_total":    int64OrZero(grandTotal),
 			"payment_status": overallNullStringValue(paymentStatus),
 			"status":         overallNullStringValue(status),

@@ -48,6 +48,8 @@ type Config struct {
 	WhatsAppWebhookSecret  string
 	VerifyWebhookSignature bool
 
+	Database DatabaseConfig
+
 	DBHost     string
 	DBPort     string
 	DBName     string
@@ -100,6 +102,8 @@ func Load() (Config, error) {
 		WhatsAppAPIPassword:    getEnv("WHATSAPP_API_PASSWORD", ""),
 		WhatsAppWebhookSecret:  getEnv("WHATSAPP_WEBHOOK_SECRET", "secret"),
 		VerifyWebhookSignature: getBoolEnv("WHATSAPP_WEBHOOK_VERIFY_SIGNATURE", true),
+
+		Database: NewDatabaseConfig(),
 
 		DBHost:     getEnv("DB_HOST", "127.0.0.1"),
 		DBPort:     getEnv("DB_PORT", "3306"),

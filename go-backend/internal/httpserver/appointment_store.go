@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -116,10 +117,37 @@ func appointmentStoreHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		result, err := db.Exec(`
-			INSERT INTO appointments (customer_id, vehicle_id, mechanic_id, scheduled_at, status, notes, created_at, updated_at)
-			VALUES (?, ?, ?, ?, 'scheduled', ?, ?, ?)
-		`, nullableInt64(payload.CustomerID), nullableInt64(payload.VehicleID), *payload.MechanicID, scheduledAt, nullableString(payload.Notes), time.Now(), time.Now())
+		schema, err := detectAppointmentSchema(db)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, response{"message": "failed to inspect appointment schema"})
+			return
+		}
+
+		now := time.Now()
+		insertColumns := []string{"customer_id", "vehicle_id", "mechanic_id", schema.scheduledColumn, "status", "notes", "created_at", "updated_at"}
+		insertValues := []any{nullableInt64(payload.CustomerID), nullableInt64(payload.VehicleID), *payload.MechanicID, scheduledAt, "scheduled", nullableString(payload.Notes), now, now}
+
+		if schema.hasScheduledEnd {
+			insertColumns = append(insertColumns, "scheduled_end_at")
+			insertValues = append(insertValues, scheduledAt.Add(2*time.Hour))
+		}
+		if schema.hasStartAt && schema.scheduledColumn != "scheduled_start_at" {
+			insertColumns = append(insertColumns, "scheduled_start_at")
+			insertValues = append(insertValues, scheduledAt)
+		}
+		if schema.hasServiceType {
+			insertColumns = append(insertColumns, "service_type")
+			insertValues = append(insertValues, "general_service")
+		}
+		if schema.scheduledColumn != "scheduled_at" && schema.hasScheduledAt {
+			insertColumns = append(insertColumns, "scheduled_at")
+			insertValues = append(insertValues, scheduledAt)
+		}
+
+		placeholders := strings.TrimRight(strings.Repeat("?, ", len(insertColumns)), ", ")
+		query := fmt.Sprintf("INSERT INTO appointments (%s) VALUES (%s)", strings.Join(insertColumns, ", "), placeholders)
+
+		result, err := db.Exec(query, insertValues...)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, response{"message": "failed to create appointment"})
 			return
@@ -177,8 +205,14 @@ func parseAppointmentScheduledAt(raw string) (time.Time, error) {
 }
 
 func appointmentExistsAtSlot(db *sql.DB, mechanicID int64, scheduledAt time.Time) (bool, error) {
+	schema, err := detectAppointmentSchema(db)
+	if err != nil {
+		return false, err
+	}
+
 	var id int64
-	err := db.QueryRow(`SELECT id FROM appointments WHERE mechanic_id = ? AND scheduled_at = ? LIMIT 1`, mechanicID, scheduledAt).Scan(&id)
+	query := fmt.Sprintf("SELECT id FROM appointments WHERE mechanic_id = ? AND %s = ? LIMIT 1", schema.scheduledColumn)
+	err = db.QueryRow(query, mechanicID, scheduledAt).Scan(&id)
 	if err == sql.ErrNoRows {
 		return false, nil
 	}

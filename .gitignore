@@ -22,6 +22,9 @@ yarn-error.log
 # Local Go build artifacts
 go-backend/*.exe
 go-backend/*.exe~
+/.gocache/
+/.gomodcache/
+go-backend/internal/httpserver/*.go.*
 
 # Nested frontend artifacts (avoid accidental commit)
 go-frontend/node_modules/

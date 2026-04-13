@@ -74,6 +74,7 @@ func partPurchaseUpdateStatusHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		defer func() { _ = tx.Rollback() }()
+		now := time.Now()
 
 		var oldStatus string
 		var supplierID sql.NullInt64
@@ -94,12 +95,12 @@ func partPurchaseUpdateStatusHandler(db *sql.DB) http.HandlerFunc {
 		}
 
 		if payload.Status == "received" && actualDeliveryAt != nil {
-			if _, err := tx.Exec(`UPDATE part_purchases SET status = ?, actual_delivery_date = ?, updated_at = NOW() WHERE id = ?`, payload.Status, actualDeliveryAt.Format("2006-01-02"), purchaseIntID); err != nil {
+			if _, err := tx.Exec(`UPDATE part_purchases SET status = ?, actual_delivery_date = ?, updated_at = ? WHERE id = ?`, payload.Status, actualDeliveryAt.Format("2006-01-02"), now, purchaseIntID); err != nil {
 				writeJSON(w, http.StatusInternalServerError, response{"message": "failed to update purchase status"})
 				return
 			}
 		} else {
-			if _, err := tx.Exec(`UPDATE part_purchases SET status = ?, updated_at = NOW() WHERE id = ?`, payload.Status, purchaseIntID); err != nil {
+			if _, err := tx.Exec(`UPDATE part_purchases SET status = ?, updated_at = ? WHERE id = ?`, payload.Status, now, purchaseIntID); err != nil {
 				writeJSON(w, http.StatusInternalServerError, response{"message": "failed to update purchase status"})
 				return
 			}
@@ -142,7 +143,7 @@ func partPurchaseUpdateStatusHandler(db *sql.DB) http.HandlerFunc {
 				priceAfterDiscount := applyDiscountTaxServiceStyle(unitPrice, discountType, discountValue)
 				afterStock := beforeStock + quantity
 
-				if _, err := tx.Exec(`UPDATE parts SET stock = ?, buy_price = ?, updated_at = NOW() WHERE id = ?`, afterStock, priceAfterDiscount, partID); err != nil {
+				if _, err := tx.Exec(`UPDATE parts SET stock = ?, buy_price = ?, updated_at = ? WHERE id = ?`, afterStock, priceAfterDiscount, now, partID); err != nil {
 					writeJSON(w, http.StatusInternalServerError, response{"message": "failed to update part stock"})
 					return
 				}
@@ -150,8 +151,8 @@ func partPurchaseUpdateStatusHandler(db *sql.DB) http.HandlerFunc {
 				note := fmt.Sprintf("Purchase from %s - %s", supplierName, nullStringValue(purchaseNumber))
 				if _, err := tx.Exec(`
 					INSERT INTO part_stock_movements (part_id, type, qty, before_stock, after_stock, unit_price, supplier_id, reference_type, reference_id, notes, created_by, created_at, updated_at)
-					VALUES (?, 'purchase', ?, ?, ?, ?, ?, 'App\\Models\\PartPurchase', ?, ?, ?, NOW(), NOW())
-				`, partID, quantity, beforeStock, afterStock, priceAfterDiscount, nullInt(supplierID), purchaseIntID, note, nullableInt64Ptr(payload.ActorUserID)); err != nil {
+					VALUES (?, 'purchase', ?, ?, ?, ?, ?, 'App\\Models\\PartPurchase', ?, ?, ?, ?, ?)
+				`, partID, quantity, beforeStock, afterStock, priceAfterDiscount, nullInt(supplierID), purchaseIntID, note, nullableInt64Ptr(payload.ActorUserID), now, now); err != nil {
 					writeJSON(w, http.StatusInternalServerError, response{"message": "failed to create stock movement"})
 					return
 				}

@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"strings"
 )
@@ -43,20 +44,25 @@ func appointmentDetailHandler(db *sql.DB) http.HandlerFunc {
 }
 
 func queryAppointmentDetail(db *sql.DB, appointmentID string) (response, error) {
-	const q = `
+	schema, err := detectAppointmentSchema(db)
+	if err != nil {
+		return nil, err
+	}
+
+	q := fmt.Sprintf(`
 		SELECT a.id, a.status, a.mechanic_id,
-		       DATE_FORMAT(a.scheduled_at, '%Y-%m-%d %H:%i:%s') AS scheduled_at,
+		       %s AS scheduled_at,
 		       a.notes,
 		       c.id, c.name, c.phone,
 		       v.id, v.plate_number, v.brand, v.model,
-		       m.id, m.name, m.specialty
+		       m.id, m.name, %s
 		FROM appointments a
 		LEFT JOIN customers c ON c.id = a.customer_id
 		LEFT JOIN vehicles v ON v.id = a.vehicle_id
 		LEFT JOIN mechanics m ON m.id = a.mechanic_id
 		WHERE a.id = ?
 		LIMIT 1
-	`
+	`, formatDateTimeExpr(db, schema.scheduledExpr), schema.specialtyExpr)
 
 	var id int64
 	var status sql.NullString

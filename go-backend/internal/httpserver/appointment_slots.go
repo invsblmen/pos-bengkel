@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -62,12 +63,17 @@ func queryMechanicName(db *sql.DB, mechanicID string) (string, error) {
 }
 
 func queryAppointmentsForMechanicDate(db *sql.DB, mechanicID string, dateValue time.Time) ([]time.Time, error) {
-	const q = `
-		SELECT scheduled_at
+	schema, err := detectAppointmentSchema(db)
+	if err != nil {
+		return nil, err
+	}
+
+	q := fmt.Sprintf(`
+		SELECT %s
 		FROM appointments
 		WHERE mechanic_id = ?
-		  AND DATE(scheduled_at) = ?
-	`
+		  AND %s = ?
+	`, schema.scheduledExpr, schema.scheduledDate)
 
 	rows, err := db.Query(q, mechanicID, dateValue.Format("2006-01-02"))
 	if err != nil {

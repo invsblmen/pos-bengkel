@@ -107,17 +107,36 @@ Isi env berikut agar endpoint vehicle insights dapat query ke database:
 - DB_PASSWORD
 - DB_PARAMS
 
-## Rekomendasi Lokal
+## Mode Database Lokal
 
-Gunakan MariaDB untuk local development, bukan SQLite, supaya hasil query tetap konsisten dengan Laravel dan production.
+Go backend sekarang mendukung dua mode database:
 
-Saran praktis:
+- `sqlite` untuk target local-first workshop mode
+- `mysql` untuk parity mode dengan schema Laravel/MariaDB
 
-- Laravel: schema `pos_bengkel_local`
-- Go backend: schema `pos_bengkel_go_local`
-- Keduanya boleh berada di instance MariaDB lokal yang sama pada port 3306
+Contoh mode SQLite:
 
-SQLite tetap boleh dipakai untuk test cepat yang tidak sensitif terhadap perilaku SQL.
+```env
+GO_DATABASE_DRIVER=sqlite
+GO_DATABASE_SQLITE_PATH=./data/posbengkel.db
+```
+
+Contoh mode MySQL:
+
+```env
+GO_DATABASE_DRIVER=mysql
+GO_DATABASE_HOST=127.0.0.1
+GO_DATABASE_PORT=3306
+GO_DATABASE_NAME=pos_bengkel_go_local
+GO_DATABASE_USER=pos_bengkel
+GO_DATABASE_PASSWORD=pos_bengkel_password
+```
+
+Catatan penting:
+
+1. Runtime server Go akan mengikuti `GO_DATABASE_DRIVER`.
+2. Env `DB_*` lama masih dibaca sebagai fallback agar setup lama tidak langsung rusak.
+3. Sebagian handler masih dibuat dari query parity Laravel, jadi mode SQLite perlu diverifikasi endpoint per endpoint saat migrasi local-first dilanjutkan.
 
 ## Konfigurasi Sync Local -> Hosting
 

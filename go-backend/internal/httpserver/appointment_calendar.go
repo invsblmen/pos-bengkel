@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -70,18 +71,23 @@ func parseIntWithFallback(raw string, fallback int) int {
 }
 
 func queryCalendarAppointmentsByDate(db *sql.DB, startDate, endDate time.Time) (map[string][]response, error) {
-	const q = `
+	schema, err := detectAppointmentSchema(db)
+	if err != nil {
+		return nil, err
+	}
+
+	q := fmt.Sprintf(`
 		SELECT a.id, a.status, a.mechanic_id,
-		       DATE_FORMAT(a.scheduled_at, '%Y-%m-%d %H:%i:%s') AS scheduled_at,
-		       DATE_FORMAT(a.scheduled_at, '%Y-%m-%d') AS scheduled_date,
+		       %s AS scheduled_at,
+		       %s AS scheduled_date,
 		       c.name,
 		       m.id, m.name
 		FROM appointments a
 		LEFT JOIN customers c ON c.id = a.customer_id
 		LEFT JOIN mechanics m ON m.id = a.mechanic_id
-		WHERE a.scheduled_at BETWEEN ? AND ?
-		ORDER BY a.scheduled_at ASC, a.id ASC
-	`
+		WHERE %s BETWEEN ? AND ?
+		ORDER BY %s ASC, a.id ASC
+	`, formatDateTimeExpr(db, schema.scheduledExpr), schema.scheduledDate, schema.scheduledExpr, schema.scheduledExpr)
 
 	rows, err := db.Query(q, startDate.Format("2006-01-02 15:04:05"), endDate.Format("2006-01-02 15:04:05"))
 	if err != nil {

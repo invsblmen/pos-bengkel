@@ -308,11 +308,11 @@ func queryServiceOrderIndexStats(db *sql.DB) (map[string]any, error) {
 
 	query := `
 		SELECT
-			SUM(IF(status = 'pending', 1, 0)) as pending,
-			SUM(IF(status = 'in_progress', 1, 0)) as in_progress,
-			SUM(IF(status = 'completed', 1, 0)) as completed,
-			SUM(IF(status = 'paid', 1, 0)) as paid,
-			SUM(IF(status IN ('completed', 'paid'), grand_total, 0)) as total_revenue
+			SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+			SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
+			SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+			SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) as paid,
+			SUM(CASE WHEN status IN ('completed', 'paid') THEN grand_total ELSE 0 END) as total_revenue
 		FROM service_orders
 		WHERE deleted_at IS NULL
 	`

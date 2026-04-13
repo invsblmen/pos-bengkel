@@ -131,6 +131,7 @@ CREATE TABLE IF NOT EXISTS mechanics (
     phone TEXT,
     email TEXT,
     specialization TEXT,
+    specialty TEXT,
     hourly_rate REAL DEFAULT 0,
     skill_level TEXT DEFAULT 'junior' CHECK (skill_level IN ('junior', 'senior', 'lead')),
     is_available INTEGER DEFAULT 1,
@@ -216,11 +217,13 @@ CREATE TABLE IF NOT EXISTS service_order_items (
 
 CREATE TABLE IF NOT EXISTS appointments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    appointment_number TEXT UNIQUE NOT NULL,
-    customer_id INTEGER NOT NULL,
+    appointment_number TEXT UNIQUE,
+    customer_id INTEGER,
     vehicle_id INTEGER,
+    mechanic_id INTEGER,
     service_type TEXT NOT NULL,
     status TEXT DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show')),
+    scheduled_at TEXT,
     scheduled_start_at TEXT NOT NULL,
     scheduled_end_at TEXT NOT NULL,
     actual_start_at TEXT,
@@ -231,7 +234,8 @@ CREATE TABLE IF NOT EXISTS appointments (
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
     deleted_at TEXT,
     FOREIGN KEY (customer_id) REFERENCES customers(id),
-    FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)
+    FOREIGN KEY (vehicle_id) REFERENCES vehicles(id),
+    FOREIGN KEY (mechanic_id) REFERENCES mechanics(id)
 );
 
 -- ============================================================================
@@ -687,6 +691,8 @@ CREATE INDEX idx_service_order_items_part_id ON service_order_items(part_id);
 -- Appointments
 CREATE INDEX idx_appointments_customer_id ON appointments(customer_id);
 CREATE INDEX idx_appointments_vehicle_id ON appointments(vehicle_id);
+CREATE INDEX idx_appointments_mechanic_id ON appointments(mechanic_id);
+CREATE INDEX idx_appointments_scheduled_at ON appointments(scheduled_at);
 CREATE INDEX idx_appointments_scheduled_start ON appointments(scheduled_start_at);
 CREATE INDEX idx_appointments_status ON appointments(status);
 

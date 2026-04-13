@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"posbengkel/go-backend/internal/events"
 )
@@ -59,7 +60,7 @@ func appointmentStatusHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		result, err := db.Exec(`UPDATE appointments SET status = ?, updated_at = NOW() WHERE id = ?`, payload.Status, appointmentID)
+		result, err := db.Exec(`UPDATE appointments SET status = ?, updated_at = ? WHERE id = ?`, payload.Status, time.Now(), appointmentID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, response{"message": "failed to update appointment"})
 			return

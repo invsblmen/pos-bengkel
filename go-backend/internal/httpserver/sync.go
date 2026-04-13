@@ -95,8 +95,23 @@ type syncItemRecord struct {
 	UpdatedAt    time.Time       `json:"updated_at"`
 }
 
-func ensureSyncSchema(db *sql.DB) error {
-	statements := []string{
+func ensureSyncSchema(db *sql.DB, driver string) error {
+	statements := mysqlSyncSchemaStatements()
+	if driver == "sqlite" {
+		statements = sqliteSyncSchemaStatements()
+	}
+
+	for _, statement := range statements {
+		if _, err := db.Exec(statement); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func mysqlSyncSchemaStatements() []string {
+	return []string{
 		`CREATE TABLE IF NOT EXISTS sync_batches (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
 			sync_batch_id CHAR(36) NOT NULL UNIQUE,
@@ -137,14 +152,50 @@ func ensureSyncSchema(db *sql.DB) error {
 			INDEX sync_outbox_payload_idx (payload_hash)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 	}
+}
 
-	for _, statement := range statements {
-		if _, err := db.Exec(statement); err != nil {
-			return err
-		}
+func sqliteSyncSchemaStatements() []string {
+	return []string{
+		`CREATE TABLE IF NOT EXISTS sync_batches (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			sync_batch_id TEXT NOT NULL UNIQUE,
+			scope TEXT NOT NULL,
+			payload_type TEXT NOT NULL,
+			source_date TEXT NULL,
+			source_workshop_id TEXT NULL,
+			payload_hash TEXT NOT NULL,
+			payload_json TEXT NULL,
+			response_json TEXT NULL,
+			status TEXT NOT NULL DEFAULT 'pending',
+			attempt_count INTEGER NOT NULL DEFAULT 0,
+			last_attempt_at TEXT NULL,
+			acknowledged_at TEXT NULL,
+			sent_at TEXT NULL,
+			last_error TEXT NULL,
+			created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS sync_batches_scope_date_idx ON sync_batches(scope, source_date)`,
+		`CREATE INDEX IF NOT EXISTS sync_batches_status_idx ON sync_batches(status)`,
+		`CREATE TABLE IF NOT EXISTS sync_outbox_items (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			sync_batch_id TEXT NOT NULL,
+			entity_type TEXT NOT NULL,
+			entity_id TEXT NOT NULL,
+			event_type TEXT NOT NULL,
+			payload TEXT NOT NULL,
+			payload_hash TEXT NOT NULL,
+			status TEXT NOT NULL DEFAULT 'pending',
+			attempt_count INTEGER NOT NULL DEFAULT 0,
+			last_attempt_at TEXT NULL,
+			last_error TEXT NULL,
+			created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS sync_outbox_batch_status_idx ON sync_outbox_items(sync_batch_id, status)`,
+		`CREATE INDEX IF NOT EXISTS sync_outbox_entity_idx ON sync_outbox_items(entity_type, entity_id)`,
+		`CREATE INDEX IF NOT EXISTS sync_outbox_payload_idx ON sync_outbox_items(payload_hash)`,
 	}
-
-	return nil
 }
 
 func syncStatusHandler(db *sql.DB, cfg config.Config) http.HandlerFunc {
@@ -419,7 +470,7 @@ func syncBuildBatch(db *sql.DB, cfg config.Config, scope string, sourceDate time
 		INSERT INTO sync_batches (
 			sync_batch_id, scope, payload_type, source_date, source_workshop_id, payload_hash,
 			payload_json, status, attempt_count, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 0, NOW(), NOW())
+		) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	`, batchID, scope, "daily_snapshot", sourceDate.Format("2006-01-02"), cfg.SyncSourceID, batchPayload["payload_hash"], string(payloadJSON)); err != nil {
 		return nil, err
 	}
@@ -435,7 +486,7 @@ func syncBuildBatch(db *sql.DB, cfg config.Config, scope string, sourceDate time
 			INSERT INTO sync_outbox_items (
 				sync_batch_id, entity_type, entity_id, event_type, payload, payload_hash,
 				status, attempt_count, created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, NOW(), NOW())
+			) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		`, batchID, item["entity_type"], fmt.Sprint(item["entity_id"]), item["event_type"], string(payloadBytes), item["payload_hash"]); err != nil {
 			return nil, err
 		}
@@ -495,7 +546,7 @@ func syncSendBatchByID(db *sql.DB, cfg config.Config, batchID string) (response,
 	now := time.Now()
 	if _, err := db.Exec(`
 		UPDATE sync_batches
-		SET status = 'sent', attempt_count = attempt_count + 1, last_attempt_at = ?, sent_at = ?, last_error = NULL, updated_at = NOW()
+		SET status = 'sent', attempt_count = attempt_count + 1, last_attempt_at = ?, sent_at = ?, last_error = NULL, updated_at = CURRENT_TIMESTAMP
 		WHERE sync_batch_id = ?
 	`, now, now, batchID); err != nil {
 		return nil, err
@@ -514,7 +565,7 @@ func syncSendBatchByID(db *sql.DB, cfg config.Config, batchID string) (response,
 	if err != nil {
 		_, _ = db.Exec(`
 			UPDATE sync_batches
-			SET status = 'failed', last_error = ?, updated_at = NOW()
+			SET status = 'failed', last_error = ?, updated_at = CURRENT_TIMESTAMP
 			WHERE sync_batch_id = ?
 		`, err.Error(), batchID)
 		return nil, err
@@ -530,7 +581,7 @@ func syncSendBatchByID(db *sql.DB, cfg config.Config, batchID string) (response,
 	if responseBody.StatusCode < http.StatusOK || responseBody.StatusCode >= http.StatusMultipleChoices {
 		_, _ = db.Exec(`
 			UPDATE sync_batches
-			SET status = 'failed', last_error = ?, response_json = ?, updated_at = NOW()
+			SET status = 'failed', last_error = ?, response_json = ?, updated_at = CURRENT_TIMESTAMP
 			WHERE sync_batch_id = ?
 		`, fmt.Sprintf("hosting returned HTTP %d", responseBody.StatusCode), string(bodyBytes), batchID)
 		return result, fmt.Errorf("hosting returned HTTP %d", responseBody.StatusCode)
@@ -538,14 +589,14 @@ func syncSendBatchByID(db *sql.DB, cfg config.Config, batchID string) (response,
 
 	if _, err := db.Exec(`
 		UPDATE sync_batches
-		SET status = 'acknowledged', acknowledged_at = ?, response_json = ?, last_error = NULL, updated_at = NOW()
+		SET status = 'acknowledged', acknowledged_at = ?, response_json = ?, last_error = NULL, updated_at = CURRENT_TIMESTAMP
 		WHERE sync_batch_id = ?
 	`, now, string(bodyBytes), batchID); err != nil {
 		return nil, err
 	}
 	if _, err := db.Exec(`
 		UPDATE sync_outbox_items
-		SET status = 'sent', attempt_count = attempt_count + 1, last_attempt_at = ?, last_error = NULL, updated_at = NOW()
+		SET status = 'sent', attempt_count = attempt_count + 1, last_attempt_at = ?, last_error = NULL, updated_at = CURRENT_TIMESTAMP
 		WHERE sync_batch_id = ?
 	`, now, batchID); err != nil {
 		return nil, err
@@ -791,7 +842,7 @@ func syncDateColumnStrategy(db *sql.DB, table string) (string, error) {
 		ORDER BY FIELD(column_name, 'updated_at', 'created_at')
 	`, table)
 	if err != nil {
-		return "", err
+		return syncDateColumnStrategySQLiteFallback(db, table)
 	}
 	defer rows.Close()
 
@@ -802,6 +853,42 @@ func syncDateColumnStrategy(db *sql.DB, table string) (string, error) {
 			return "", err
 		}
 		columns = append(columns, column)
+	}
+
+	if len(columns) == 0 {
+		return syncDateColumnStrategySQLiteFallback(db, table)
+	}
+	if containsString(columns, "updated_at") && containsString(columns, "created_at") {
+		return "COALESCE(updated_at, created_at)", nil
+	}
+	return columns[0], nil
+}
+
+func syncDateColumnStrategySQLiteFallback(db *sql.DB, table string) (string, error) {
+	rows, err := db.Query(fmt.Sprintf("PRAGMA table_info(`%s`)", table))
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	columns := make([]string, 0, 2)
+	for rows.Next() {
+		var (
+			cid        int
+			name       string
+			columnType string
+			notNull    int
+			defaultVal sql.NullString
+			pk         int
+		)
+
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultVal, &pk); err != nil {
+			return "", err
+		}
+
+		if name == "updated_at" || name == "created_at" {
+			columns = append(columns, name)
+		}
 	}
 
 	if len(columns) == 0 {

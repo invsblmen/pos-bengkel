@@ -2,10 +2,12 @@ package httpserver
 
 import (
 	"database/sql"
+	"fmt"
 	"math"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 type appointmentIndexParams struct {
@@ -73,11 +75,16 @@ func parseAppointmentIndexParams(r *http.Request) appointmentIndexParams {
 }
 
 func queryAppointmentIndexPage(db *sql.DB, query url.Values, params appointmentIndexParams) (response, error) {
+	schema, err := detectAppointmentSchema(db)
+	if err != nil {
+		return nil, err
+	}
+
 	if params.PerPage > 100 {
 		params.PerPage = 100
 	}
 
-	whereClause, args := buildAppointmentIndexWhereClause(params)
+	whereClause, args := buildAppointmentIndexWhereClauseWithColumn(params, schema.scheduledDate)
 	countQuery := `
 		SELECT COUNT(*)
 		FROM appointments a
@@ -103,19 +110,19 @@ func queryAppointmentIndexPage(db *sql.DB, query url.Values, params appointmentI
 		currentPage = lastPage
 	}
 
-	dataQuery := `
+	dataQuery := fmt.Sprintf(`
 		SELECT a.id, a.status, a.mechanic_id,
-		       DATE_FORMAT(a.scheduled_at, '%Y-%m-%d %H:%i:%s') AS scheduled_at,
+		       %s AS scheduled_at,
 		       a.notes,
 		       c.id, c.name, c.phone,
 		       v.id, v.plate_number, v.brand, v.model,
-		       m.id, m.name, m.specialty
+		       m.id, m.name, %s
 		FROM appointments a
 		LEFT JOIN customers c ON c.id = a.customer_id
 		LEFT JOIN vehicles v ON v.id = a.vehicle_id
 		LEFT JOIN mechanics m ON m.id = a.mechanic_id
-	` + whereClause + `
-		ORDER BY a.scheduled_at ASC, a.id ASC
+	`, formatDateTimeExpr(db, schema.scheduledExpr), schema.specialtyExpr) + whereClause + `
+		ORDER BY ` + schema.scheduledExpr + ` ASC, a.id ASC
 		LIMIT ? OFFSET ?
 	`
 
@@ -213,6 +220,10 @@ func queryAppointmentIndexPage(db *sql.DB, query url.Values, params appointmentI
 }
 
 func buildAppointmentIndexWhereClause(params appointmentIndexParams) (string, []any) {
+	return buildAppointmentIndexWhereClauseWithColumn(params, "DATE(a.scheduled_at)")
+}
+
+func buildAppointmentIndexWhereClauseWithColumn(params appointmentIndexParams, scheduledDateExpr string) (string, []any) {
 	clauses := make([]string, 0)
 	args := make([]any, 0)
 
@@ -225,11 +236,11 @@ func buildAppointmentIndexWhereClause(params appointmentIndexParams) (string, []
 		args = append(args, params.MechanicID)
 	}
 	if params.DateFrom != "" {
-		clauses = append(clauses, "DATE(a.scheduled_at) >= ?")
+		clauses = append(clauses, scheduledDateExpr+" >= ?")
 		args = append(args, params.DateFrom)
 	}
 	if params.DateTo != "" {
-		clauses = append(clauses, "DATE(a.scheduled_at) <= ?")
+		clauses = append(clauses, scheduledDateExpr+" <= ?")
 		args = append(args, params.DateTo)
 	}
 	if params.Search != "" {
@@ -246,22 +257,28 @@ func buildAppointmentIndexWhereClause(params appointmentIndexParams) (string, []
 }
 
 func queryAppointmentIndexStats(db *sql.DB) (response, error) {
-	const q = `
+	schema, err := detectAppointmentSchema(db)
+	if err != nil {
+		return nil, err
+	}
+
+	todayDate := time.Now().Format("2006-01-02")
+	q := fmt.Sprintf(`
 		SELECT
 			SUM(CASE WHEN status = 'scheduled' THEN 1 ELSE 0 END) AS scheduled,
 			SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) AS confirmed,
 			SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed,
 			SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled,
-			SUM(CASE WHEN DATE(scheduled_at) = CURDATE() THEN 1 ELSE 0 END) AS today
+			SUM(CASE WHEN %s = ? THEN 1 ELSE 0 END) AS today
 		FROM appointments
-	`
+	`, schema.scheduledDate)
 
 	var scheduled sql.NullInt64
 	var confirmed sql.NullInt64
 	var completed sql.NullInt64
 	var cancelled sql.NullInt64
 	var today sql.NullInt64
-	if err := db.QueryRow(q).Scan(&scheduled, &confirmed, &completed, &cancelled, &today); err != nil {
+	if err := db.QueryRow(q, todayDate).Scan(&scheduled, &confirmed, &completed, &cancelled, &today); err != nil {
 		return nil, err
 	}
 
@@ -275,7 +292,14 @@ func queryAppointmentIndexStats(db *sql.DB) (response, error) {
 }
 
 func queryAppointmentIndexMechanics(db *sql.DB) ([]response, error) {
-	rows, err := db.Query("SELECT id, name, specialty FROM mechanics ORDER BY name ASC")
+	specialtyColumn := "specialty"
+	if hasSpecialty, err := tableColumnExists(db, "mechanics", "specialty"); err == nil && !hasSpecialty {
+		if hasSpecialization, innerErr := tableColumnExists(db, "mechanics", "specialization"); innerErr == nil && hasSpecialization {
+			specialtyColumn = "specialization"
+		}
+	}
+
+	rows, err := db.Query("SELECT id, name, " + specialtyColumn + " FROM mechanics ORDER BY name ASC")
 	if err != nil {
 		return nil, err
 	}

@@ -13,33 +13,20 @@ import (
 	"posbengkel/go-backend/internal/middleware"
 	"posbengkel/go-backend/internal/services"
 	"posbengkel/go-backend/internal/websocket"
-
-	_ "github.com/go-sql-driver/mysql"
 )
 
 type response map[string]any
 
 func New(cfg config.Config) (*http.Server, error) {
 	var db *sql.DB
-	if cfg.DBName != "" && cfg.DBUser != "" {
-		dsn := dsnFromConfig(cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBParams)
-		openedDB, err := sql.Open("mysql", dsn)
-		if err == nil {
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-			defer cancel()
-			if pingErr := openedDB.PingContext(ctx); pingErr == nil {
-				db = openedDB
-			} else {
-				_ = openedDB.Close()
-				log.Printf("database connection is unavailable, running in degraded mode: %v", pingErr)
-			}
-		} else {
-			log.Printf("database open failed, running in degraded mode: %v", err)
-		}
+	if openedDB, err := initDatabase(cfg); err == nil {
+		db = openedDB
+	} else if err != nil {
+		log.Printf("database connection is unavailable, running in degraded mode: %v", err)
 	}
 
 	if db != nil {
-		if err := ensureSyncSchema(db); err != nil {
+		if err := ensureSyncSchema(db, cfg.Database.Driver); err != nil {
 			log.Printf("sync schema bootstrap failed, running without database: %v", err)
 			_ = db.Close()
 			db = nil
@@ -200,6 +187,52 @@ func New(cfg config.Config) (*http.Server, error) {
 		ReadTimeout:  cfg.ReadTimeout,
 		WriteTimeout: cfg.WriteTimeout,
 	}, nil
+}
+
+func initDatabase(cfg config.Config) (*sql.DB, error) {
+	dbConfig := cfg.Database
+
+	// Backward compatibility for older env files that still use Laravel-style DB_* vars.
+	if dbConfig.Driver == "mysql" {
+		if dbConfig.Host == "" {
+			dbConfig.Host = cfg.DBHost
+		}
+		if dbConfig.Port == "" {
+			dbConfig.Port = cfg.DBPort
+		}
+		if dbConfig.Name == "" {
+			dbConfig.Name = cfg.DBName
+		}
+		if dbConfig.User == "" {
+			dbConfig.User = cfg.DBUser
+		}
+		if dbConfig.Password == "" {
+			dbConfig.Password = cfg.DBPassword
+		}
+	}
+
+	if dbConfig.Driver == "sqlite" {
+		if dbConfig.SQLitePath == "" {
+			dbConfig.SQLitePath = "./data/posbengkel.db"
+		}
+	} else if dbConfig.Name == "" || dbConfig.User == "" {
+		return nil, nil
+	}
+
+	db, err := dbConfig.InitDatabase()
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+
+	return db, nil
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload response) {

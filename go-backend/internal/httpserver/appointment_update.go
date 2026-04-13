@@ -3,8 +3,10 @@ package httpserver
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"posbengkel/go-backend/internal/events"
 )
@@ -100,13 +102,20 @@ func appointmentUpdateHandler(db *sql.DB) http.HandlerFunc {
 		var existingScheduledAtRaw string
 		var existingStatus string
 		var existingNotes sql.NullString
-		if err := db.QueryRow(`
+		schema, err := detectAppointmentSchema(db)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, response{"message": "failed to inspect appointment schema"})
+			return
+		}
+
+		loadQuery := fmt.Sprintf(`
 			SELECT customer_id, vehicle_id, mechanic_id,
-			       DATE_FORMAT(scheduled_at, '%Y-%m-%d %H:%i:%s'), status, notes
+			       %s, status, notes
 			FROM appointments
 			WHERE id = ?
 			LIMIT 1
-		`, id).Scan(&existingCustomerID, &existingVehicleID, &existingMechanicID, &existingScheduledAtRaw, &existingStatus, &existingNotes); err != nil {
+		`, schema.scheduledExpr)
+		if err := db.QueryRow(loadQuery, id).Scan(&existingCustomerID, &existingVehicleID, &existingMechanicID, &existingScheduledAtRaw, &existingStatus, &existingNotes); err != nil {
 			if err == sql.ErrNoRows {
 				writeJSON(w, http.StatusNotFound, response{"message": "Appointment not found."})
 				return
@@ -124,14 +133,15 @@ func appointmentUpdateHandler(db *sql.DB) http.HandlerFunc {
 
 		if existingMechanicID != *payload.MechanicID || !existingScheduledAt.Equal(scheduledAt) {
 			var conflictingID int64
-			err := db.QueryRow(`
+			conflictQuery := fmt.Sprintf(`
 				SELECT id
 				FROM appointments
 				WHERE mechanic_id = ?
-				  AND scheduled_at = ?
+				  AND %s = ?
 				  AND id != ?
 				LIMIT 1
-			`, *payload.MechanicID, scheduledAt, id).Scan(&conflictingID)
+			`, schema.scheduledColumn)
+			err := db.QueryRow(conflictQuery, *payload.MechanicID, scheduledAt, id).Scan(&conflictingID)
 			if err == nil {
 				writeJSON(w, http.StatusConflict, response{
 					"message": "Slot ini sudah dibooking mekanik lain.",
@@ -147,11 +157,46 @@ func appointmentUpdateHandler(db *sql.DB) http.HandlerFunc {
 			}
 		}
 
-		result, err := db.Exec(`
+		updateAssignments := []string{
+			"customer_id = ?",
+			"vehicle_id = ?",
+			"mechanic_id = ?",
+			fmt.Sprintf("%s = ?", schema.scheduledColumn),
+			"notes = ?",
+			"updated_at = ?",
+		}
+		updateArgs := []any{
+			nullableInt64(payload.CustomerID),
+			nullableInt64(payload.VehicleID),
+			*payload.MechanicID,
+			scheduledAt,
+			nullableString(payload.Notes),
+			time.Now(),
+		}
+		if schema.hasScheduledEnd {
+			updateAssignments = append(updateAssignments, "scheduled_end_at = ?")
+			updateArgs = append(updateArgs, scheduledAt.Add(2*time.Hour))
+		}
+		if schema.hasStartAt && schema.scheduledColumn != "scheduled_start_at" {
+			updateAssignments = append(updateAssignments, "scheduled_start_at = ?")
+			updateArgs = append(updateArgs, scheduledAt)
+		}
+		if schema.hasServiceType {
+			updateAssignments = append(updateAssignments, "service_type = COALESCE(service_type, ?)")
+			updateArgs = append(updateArgs, "general_service")
+		}
+		if schema.scheduledColumn != "scheduled_at" && schema.hasScheduledAt {
+			updateAssignments = append(updateAssignments, "scheduled_at = ?")
+			updateArgs = append(updateArgs, scheduledAt)
+		}
+		updateArgs = append(updateArgs, id)
+
+		updateQuery := fmt.Sprintf(`
 			UPDATE appointments
-			SET customer_id = ?, vehicle_id = ?, mechanic_id = ?, scheduled_at = ?, notes = ?, updated_at = NOW()
+			SET %s
 			WHERE id = ?
-		`, nullableInt64(payload.CustomerID), nullableInt64(payload.VehicleID), *payload.MechanicID, scheduledAt, nullableString(payload.Notes), id)
+		`, strings.Join(updateAssignments, ", "))
+		result, err := db.Exec(updateQuery, updateArgs...)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, response{"message": "failed to update appointment"})
 			return

@@ -272,26 +272,41 @@ func insertCashTransactionItem(tx *sql.Tx, cashTransactionID, denominationID int
 }
 
 func ensureDrawerRow(tx *sql.Tx, denominationID int64) error {
-	_, err := tx.Exec(`
+	var existingID int64
+	err := tx.QueryRow(`SELECT denomination_id FROM cash_drawer_denominations WHERE denomination_id = ? LIMIT 1`, denominationID).Scan(&existingID)
+	if err == nil {
+		return nil
+	}
+	if err != sql.ErrNoRows {
+		return err
+	}
+
+	now := time.Now()
+	_, err = tx.Exec(`
 		INSERT INTO cash_drawer_denominations (denomination_id, quantity, created_at, updated_at)
-		VALUES (?, 0, NOW(), NOW())
-		ON DUPLICATE KEY UPDATE updated_at = VALUES(updated_at)
-	`, denominationID)
+		VALUES (?, 0, ?, ?)
+	`, denominationID, now, now)
 	return err
 }
 
 func adjustDrawerQuantity(tx *sql.Tx, denominationID, qtyDelta int64) error {
+	now := time.Now()
 	_, err := tx.Exec(`
 		UPDATE cash_drawer_denominations
-		SET quantity = quantity + ?, updated_at = NOW()
+		SET quantity = quantity + ?, updated_at = ?
 		WHERE denomination_id = ?
-	`, qtyDelta, denominationID)
+	`, qtyDelta, now, denominationID)
 	return err
 }
 
 func getDrawerQuantityForUpdate(tx *sql.Tx, denominationID int64) (int64, error) {
 	var qty sql.NullInt64
-	err := tx.QueryRow(`SELECT quantity FROM cash_drawer_denominations WHERE denomination_id = ? FOR UPDATE`, denominationID).Scan(&qty)
+	query := `SELECT quantity FROM cash_drawer_denominations WHERE denomination_id = ?`
+	if !isSQLiteTx(tx) {
+		query += ` FOR UPDATE`
+	}
+
+	err := tx.QueryRow(query, denominationID).Scan(&qty)
 	if err != nil {
 		return 0, err
 	}
