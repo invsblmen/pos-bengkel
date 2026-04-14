@@ -170,9 +170,11 @@ npm run dev
 
 ---
 
-## GO Frontend React SPA Implementation (2026-04-12)
+## GO Frontend React SPA Implementation (2026-04-12) [Legacy Snapshot]
 
-Status: ✅ **COMPLETED** - Full folder structure + buildable scaffold
+Status: ✅ **COMPLETED (Historical)** - Full folder structure + buildable scaffold
+
+Update terbaru (2026-04-14): frontend GO aktif sudah dimigrasikan ke Next.js App Router native di `go-frontend/`.
 
 ### Deliverables
 
@@ -189,13 +191,13 @@ Status: ✅ **COMPLETED** - Full folder structure + buildable scaffold
    - `tailwind.config.js`: Dark mode enabled, custom POS color palette (primary, accent, success, warning, danger, info)
    - `postcss.config.js`: Tailwind + Autoprefixer
    - `index.html`: Root div + Vite entry point
-   - `.env.example`: Template with VITE_API_URL, VITE_WS_URL, VITE_APP_NAME
+   - `.env.example`: Template VITE_* (legacy, sebelum migrasi Next.js)
 
 3. **Core Application Files**
    - `src/main.jsx`: React 18 createRoot boilerplate
    - `src/index.css`: @tailwind directives + global resets
    - `src/App.jsx`: BrowserRouter + Routes shell, DashboardLayout integration
-   - `src/services/api.js`: Axios instance with interceptors (Bearer token, error handling, VITE_API_URL)
+   - `src/services/api.js`: Axios instance with interceptors (Bearer token, error handling, VITE_API_URL - legacy)
    - `src/pages/Dashboard.jsx`: Landing page stub
    - `src/components/Layout/DashboardLayout.jsx`: Layout wrapper with Outlet
 
@@ -210,7 +212,7 @@ Status: ✅ **COMPLETED** - Full folder structure + buildable scaffold
 
 - [x] Folder structure follows React best practices (components/, pages/, hooks/, services/, public/)
 - [x] Dependency list compatible with Node 18+ (Vite 5, React 18, React Router v6)
-- [x] Vite config points to GO backend (VITE_API_URL port :8081)
+- [x] Vite config points to GO backend (VITE_API_URL port :8081) [legacy phase]
 - [x] Axios api.js ready for Bearer token + error handling
 - [x] Tailwind + dark mode configured
 - [x] README explains local-first architecture rationale

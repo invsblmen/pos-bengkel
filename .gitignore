@@ -30,3 +30,7 @@ go-backend/internal/httpserver/*.go.*
 # Nested frontend artifacts (avoid accidental commit)
 go-frontend/node_modules/
 go-frontend/dist/
+
+# Frontend migration backups (archive-only)
+go-frontend-vite-backup/
+go-frontend-vite-legacy-*/

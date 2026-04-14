@@ -11,6 +11,12 @@ Fokus repository saat ini adalah mode `workshop-only` (modul retail POS lama sud
 - Frontend harus parity (fitur, desain, UX) antara jalur Laravel dan GO.
 - Untuk jalur GO, realtime wajib native GO (WebSocket GO), tanpa ketergantungan Echo/Reverb.
 
+### Status Frontend GO (Update)
+
+- Frontend GO aktif sekarang berjalan sebagai Next.js App Router native di [go-frontend](go-frontend).
+- Arsip frontend legacy sudah dipruned dari workspace aktif.
+- Dokumentasi detail frontend GO tersedia di [go-frontend/README.md](go-frontend/README.md).
+
 ## Gambaran Fitur
 
 - Dashboard bengkel dengan ringkasan operasional harian.
@@ -167,7 +173,7 @@ Perbarui `.env` minimal pada bagian berikut:
 - `DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`
 - `BROADCAST_CONNECTION` (jika jalur Laravel memakai Reverb)
 - `REVERB_*` dan `VITE_REVERB_*` hanya untuk jalur Laravel
-- `VITE_GO_WS_URL` dan `VITE_GO_WS_TOKEN` untuk jalur GO realtime native
+- `NEXT_PUBLIC_WS_URL` dan `NEXT_PUBLIC_WS_TOKEN` di `.env` `go-frontend` untuk jalur GO realtime native
 
 ## Inisialisasi Database
 
@@ -192,7 +198,7 @@ npm run dev
 php artisan reverb:start
 ```
 
-Jalur GO local (realtime native GO) gunakan backend GO yang berjalan di port layanan GO (contoh `:8081`) dan frontend yang mengarah ke `VITE_GO_WS_URL`.
+Jalur GO local (realtime native GO) gunakan backend GO yang berjalan di port layanan GO (contoh `:8081`) dan frontend GO (Next.js) yang mengarah ke `NEXT_PUBLIC_WS_URL`.
 
 Jika memakai queue untuk proses async:
 

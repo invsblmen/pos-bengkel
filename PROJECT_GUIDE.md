@@ -64,7 +64,7 @@ php artisan key:generate
 
 Catatan penting:
 1. Blok Reverb di bawah ini khusus jalur Laravel.
-2. Jalur GO local gunakan konfigurasi websocket GO (`VITE_GO_WS_URL`, opsional `VITE_GO_WS_TOKEN`).
+2. Jalur GO local gunakan konfigurasi websocket GO pada frontend Next (`NEXT_PUBLIC_WS_URL`, opsional `NEXT_PUBLIC_WS_TOKEN`).
 
 ```env
 APP_NAME="POSBengkel"
@@ -93,9 +93,9 @@ VITE_REVERB_HOST="${REVERB_HOST}"
 VITE_REVERB_PORT="${REVERB_PORT}"
 VITE_REVERB_SCHEME="${REVERB_SCHEME}"
 
-# GO native realtime path (untuk frontend jalur GO)
-VITE_GO_WS_URL=ws://127.0.0.1:8081/ws
-VITE_GO_WS_TOKEN=
+# GO native realtime path (untuk frontend jalur GO / Next.js)
+NEXT_PUBLIC_WS_URL=ws://127.0.0.1:8081/ws
+NEXT_PUBLIC_WS_TOKEN=
 ```
 
 Catatan:
@@ -143,7 +143,7 @@ npm run dev
 php artisan serve
 ```
 
-Untuk jalur GO local, realtime tidak bergantung pada `php artisan reverb:start`; pastikan GO API berjalan dan frontend GO mengarah ke `VITE_GO_WS_URL`.
+Untuk jalur GO local, realtime tidak bergantung pada `php artisan reverb:start`; pastikan GO API berjalan dan frontend GO mengarah ke `NEXT_PUBLIC_WS_URL`.
 
 Jika pakai Herd, `php artisan serve` tidak wajib.
 

@@ -235,7 +235,7 @@ Schedule: benchmark:reports --iterations=2 --warmup=1 --save-history
 ## 🔗 Related Configuration
 
 - **Cache Driver:** `.env` (default: file, supports Redis/Memcached)
-- **Broadcasting split:** Laravel path may use Reverb settings in `.env`; GO path should use GO-native realtime config (e.g. `VITE_GO_WS_URL` / GO websocket endpoints).
+- **Broadcasting split:** Laravel path may use Reverb settings in `.env`; GO path should use GO-native realtime config from `go-frontend/.env` (e.g. `NEXT_PUBLIC_WS_URL` / GO websocket endpoints).
 - **Scheduler:** Enabled in `AppServiceProvider` boot or via `schedule:work`
 
 ## ✅ Validation Results
