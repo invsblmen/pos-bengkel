@@ -5,6 +5,16 @@ export default function VehicleIndex() {
   const [rows, setRows] = useState([])
   const [total, setTotal] = useState(0)
   const [stats, setStats] = useState(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [lastPage, setLastPage] = useState(1)
+  const [from, setFrom] = useState(null)
+  const [to, setTo] = useState(null)
+  const [search, setSearch] = useState('')
+  const [brand, setBrand] = useState('')
+  const [serviceStatus, setServiceStatus] = useState('')
+  const [sortBy, setSortBy] = useState('created_at')
+  const [sortDirection, setSortDirection] = useState('desc')
+  const [perPage, setPerPage] = useState(8)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -16,15 +26,31 @@ export default function VehicleIndex() {
       setError('')
 
       try {
-        const res = await api.get('/vehicles')
+        const params = {
+          page: currentPage,
+          per_page: perPage,
+          sort_by: sortBy,
+          sort_direction: sortDirection,
+        }
+
+        if (search.trim() !== '') params.search = search.trim()
+        if (brand.trim() !== '') params.brand = brand.trim()
+        if (serviceStatus !== '') params.service_status = serviceStatus
+
+        const res = await api.get('/vehicles', { params })
         if (!mounted) return
 
         const payload = res?.data || {}
-        const list = payload?.vehicles?.data || []
+        const vehicles = payload?.vehicles || {}
+        const list = vehicles?.data || []
 
         setRows(Array.isArray(list) ? list : [])
-        setTotal(Number(payload?.vehicles?.total || 0))
+        setTotal(Number(vehicles?.total || 0))
         setStats(payload?.stats || null)
+        setCurrentPage(Number(vehicles?.current_page || 1))
+        setLastPage(Number(vehicles?.last_page || 1))
+        setFrom(vehicles?.from ?? null)
+        setTo(vehicles?.to ?? null)
       } catch (err) {
         if (!mounted) return
         setError(err?.response?.data?.message || 'Gagal memuat data kendaraan.')
@@ -38,14 +64,35 @@ export default function VehicleIndex() {
     return () => {
       mounted = false
     }
-  }, [])
+  }, [currentPage, search, brand, serviceStatus, sortBy, sortDirection, perPage])
+
+  const onApplyFilters = (event) => {
+    event.preventDefault()
+    setCurrentPage(1)
+  }
+
+  const onResetFilters = () => {
+    setSearch('')
+    setBrand('')
+    setServiceStatus('')
+    setSortBy('created_at')
+    setSortDirection('desc')
+    setPerPage(8)
+    setCurrentPage(1)
+  }
+
+  const canGoPrev = currentPage > 1
+  const canGoNext = currentPage < lastPage
 
   return (
     <section className="space-y-4">
       <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <p className="text-xs uppercase tracking-wide text-slate-500">Parity Critical Screen</p>
         <h1 className="text-2xl font-semibold text-slate-900">Vehicle Index</h1>
-        <p className="text-sm text-slate-600">Total data: {total}</p>
+        <p className="text-sm text-slate-600">
+          Total data: {total}
+          {from !== null && to !== null ? ` | Menampilkan ${from}-${to}` : ''}
+        </p>
       </header>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -66,6 +113,70 @@ export default function VehicleIndex() {
           <p className="mt-1 text-xl font-semibold text-sky-900">{stats?.this_month ?? 0}</p>
         </article>
       </div>
+
+      <form className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-6" onSubmit={onApplyFilters}>
+        <input
+          type="text"
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          placeholder="Cari plate, brand, model, customer"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+        <input
+          type="text"
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          placeholder="Brand"
+          value={brand}
+          onChange={(event) => setBrand(event.target.value)}
+        />
+        <select
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          value={serviceStatus}
+          onChange={(event) => setServiceStatus(event.target.value)}
+        >
+          <option value="">Semua service status</option>
+          <option value="serviced">Serviced</option>
+          <option value="never">Never serviced</option>
+        </select>
+        <select
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          value={sortBy}
+          onChange={(event) => setSortBy(event.target.value)}
+        >
+          <option value="created_at">Urut dibuat</option>
+          <option value="plate_number">Urut plat</option>
+          <option value="brand">Urut brand</option>
+          <option value="model">Urut model</option>
+          <option value="year">Urut tahun</option>
+        </select>
+        <div className="grid grid-cols-2 gap-2">
+          <select
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            value={sortDirection}
+            onChange={(event) => setSortDirection(event.target.value)}
+          >
+            <option value="desc">Desc</option>
+            <option value="asc">Asc</option>
+          </select>
+          <select
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            value={String(perPage)}
+            onChange={(event) => setPerPage(Number(event.target.value) || 8)}
+          >
+            <option value="8">8</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+          </select>
+        </div>
+        <div className="flex gap-2">
+          <button type="submit" className="w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700">
+            Terapkan
+          </button>
+          <button type="button" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100" onClick={onResetFilters}>
+            Reset
+          </button>
+        </div>
+      </form>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         {loading ? (
@@ -104,6 +215,28 @@ export default function VehicleIndex() {
             </table>
           </div>
         )}
+      </div>
+
+      <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <p className="text-sm text-slate-600">Halaman {currentPage} dari {lastPage}</p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!canGoPrev || loading}
+            onClick={() => canGoPrev && setCurrentPage((page) => page - 1)}
+          >
+            Sebelumnya
+          </button>
+          <button
+            type="button"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!canGoNext || loading}
+            onClick={() => canGoNext && setCurrentPage((page) => page + 1)}
+          >
+            Berikutnya
+          </button>
+        </div>
       </div>
     </section>
   )
