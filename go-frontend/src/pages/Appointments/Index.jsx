@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import api from '@services/api'
 
 const STATUS_TONE = {
@@ -13,20 +14,34 @@ function statusClassName(status) {
 }
 
 export default function AppointmentIndex() {
+  const [searchParams, setSearchParams] = useSearchParams()
+
   const [rows, setRows] = useState([])
   const [total, setTotal] = useState(0)
   const [stats, setStats] = useState(null)
   const [mechanics, setMechanics] = useState([])
-  const [currentPage, setCurrentPage] = useState(1)
+  const [currentPage, setCurrentPage] = useState(Number(searchParams.get('page') || 1))
   const [lastPage, setLastPage] = useState(1)
   const [from, setFrom] = useState(null)
   const [to, setTo] = useState(null)
-  const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('all')
-  const [mechanicID, setMechanicID] = useState('all')
-  const [perPage, setPerPage] = useState(20)
+  const [search, setSearch] = useState(searchParams.get('search') || '')
+  const [status, setStatus] = useState(searchParams.get('status') || 'all')
+  const [mechanicID, setMechanicID] = useState(searchParams.get('mechanic_id') || 'all')
+  const [perPage, setPerPage] = useState(Number(searchParams.get('per_page') || 20))
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    const nextParams = {}
+
+    if (search.trim() !== '') nextParams.search = search.trim()
+    if (status !== 'all') nextParams.status = status
+    if (mechanicID !== 'all') nextParams.mechanic_id = mechanicID
+    if (perPage !== 20) nextParams.per_page = String(perPage)
+    if (currentPage > 1) nextParams.page = String(currentPage)
+
+    setSearchParams(nextParams, { replace: true })
+  }, [currentPage, search, status, mechanicID, perPage, setSearchParams])
 
   useEffect(() => {
     let mounted = true
@@ -190,6 +205,7 @@ export default function AppointmentIndex() {
                   <th className="px-3 py-2">Kendaraan</th>
                   <th className="px-3 py-2">Mekanik</th>
                   <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">Aksi</th>
                 </tr>
               </thead>
               <tbody>
@@ -206,6 +222,9 @@ export default function AppointmentIndex() {
                       <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${statusClassName(item.status)}`}>
                         {item.status || '-'}
                       </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <Link className="text-slate-700 underline" to={`/appointments/${item.id}`}>Detail</Link>
                     </td>
                   </tr>
                 ))}

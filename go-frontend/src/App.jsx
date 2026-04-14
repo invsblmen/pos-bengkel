@@ -19,7 +19,9 @@ import PartPurchaseCreate from '@pages/PartPurchases/Create'
 import PartPurchaseShow from '@pages/PartPurchases/Show'
 import PartPurchaseEdit from '@pages/PartPurchases/Edit'
 import AppointmentIndex from '@pages/Appointments/Index'
+import AppointmentShow from '@pages/Appointments/Show'
 import VehicleIndex from '@pages/Vehicles/Index'
+import VehicleShow from '@pages/Vehicles/Show'
 
 function App() {
   return (
@@ -60,10 +62,12 @@ function App() {
 
               <Route element={<ProtectedRoute requiredPermissions={['appointments-access']} />}>
                 <Route path="appointments" element={<AppointmentIndex />} />
+                <Route path="appointments/:id" element={<AppointmentShow />} />
               </Route>
 
               <Route element={<ProtectedRoute requiredPermissions={['vehicles-access']} />}>
                 <Route path="vehicles" element={<VehicleIndex />} />
+                <Route path="vehicles/:id" element={<VehicleShow />} />
               </Route>
             </Route>
           </Route>

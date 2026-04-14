@@ -1,22 +1,39 @@
 import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import api from '@services/api'
 
 export default function VehicleIndex() {
+  const [searchParams, setSearchParams] = useSearchParams()
+
   const [rows, setRows] = useState([])
   const [total, setTotal] = useState(0)
   const [stats, setStats] = useState(null)
-  const [currentPage, setCurrentPage] = useState(1)
+  const [currentPage, setCurrentPage] = useState(Number(searchParams.get('page') || 1))
   const [lastPage, setLastPage] = useState(1)
   const [from, setFrom] = useState(null)
   const [to, setTo] = useState(null)
-  const [search, setSearch] = useState('')
-  const [brand, setBrand] = useState('')
-  const [serviceStatus, setServiceStatus] = useState('')
-  const [sortBy, setSortBy] = useState('created_at')
-  const [sortDirection, setSortDirection] = useState('desc')
-  const [perPage, setPerPage] = useState(8)
+  const [search, setSearch] = useState(searchParams.get('search') || '')
+  const [brand, setBrand] = useState(searchParams.get('brand') || '')
+  const [serviceStatus, setServiceStatus] = useState(searchParams.get('service_status') || '')
+  const [sortBy, setSortBy] = useState(searchParams.get('sort_by') || 'created_at')
+  const [sortDirection, setSortDirection] = useState(searchParams.get('sort_direction') || 'desc')
+  const [perPage, setPerPage] = useState(Number(searchParams.get('per_page') || 8))
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    const nextParams = {}
+
+    if (search.trim() !== '') nextParams.search = search.trim()
+    if (brand.trim() !== '') nextParams.brand = brand.trim()
+    if (serviceStatus !== '') nextParams.service_status = serviceStatus
+    if (sortBy !== 'created_at') nextParams.sort_by = sortBy
+    if (sortDirection !== 'desc') nextParams.sort_direction = sortDirection
+    if (perPage !== 8) nextParams.per_page = String(perPage)
+    if (currentPage > 1) nextParams.page = String(currentPage)
+
+    setSearchParams(nextParams, { replace: true })
+  }, [currentPage, search, brand, serviceStatus, sortBy, sortDirection, perPage, setSearchParams])
 
   useEffect(() => {
     let mounted = true
@@ -196,6 +213,7 @@ export default function VehicleIndex() {
                   <th className="px-3 py-2">KM</th>
                   <th className="px-3 py-2">Last Service</th>
                   <th className="px-3 py-2">Next Service</th>
+                  <th className="px-3 py-2">Aksi</th>
                 </tr>
               </thead>
               <tbody>
@@ -209,6 +227,9 @@ export default function VehicleIndex() {
                     <td className="px-3 py-2">{Number(item.km || 0).toLocaleString('id-ID')}</td>
                     <td className="px-3 py-2">{item.last_service_date || '-'}</td>
                     <td className="px-3 py-2">{item.next_service_date || '-'}</td>
+                    <td className="px-3 py-2">
+                      <Link className="text-slate-700 underline" to={`/vehicles/${item.id}`}>Detail</Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>
