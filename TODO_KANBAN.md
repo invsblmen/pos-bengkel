@@ -40,7 +40,7 @@ Status audit lanjutan (2026-04-12, pass-2):
 
 ## In Progress
 
-- [x] [INFRA] Create GO Frontend React SPA scaffold (Vite + React 18 + Tailwind + React Router).
+- [x] [INFRA] Create GO Frontend React SPA scaffold (Vite + React 18 + Tailwind + React Router) [historical phase].
 - [ ] [INFRA] Implement GO pages: Dashboard, Service Orders Index, Appointments Index, Vehicles Index (match parity with Laravel).
 
 ## Blocked
@@ -53,7 +53,8 @@ Status audit lanjutan (2026-04-12, pass-2):
 - [x] [INFRA] Implement GO database configuration module (internal/config/database.go with driver detection).
 - [x] [INFRA] Create SQLite schema migration (001_init_sqlite.sql with all POS tables).
 - [x] [INFRA] Create setup script for SQLite initialization (scripts/setup-go-sqlite.ps1).
-- [x] [INFRA] Create GO Frontend React SPA scaffold (Vite + React 18 + Tailwind + React Router + Axios).
+- [x] [INFRA] Create GO Frontend React SPA scaffold (Vite + React 18 + Tailwind + React Router + Axios) [historical phase].
+- [x] [INFRA] Migrate GO frontend runtime to Next.js App Router native (`go-frontend/app`) and prune legacy archive.
 - [x] [TEST] Eksekusi bundle validasi migrasi (review risiko realtime GO + `go test ./...` + `npm run build`).
 - [x] [INFRA] Tambahkan guard agar launcher tidak spawn process orphan pada skenario logout/login berulang.
 - [x] [TEST] Tambahkan feature test untuk `customers.show` (akses valid, akses unauthorized, data relasi terbaca).

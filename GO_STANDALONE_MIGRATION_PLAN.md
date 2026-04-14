@@ -77,7 +77,7 @@ Deliverable:
 
 ### Phase 1 - Frontend Go Skeleton
 
-- Pilih stack frontend Go (direkomendasikan: SPA terpisah via Vite + React/Vue, di-serve oleh Go atau reverse proxy lokal).
+- Pilih stack frontend Go (direkomendasikan: Next.js App Router + React, dijalankan sebagai app terpisah dan di-serve via Node runtime/reverse proxy lokal).
 - Buat layout dan navigasi yang meniru Laravel/Inertia saat ini.
 - Implementasi auth lokal untuk operasional bengkel.
 
