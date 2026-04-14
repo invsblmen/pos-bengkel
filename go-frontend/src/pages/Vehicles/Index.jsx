@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import api from '@services/api'
+import { connectRealtime } from '@services/realtime'
 
 export default function VehicleIndex() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -20,6 +21,8 @@ export default function VehicleIndex() {
   const [perPage, setPerPage] = useState(Number(searchParams.get('per_page') || 8))
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null)
+  const [lastRealtimeEvent, setLastRealtimeEvent] = useState('')
+  const [realtimeConnected, setRealtimeConnected] = useState(false)
   const [refreshTick, setRefreshTick] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -33,6 +36,30 @@ export default function VehicleIndex() {
 
     return () => clearInterval(interval)
   }, [autoRefresh])
+
+  useEffect(() => {
+    const disconnect = connectRealtime({
+      domains: ['appointments', 'service_orders'],
+      onOpen: () => setRealtimeConnected(true),
+      onClose: () => setRealtimeConnected(false),
+      onEvent: (event) => {
+        if (!event) return
+
+        const eventType = typeof event.type === 'string' ? event.type : ''
+        const isRelevantDomain = event.domain === 'appointments' || event.domain === 'service_orders'
+        const isRelevantType = eventType.startsWith('appointment.') || eventType.startsWith('service_order.')
+        if (!isRelevantDomain && !isRelevantType) return
+
+        setLastRealtimeEvent(`${event.type || 'event'} @ ${new Date().toLocaleTimeString('id-ID')}`)
+        setLastUpdatedAt(new Date())
+        setRefreshTick((tick) => tick + 1)
+      },
+    })
+
+    return () => {
+      disconnect()
+    }
+  }, [])
 
   useEffect(() => {
     const nextParams = {}
@@ -130,6 +157,10 @@ export default function VehicleIndex() {
             Auto refresh (30s)
           </label>
           <span className="text-slate-500">{lastUpdatedAt ? `Last updated: ${lastUpdatedAt.toLocaleTimeString('id-ID')}` : 'Belum ada refresh'}</span>
+          <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${realtimeConnected ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+            {realtimeConnected ? 'Realtime connected' : 'Realtime disconnected'}
+          </span>
+          {lastRealtimeEvent ? <span className="text-slate-500">{lastRealtimeEvent}</span> : null}
         </div>
       </header>
 

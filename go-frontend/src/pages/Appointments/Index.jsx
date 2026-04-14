@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import api from '@services/api'
+import { connectRealtime } from '@services/realtime'
 
 const STATUS_TONE = {
   scheduled: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
@@ -30,6 +31,8 @@ export default function AppointmentIndex() {
   const [perPage, setPerPage] = useState(Number(searchParams.get('per_page') || 20))
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null)
+  const [lastRealtimeEvent, setLastRealtimeEvent] = useState('')
+  const [realtimeConnected, setRealtimeConnected] = useState(false)
   const [refreshTick, setRefreshTick] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -43,6 +46,40 @@ export default function AppointmentIndex() {
 
     return () => clearInterval(interval)
   }, [autoRefresh])
+
+  useEffect(() => {
+    const disconnect = connectRealtime({
+      domains: ['appointments'],
+      onOpen: () => setRealtimeConnected(true),
+      onClose: () => setRealtimeConnected(false),
+      onEvent: (event) => {
+        if (!event) return
+
+        const isAppointmentDomain = event.domain === 'appointments'
+        const isAppointmentType = typeof event.type === 'string' && event.type.startsWith('appointment.')
+        if (!isAppointmentDomain && !isAppointmentType) return
+
+        const incomingStatus = event?.data?.status || event?.data?.new_status || null
+        const incomingID = event?.id || event?.data?.id || null
+
+        if (incomingID && incomingStatus) {
+          setRows((prevRows) => prevRows.map((row) => (
+            String(row.id) === String(incomingID)
+              ? { ...row, status: incomingStatus }
+              : row
+          )))
+        }
+
+        setLastRealtimeEvent(`${event.type || 'event'} @ ${new Date().toLocaleTimeString('id-ID')}`)
+        setLastUpdatedAt(new Date())
+        setRefreshTick((tick) => tick + 1)
+      },
+    })
+
+    return () => {
+      disconnect()
+    }
+  }, [])
 
   useEffect(() => {
     const nextParams = {}
@@ -135,6 +172,10 @@ export default function AppointmentIndex() {
             Auto refresh (30s)
           </label>
           <span className="text-slate-500">{lastUpdatedAt ? `Last updated: ${lastUpdatedAt.toLocaleTimeString('id-ID')}` : 'Belum ada refresh'}</span>
+          <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${realtimeConnected ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+            {realtimeConnected ? 'Realtime connected' : 'Realtime disconnected'}
+          </span>
+          {lastRealtimeEvent ? <span className="text-slate-500">{lastRealtimeEvent}</span> : null}
         </div>
       </header>
 
