@@ -6,6 +6,11 @@ export default function ServiceOrderShow() {
   const { id } = useParams()
   const [order, setOrder] = useState(null)
   const [warrantyRegistrations, setWarrantyRegistrations] = useState({})
+  const [nextStatus, setNextStatus] = useState('pending')
+  const [odometerKM, setOdometerKM] = useState('')
+  const [statusNotes, setStatusNotes] = useState('')
+  const [updating, setUpdating] = useState(false)
+  const [actionMessage, setActionMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -19,7 +24,14 @@ export default function ServiceOrderShow() {
       try {
         const res = await api.get(`/service-orders/${id}`)
         if (!mounted) return
-        setOrder(res?.data?.order || null)
+        const payload = res?.data?.order || null
+        setOrder(payload)
+        if (payload?.status) {
+          setNextStatus(payload.status)
+        }
+        if (payload?.odometer_km) {
+          setOdometerKM(String(payload.odometer_km))
+        }
         setWarrantyRegistrations(res?.data?.warrantyRegistrations || {})
       } catch (err) {
         if (!mounted) return
@@ -38,6 +50,44 @@ export default function ServiceOrderShow() {
     }
   }, [id])
 
+  const onUpdateStatus = async () => {
+    if (!id || !nextStatus) return
+
+    setUpdating(true)
+    setError('')
+    setActionMessage('')
+
+    try {
+      const payload = {
+        status: nextStatus,
+        notes: statusNotes,
+      }
+
+      if (odometerKM.trim() !== '') {
+        payload.odometer_km = Number(odometerKM)
+      }
+
+      const res = await api.patch(`/service-orders/${id}/status`, payload)
+      const updatedStatus = res?.data?.order?.status || nextStatus
+      const updatedKM = res?.data?.order?.odometer_km
+
+      setOrder((prev) => ({
+        ...(prev || {}),
+        status: updatedStatus,
+        odometer_km: updatedKM ?? prev?.odometer_km,
+      }))
+      setNextStatus(updatedStatus)
+      if (updatedKM !== null && updatedKM !== undefined) {
+        setOdometerKM(String(updatedKM))
+      }
+      setActionMessage('Status service order berhasil diperbarui.')
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Gagal memperbarui status service order.')
+    } finally {
+      setUpdating(false)
+    }
+  }
+
   const details = Array.isArray(order?.details) ? order.details : []
 
   return (
@@ -51,6 +101,46 @@ export default function ServiceOrderShow() {
       <div>
         <Link to="/service-orders" className="text-sm font-medium text-slate-700 underline">Kembali ke service order index</Link>
       </div>
+
+      {!loading && !error && order ? (
+        <div className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-4">
+          <select
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            value={nextStatus}
+            onChange={(event) => setNextStatus(event.target.value)}
+          >
+            <option value="pending">pending</option>
+            <option value="in_progress">in_progress</option>
+            <option value="completed">completed</option>
+            <option value="paid">paid</option>
+            <option value="cancelled">cancelled</option>
+          </select>
+          <input
+            type="number"
+            min="0"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            placeholder="Odometer (opsional/wajib saat complete/paid)"
+            value={odometerKM}
+            onChange={(event) => setOdometerKM(event.target.value)}
+          />
+          <input
+            type="text"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            placeholder="Catatan status"
+            value={statusNotes}
+            onChange={(event) => setStatusNotes(event.target.value)}
+          />
+          <button
+            type="button"
+            className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={onUpdateStatus}
+            disabled={updating}
+          >
+            {updating ? 'Menyimpan...' : 'Update Status'}
+          </button>
+          {actionMessage ? <p className="text-sm font-medium text-emerald-700 md:col-span-4">{actionMessage}</p> : null}
+        </div>
+      ) : null}
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         {loading ? (
