@@ -199,7 +199,7 @@ func maxInt(a int, b int) int {
 }
 
 func getCORSOrigins() []string {
-	corsEnv := getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173")
+	corsEnv := getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:5174")
 	origins := []string{}
 
 	for _, origin := range splitCSV(corsEnv) {
@@ -209,7 +209,7 @@ func getCORSOrigins() []string {
 	}
 
 	if len(origins) == 0 {
-		origins = []string{"http://localhost:3000", "http://localhost:5173"}
+		origins = []string{"http://localhost:3000", "http://localhost:5173", "http://localhost:5174"}
 	}
 
 	return origins

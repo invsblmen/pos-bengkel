@@ -21,7 +21,7 @@ func New(cfg config.Config) (*http.Server, error) {
 	var db *sql.DB
 	if openedDB, err := initDatabase(cfg); err == nil {
 		db = openedDB
-	} else if err != nil {
+	} else {
 		log.Printf("database connection is unavailable, running in degraded mode: %v", err)
 	}
 
@@ -184,6 +184,7 @@ func New(cfg config.Config) (*http.Server, error) {
 	mux.HandleFunc("GET /api/v1/vehicles/{id}/maintenance-schedule", vehicleMaintenanceScheduleHandler(db))
 
 	handler := middleware.Recover(middleware.RequestID(middleware.RequestLogger(mux)))
+	handler = middleware.CORSMiddleware(cfg.CORSAllowedOrigins)(handler)
 
 	return &http.Server{
 		Addr:         cfg.Address(),
