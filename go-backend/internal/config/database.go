@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -29,12 +30,37 @@ func NewDatabaseConfig() DatabaseConfig {
 
 	return DatabaseConfig{
 		Driver:          driver,
-		SQLitePath:      os.Getenv("GO_DATABASE_SQLITE_PATH"),
+		SQLitePath:      resolveSQLitePath(os.Getenv("GO_DATABASE_SQLITE_PATH")),
 		MaxOpenConns:    5,
 		MaxIdleConns:    2,
 		ConnMaxLifetime: time.Hour,
 		ConnMaxIdleTime: time.Minute * 10,
 	}
+}
+
+func resolveSQLitePath(rawPath string) string {
+	path := strings.TrimSpace(rawPath)
+	if path == "" {
+		path = "./data/posbengkel.db"
+	}
+
+	if filepath.IsAbs(path) {
+		return filepath.Clean(path)
+	}
+
+	// Prefer existing file in current cwd, then fallback to workspace-root style path.
+	candidates := []string{
+		filepath.Clean(path),
+		filepath.Clean(filepath.Join("go-backend", path)),
+	}
+
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+
+	return candidates[0]
 }
 
 // BuildDSN constructs the database connection string

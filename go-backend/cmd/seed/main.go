@@ -72,26 +72,39 @@ func main() {
 		log.Fatalf("Failed to hash password: %v", err)
 	}
 
-	// Insert admin user (ignore if already exists)
-	insertUserSQL := `INSERT OR IGNORE INTO users (id, email, password_hash, name, phone, avatar, is_active, created_at, updated_at) 
-		VALUES (1, ?, ?, 'Admin User', '08123456789', '', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+	// Upsert admin user so rerunning seeder always refreshes password and active status.
+	upsertUserSQL := `
+		INSERT INTO users (email, password_hash, name, phone, avatar, is_active, created_at, updated_at)
+		VALUES (?, ?, 'Admin User', '08123456789', '', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		ON CONFLICT(email) DO UPDATE SET
+			password_hash = excluded.password_hash,
+			name = excluded.name,
+			phone = excluded.phone,
+			is_active = 1,
+			updated_at = CURRENT_TIMESTAMP
+	`
 
-	result, err := db.Exec(insertUserSQL, *email, string(hashedPassword))
+	result, err := db.Exec(upsertUserSQL, *email, string(hashedPassword))
 	if err != nil {
-		log.Fatalf("Failed to insert admin user: %v", err)
+		log.Fatalf("Failed to upsert admin user: %v", err)
 	}
 
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected > 0 {
-		log.Printf("✓ Created admin user: %s (password: %s)", *email, *password)
+		log.Printf("✓ Upserted admin user: %s (password reset to: %s)", *email, *password)
 	} else {
-		log.Printf("⚠ Admin user already exists: %s", *email)
+		log.Printf("✓ Admin user already up-to-date: %s", *email)
+	}
+
+	var userID int64
+	if err := db.QueryRow(`SELECT id FROM users WHERE email = ? LIMIT 1`, *email).Scan(&userID); err != nil {
+		log.Fatalf("Failed to find admin user id: %v", err)
 	}
 
 	// Assign admin role in the SQLite RBAC table
-	insertRoleSQL := `INSERT OR IGNORE INTO user_roles (user_id, role) VALUES (1, 'admin')`
+	insertRoleSQL := `INSERT OR IGNORE INTO user_roles (user_id, role) VALUES (?, 'admin')`
 
-	_, err = db.Exec(insertRoleSQL)
+	_, err = db.Exec(insertRoleSQL, userID)
 	if err != nil {
 		log.Fatalf("Failed to assign admin role: %v", err)
 	}

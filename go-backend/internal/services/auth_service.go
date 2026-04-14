@@ -244,23 +244,31 @@ func (as *AuthService) RefreshToken(oldToken string) (string, error) {
 
 func (as *AuthService) getUserByEmail(email string) (*User, error) {
 	user := &User{}
+	var isActiveRaw int64
+	var lastLoginRaw string
+	var createdRaw string
+	var updatedRaw string
 	err := as.db.QueryRow(
-		`SELECT id, email, password_hash, name, COALESCE(phone, ''), COALESCE(avatar, ''), COALESCE(is_active, 1), last_login_at, created_at, updated_at
+		`SELECT id, email, password_hash, name, COALESCE(phone, ''), COALESCE(avatar, ''), COALESCE(is_active, 1), COALESCE(last_login_at, ''), COALESCE(created_at, ''), COALESCE(updated_at, '')
 		 FROM users WHERE email = ?`,
 		email,
 	).Scan(
 		&user.ID, &user.Email, &user.PasswordHash, &user.Name, &user.Phone,
-		&user.Avatar, &user.IsActive, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
+		&user.Avatar, &isActiveRaw, &lastLoginRaw, &createdRaw, &updatedRaw,
 	)
 
 	if err != nil && strings.Contains(strings.ToLower(err.Error()), "unknown column") {
+		isActiveRaw = 1
+		lastLoginRaw = ""
+		createdRaw = ""
+		updatedRaw = ""
 		err = as.db.QueryRow(
 			`SELECT id, email, password, name, '' AS phone, '' AS avatar, 1 AS is_active, NULL AS last_login_at, created_at, updated_at
 			 FROM users WHERE email = ?`,
 			email,
 		).Scan(
 			&user.ID, &user.Email, &user.PasswordHash, &user.Name, &user.Phone,
-			&user.Avatar, &user.IsActive, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
+			&user.Avatar, &isActiveRaw, &lastLoginRaw, &createdRaw, &updatedRaw,
 		)
 	}
 
@@ -270,29 +278,42 @@ func (as *AuthService) getUserByEmail(email string) (*User, error) {
 		}
 		return nil, err
 	}
+
+	user.IsActive = isActiveRaw != 0
+	user.LastLoginAt = parseOptionalTime(lastLoginRaw)
+	user.CreatedAt = parseOrNow(createdRaw)
+	user.UpdatedAt = parseOrNow(updatedRaw)
 
 	return user, nil
 }
 
 func (as *AuthService) getUserByID(userID int64) (*User, error) {
 	user := &User{}
+	var isActiveRaw int64
+	var lastLoginRaw string
+	var createdRaw string
+	var updatedRaw string
 	err := as.db.QueryRow(
-		`SELECT id, email, password_hash, name, COALESCE(phone, ''), COALESCE(avatar, ''), COALESCE(is_active, 1), last_login_at, created_at, updated_at
+		`SELECT id, email, password_hash, name, COALESCE(phone, ''), COALESCE(avatar, ''), COALESCE(is_active, 1), COALESCE(last_login_at, ''), COALESCE(created_at, ''), COALESCE(updated_at, '')
 		 FROM users WHERE id = ?`,
 		userID,
 	).Scan(
 		&user.ID, &user.Email, &user.PasswordHash, &user.Name, &user.Phone,
-		&user.Avatar, &user.IsActive, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
+		&user.Avatar, &isActiveRaw, &lastLoginRaw, &createdRaw, &updatedRaw,
 	)
 
 	if err != nil && strings.Contains(strings.ToLower(err.Error()), "unknown column") {
+		isActiveRaw = 1
+		lastLoginRaw = ""
+		createdRaw = ""
+		updatedRaw = ""
 		err = as.db.QueryRow(
 			`SELECT id, email, password, name, '' AS phone, '' AS avatar, 1 AS is_active, NULL AS last_login_at, created_at, updated_at
 			 FROM users WHERE id = ?`,
 			userID,
 		).Scan(
 			&user.ID, &user.Email, &user.PasswordHash, &user.Name, &user.Phone,
-			&user.Avatar, &user.IsActive, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
+			&user.Avatar, &isActiveRaw, &lastLoginRaw, &createdRaw, &updatedRaw,
 		)
 	}
 
@@ -303,7 +324,41 @@ func (as *AuthService) getUserByID(userID int64) (*User, error) {
 		return nil, err
 	}
 
+	user.IsActive = isActiveRaw != 0
+	user.LastLoginAt = parseOptionalTime(lastLoginRaw)
+	user.CreatedAt = parseOrNow(createdRaw)
+	user.UpdatedAt = parseOrNow(updatedRaw)
+
 	return user, nil
+}
+
+func parseOptionalTime(raw string) *time.Time {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+
+	layouts := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02 15:04:05",
+		"2006-01-02 15:04:05-07:00",
+	}
+
+	for _, layout := range layouts {
+		if parsed, err := time.Parse(layout, raw); err == nil {
+			return &parsed
+		}
+	}
+
+	return nil
+}
+
+func parseOrNow(raw string) time.Time {
+	if parsed := parseOptionalTime(raw); parsed != nil {
+		return *parsed
+	}
+	return time.Now()
 }
 
 func (as *AuthService) getUserRoles(userID int64) ([]string, error) {
