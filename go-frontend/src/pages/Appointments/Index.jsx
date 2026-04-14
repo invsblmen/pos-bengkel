@@ -28,8 +28,21 @@ export default function AppointmentIndex() {
   const [status, setStatus] = useState(searchParams.get('status') || 'all')
   const [mechanicID, setMechanicID] = useState(searchParams.get('mechanic_id') || 'all')
   const [perPage, setPerPage] = useState(Number(searchParams.get('per_page') || 20))
+  const [autoRefresh, setAutoRefresh] = useState(true)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null)
+  const [refreshTick, setRefreshTick] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!autoRefresh) return undefined
+
+    const interval = setInterval(() => {
+      setRefreshTick((tick) => tick + 1)
+    }, 30000)
+
+    return () => clearInterval(interval)
+  }, [autoRefresh])
 
   useEffect(() => {
     const nextParams = {}
@@ -75,6 +88,7 @@ export default function AppointmentIndex() {
         setLastPage(Number(appointments?.last_page || 1))
         setFrom(appointments?.from ?? null)
         setTo(appointments?.to ?? null)
+        setLastUpdatedAt(new Date())
       } catch (err) {
         if (!mounted) return
         setError(err?.response?.data?.message || 'Gagal memuat data appointment.')
@@ -88,7 +102,7 @@ export default function AppointmentIndex() {
     return () => {
       mounted = false
     }
-  }, [currentPage, search, status, mechanicID, perPage])
+  }, [currentPage, search, status, mechanicID, perPage, refreshTick])
 
   const onApplyFilters = (event) => {
     event.preventDefault()
@@ -115,6 +129,13 @@ export default function AppointmentIndex() {
           Total data: {total}
           {from !== null && to !== null ? ` | Menampilkan ${from}-${to}` : ''}
         </p>
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+          <label className="inline-flex items-center gap-2 text-slate-700">
+            <input type="checkbox" checked={autoRefresh} onChange={(event) => setAutoRefresh(event.target.checked)} />
+            Auto refresh (30s)
+          </label>
+          <span className="text-slate-500">{lastUpdatedAt ? `Last updated: ${lastUpdatedAt.toLocaleTimeString('id-ID')}` : 'Belum ada refresh'}</span>
+        </div>
       </header>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
