@@ -1,10 +1,8 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Head, router, Link } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import Button from '@/Components/Dashboard/Button';
 import Pagination from '@/Components/Dashboard/Pagination';
-import { useGoRealtime } from '@/Hooks/useGoRealtime';
-import { useRealtimeToggle } from '@/Hooks/useRealtimeToggle';
 import {
     IconCirclePlus, IconPencilCog, IconTrash,
     IconPackage, IconAlertCircle, IconMapPin,
@@ -96,74 +94,8 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
         category_id: filters?.category_id || '',
         supplier_id: filters?.supplier_id || '',
     });
-    const [realtimeEnabled, setRealtimeEnabled] = useRealtimeToggle();
-    const [highlightedPartIds, setHighlightedPartIds] = useState([]);
-    const [highlightExpiresAt, setHighlightExpiresAt] = useState(null);
-    const [countdownNow, setCountdownNow] = useState(Date.now());
-    const reloadTimerRef = useRef(null);
-    const highlightTimerRef = useRef(null);
 
     useEffect(() => { setLiveItems(parts?.data || []); }, [parts?.data]);
-
-    useEffect(() => {
-        return () => {
-            if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
-            if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
-        };
-    }, []);
-
-    useEffect(() => {
-        if (!highlightExpiresAt) return undefined;
-        const interval = setInterval(() => setCountdownNow(Date.now()), 1000);
-        return () => clearInterval(interval);
-    }, [highlightExpiresAt]);
-
-    useEffect(() => {
-        if (realtimeEnabled) return;
-        if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
-        if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
-        setHighlightedPartIds([]);
-        setHighlightExpiresAt(null);
-    }, [realtimeEnabled]);
-
-    const scheduleReload = () => {
-        if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
-        reloadTimerRef.current = setTimeout(() => {
-            router.reload({
-                only: ['parts', 'stats'],
-                preserveScroll: true,
-                preserveState: true,
-            });
-        }, 300);
-    };
-
-    const { status: goRealtimeStatus } = useGoRealtime({
-        enabled: realtimeEnabled,
-        domains: ['parts'],
-        onEvent: (payload) => {
-            if (!payload || payload.domain !== 'parts') return;
-            const action = payload.action || '';
-            if (!['created', 'updated', 'deleted'].includes(action)) return;
-
-            const partId = payload.id || payload?.data?.part_id || payload?.data?.id;
-            if (partId) {
-                const normalizedId = String(partId);
-                setHighlightedPartIds((prev) => {
-                    const merged = new Set(prev);
-                    merged.add(normalizedId);
-                    return Array.from(merged);
-                });
-                const expiresAt = Date.now() + 6000;
-                setHighlightExpiresAt(expiresAt);
-                setCountdownNow(Date.now());
-                if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
-                highlightTimerRef.current = setTimeout(() => setHighlightExpiresAt(null), 6000);
-            }
-            scheduleReload();
-        },
-    });
-
-    const highlightSecondsLeft = highlightExpiresAt ? Math.max(0, Math.ceil((highlightExpiresAt - countdownNow) / 1000)) : 0;
 
     const handleSort = (column) => {
         const dir = filters?.sort_by === column && filters?.sort_direction === 'asc' ? 'desc' : 'asc';
@@ -419,13 +351,8 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                             {liveItems.map((p, idx) => {
                                                 const { cls: stockCls } = getStockBadge(p);
-                                                const isHighlighted = highlightedPartIds.includes(String(p.id)) && highlightSecondsLeft > 0;
                                                 return (
-                                                    <tr key={p.id} className={`transition-colors ${
-                                                        isHighlighted
-                                                            ? 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 dark:hover:bg-amber-900/30'
-                                                            : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
-                                                    }`}>
+                                                    <tr key={p.id} className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40">
                                                         <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">{idx + 1 + ((parts.current_page || 1) - 1) * (parts.per_page || parts.data.length)}</td>
                                                         {visibleColumns.name && <td className="px-4 py-3"><div className="text-sm font-semibold text-slate-900 dark:text-white">{p.name}</div>{p.description && <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">{p.description}</div>}</td>}
                                                         {visibleColumns.part_number && <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 font-mono">{p.part_number || '-'}</td>}
@@ -468,13 +395,8 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
                                 <div className="p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                                     {liveItems.map((p) => {
                                         const { cls: stockCls, label: stockLabel } = getStockBadge(p);
-                                        const isHighlighted = highlightedPartIds.includes(String(p.id)) && highlightSecondsLeft > 0;
                                         return (
-                                            <div key={p.id} className={`rounded-xl border p-4 transition-colors ${
-                                                isHighlighted
-                                                    ? 'bg-amber-50 border-amber-300 dark:bg-amber-900/20 dark:border-amber-700 hover:border-amber-400 dark:hover:border-amber-600'
-                                                    : 'bg-slate-50/60 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 hover:border-primary-300 dark:hover:border-primary-700'
-                                            }`}>
+                                            <div key={p.id} className="rounded-xl border p-4 transition-colors bg-slate-50/60 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 hover:border-primary-300 dark:hover:border-primary-700">
                                                 <div className="flex items-start justify-between gap-3">
                                                     <div className="min-w-0">
                                                         <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{p.name}</p>
@@ -525,3 +447,4 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
 }
 
 Index.layout = (page) => <DashboardLayout children={page} />;
+

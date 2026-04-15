@@ -1,10 +1,8 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import Pagination from '@/Components/Dashboard/Pagination';
 import Button from '@/Components/Dashboard/Button';
-import { useGoRealtime } from '@/Hooks/useGoRealtime';
-import { useRealtimeToggle } from '@/Hooks/useRealtimeToggle';
 import { toDisplayDate } from '@/Utils/datetime';
 import {
     IconPlus, IconEdit, IconTrash, IconCar, IconCalendar,
@@ -78,74 +76,8 @@ export default function Index({ vehicles, filters, stats }) {
         transmission:   filters?.transmission || '',
         service_status: filters?.service_status || '',
     });
-    const [realtimeEnabled, setRealtimeEnabled] = useRealtimeToggle();
-    const [highlightedVehicleIds, setHighlightedVehicleIds] = useState([]);
-    const [highlightExpiresAt, setHighlightExpiresAt] = useState(null);
-    const [countdownNow, setCountdownNow] = useState(Date.now());
-    const reloadTimerRef = useRef(null);
-    const highlightTimerRef = useRef(null);
 
     useEffect(() => { setLiveItems(vehicles?.data || []); }, [vehicles?.data]);
-
-    useEffect(() => {
-        return () => {
-            if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
-            if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
-        };
-    }, []);
-
-    useEffect(() => {
-        if (!highlightExpiresAt) return undefined;
-        const interval = setInterval(() => setCountdownNow(Date.now()), 1000);
-        return () => clearInterval(interval);
-    }, [highlightExpiresAt]);
-
-    useEffect(() => {
-        if (realtimeEnabled) return;
-        if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
-        if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
-        setHighlightedVehicleIds([]);
-        setHighlightExpiresAt(null);
-    }, [realtimeEnabled]);
-
-    const scheduleReload = () => {
-        if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
-        reloadTimerRef.current = setTimeout(() => {
-            router.reload({
-                only: ['vehicles', 'stats'],
-                preserveScroll: true,
-                preserveState: true,
-            });
-        }, 300);
-    };
-
-    const { status: goRealtimeStatus } = useGoRealtime({
-        enabled: realtimeEnabled,
-        domains: ['vehicles'],
-        onEvent: (payload) => {
-            if (!payload || payload.domain !== 'vehicles') return;
-            const action = payload.action || '';
-            if (!['created', 'updated', 'deleted'].includes(action)) return;
-
-            const vehicleId = payload.id || payload?.data?.vehicle_id || payload?.data?.id;
-            if (vehicleId) {
-                const normalizedId = String(vehicleId);
-                setHighlightedVehicleIds((prev) => {
-                    const merged = new Set(prev);
-                    merged.add(normalizedId);
-                    return Array.from(merged);
-                });
-                const expiresAt = Date.now() + 6000;
-                setHighlightExpiresAt(expiresAt);
-                setCountdownNow(Date.now());
-                if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
-                highlightTimerRef.current = setTimeout(() => setHighlightExpiresAt(null), 6000);
-            }
-            scheduleReload();
-        },
-    });
-
-    const highlightSecondsLeft = highlightExpiresAt ? Math.max(0, Math.ceil((highlightExpiresAt - countdownNow) / 1000)) : 0;
 
     const handleSort = (col) => {
         const dir = filters?.sort_by === col && filters?.sort_direction === 'asc' ? 'desc' : 'asc';
@@ -195,13 +127,8 @@ export default function Index({ vehicles, filters, stats }) {
 
     /*  VehicleCard (grid tile)  */
     const VehicleCard = ({ vehicle }) => {
-        const isHighlighted = highlightedVehicleIds.includes(String(vehicle.id)) && highlightSecondsLeft > 0;
         return (
-            <div className={`group overflow-hidden rounded-2xl shadow-sm ring-1 transition-all duration-200 hover:shadow-lg ${
-                isHighlighted
-                    ? 'bg-amber-50 ring-amber-300 hover:ring-amber-400 dark:bg-amber-900/20 dark:ring-amber-700 dark:hover:ring-amber-600'
-                    : 'bg-white ring-slate-200 hover:ring-primary-300 dark:bg-slate-800 dark:ring-slate-700 dark:hover:ring-primary-700'
-            }`}>
+            <div className="group overflow-hidden rounded-2xl shadow-sm ring-1 transition-all duration-200 hover:shadow-lg bg-white ring-slate-200 hover:ring-primary-300 dark:bg-slate-800 dark:ring-slate-700 dark:hover:ring-primary-700">
             {/* Gradient header */}
             <div className="relative overflow-hidden bg-gradient-to-br from-primary-500 to-accent-500 p-4">
                 <div className="absolute right-0 top-0 -mr-6 -mt-6 opacity-10 transition-transform duration-300 group-hover:scale-110">
@@ -413,14 +340,8 @@ export default function Index({ vehicles, filters, stats }) {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                            {liveItems.map(v => {
-                                                const isHighlighted = highlightedVehicleIds.includes(String(v.id)) && highlightSecondsLeft > 0;
-                                                return (
-                                                    <tr key={v.id} className={`transition-colors ${
-                                                        isHighlighted
-                                                            ? 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 dark:hover:bg-amber-900/30'
-                                                            : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
-                                                    }`}>
+                                            {liveItems.map(v => (
+                                                <tr key={v.id} className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40">
                                                     <td className="px-4 py-3">
                                                         <div className="flex items-center gap-3">
                                                             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 shrink-0">
@@ -461,8 +382,7 @@ export default function Index({ vehicles, filters, stats }) {
                                                         </div>
                                                     </td>
                                                 </tr>
-                                                );
-                                            })}
+                                            ))}
                                         </tbody>
                                     </table>
                                 </div>
@@ -487,3 +407,4 @@ export default function Index({ vehicles, filters, stats }) {
 }
 
 Index.layout = (page) => <DashboardLayout children={page} />;
+
