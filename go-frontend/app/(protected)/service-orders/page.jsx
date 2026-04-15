@@ -1,10 +1,19 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import api from '@services/api'
 import { connectRealtime } from '@services/realtime'
+import { Badge, Button, Card, StatCard, Table } from '@components/ui'
+import { IconPlus, IconRefresh, IconSearch, IconTool } from '@tabler/icons-react'
+
+const STATUS_TONE = {
+  pending: 'warning',
+  in_progress: 'primary',
+  completed: 'success',
+  paid: 'success',
+  cancelled: 'danger',
+}
 
 export default function ServiceOrdersPage() {
   const router = useRouter()
@@ -32,13 +41,12 @@ export default function ServiceOrdersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const statusTone = useMemo(() => ({
-    pending: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
-    in_progress: 'bg-sky-50 text-sky-700 ring-1 ring-sky-200',
-    completed: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
-    paid: 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200',
-    cancelled: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200',
-  }), [])
+  const stats = useMemo(() => ({
+    pending: rows.filter((row) => row.status === 'pending').length,
+    in_progress: rows.filter((row) => row.status === 'in_progress').length,
+    completed: rows.filter((row) => row.status === 'completed').length,
+    paid: rows.filter((row) => row.status === 'paid').length,
+  }), [rows])
 
   useEffect(() => {
     if (!autoRefresh) return undefined
@@ -140,97 +148,133 @@ export default function ServiceOrdersPage() {
 
   return (
     <section className="space-y-5">
-      <header className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Native Next Route</p>
-          <h1 className="text-2xl font-semibold text-slate-900">Service Orders</h1>
-          <p className="text-sm text-slate-600">
-            Total data: {total}
-            {from !== null && to !== null ? ` | Menampilkan ${from}-${to}` : ''}
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
-            <label className="inline-flex items-center gap-2 text-slate-700">
-              <input className="h-4 w-4 rounded border-slate-300" type="checkbox" checked={autoRefresh} onChange={(event) => setAutoRefresh(event.target.checked)} />
-              Auto refresh (30s)
-            </label>
-            <span className="text-slate-500">{lastUpdatedAt ? `Last updated: ${lastUpdatedAt.toLocaleTimeString('id-ID')}` : 'Belum ada refresh'}</span>
-            <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${realtimeConnected ? 'bg-emerald-50 text-emerald-700' : (realtimeReconnecting ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700')}`}>
-              {realtimeConnected ? 'Realtime connected' : (realtimeReconnecting ? `Reconnecting (attempt ${realtimeReconnecting.attempt})` : 'Realtime disconnected')}
-            </span>
-            {lastRealtimeEvent ? <span className="text-slate-500">{lastRealtimeEvent}</span> : null}
-          </div>
-        </div>
-        <Link href="/service-orders/create" className="inline-flex h-10 items-center rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 px-4 text-sm font-semibold text-white hover:from-primary-600 hover:to-primary-700">
-          Buat Service Order
-        </Link>
-      </header>
-
-      <form className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-6" onSubmit={(event) => { event.preventDefault(); setCurrentPage(1) }}>
-        <input type="text" className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" placeholder="Cari nomor/customer/plate" value={search} onChange={(event) => setSearch(event.target.value)} />
-        <select className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" value={status} onChange={(event) => setStatus(event.target.value)}>
-          <option value="all">Semua status</option>
-          <option value="pending">Pending</option>
-          <option value="in_progress">In Progress</option>
-          <option value="completed">Completed</option>
-          <option value="paid">Paid</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
-        <select className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" value={mechanicID} onChange={(event) => setMechanicID(event.target.value)}>
-          <option value="all">Semua mekanik</option>
-          {mechanics.map((mechanic) => (
-            <option key={mechanic.id} value={String(mechanic.id)}>{mechanic.name || `Mekanik ${mechanic.id}`}</option>
-          ))}
-        </select>
-        <input type="date" className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
-        <input type="date" className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
-        <div className="flex gap-2">
-          <button type="submit" className="w-full rounded-xl bg-slate-900 px-3 py-2.5 text-sm font-medium text-white hover:bg-slate-700">Terapkan</button>
-          <button type="button" className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100" onClick={() => { setSearch(''); setStatus('all'); setMechanicID('all'); setDateFrom(''); setDateTo(''); setCurrentPage(1) }}>Reset</button>
-        </div>
-      </form>
-
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        {loading ? (
-          <p className="p-4 text-sm text-slate-600">Memuat data...</p>
-        ) : error ? (
-          <p className="p-4 text-sm text-rose-600">{error}</p>
-        ) : rows.length === 0 ? (
-          <p className="p-4 text-sm text-slate-600">Belum ada service order.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50">
-                <tr className="border-b border-slate-200 text-left text-slate-600">
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Order</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Customer</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Status</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Total</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {rows.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50/80">
-                    <td className="px-4 py-3 font-medium text-slate-800">{item.order_number || '-'}</td>
-                    <td className="px-4 py-3">{item.customer?.name || '-'}</td>
-                    <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${statusTone[item.status] || 'bg-slate-100 text-slate-700 ring-1 ring-slate-200'}`}>{item.status || '-'}</span></td>
-                    <td className="px-4 py-3 font-semibold text-slate-800">{Number(item.total || 0).toLocaleString('id-ID')}</td>
-                    <td className="px-4 py-3"><Link className="inline-flex rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100" href={`/service-orders/${item.id}`}>Detail</Link></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <Card
+        title="Service Orders"
+        icon={<IconTool size={18} strokeWidth={1.7} />}
+        footer={(
+          <div className="flex flex-wrap gap-2 text-sm text-slate-500 dark:text-slate-400">
+            <span>Total data: {total}</span>
+            {from !== null && to !== null ? <span>| Menampilkan {from}-{to}</span> : null}
           </div>
         )}
+      >
+        <p className="text-sm text-slate-600 dark:text-slate-300">Ringkasan status layanan, filter, dan update realtime.</p>
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+          <label className="inline-flex items-center gap-2 text-slate-700 dark:text-slate-300">
+            <input className="h-4 w-4 rounded border-slate-300" type="checkbox" checked={autoRefresh} onChange={(event) => setAutoRefresh(event.target.checked)} />
+            Auto refresh (30s)
+          </label>
+          <Badge tone={realtimeConnected ? 'success' : (realtimeReconnecting ? 'warning' : 'danger')}>
+            {realtimeConnected ? 'Realtime connected' : (realtimeReconnecting ? `Reconnecting (attempt ${realtimeReconnecting.attempt})` : 'Realtime disconnected')}
+          </Badge>
+          <span className="text-slate-500 dark:text-slate-400">{lastUpdatedAt ? `Last updated: ${lastUpdatedAt.toLocaleTimeString('id-ID')}` : 'Belum ada refresh'}</span>
+          {lastRealtimeEvent ? <span className="text-slate-500 dark:text-slate-400">{lastRealtimeEvent}</span> : null}
+        </div>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Button href="/service-orders/create" icon={<IconPlus size={16} strokeWidth={1.8} />}>
+            Buat Service Order
+          </Button>
+          <Button variant="secondary" icon={<IconRefresh size={16} strokeWidth={1.8} />} onClick={() => setRefreshTick((tick) => tick + 1)}>
+            Refresh
+          </Button>
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Total" value={total} tone="slate" icon={<IconTool size={18} strokeWidth={1.8} />} />
+        <StatCard label="Pending" value={stats.pending} tone="warning" />
+        <StatCard label="In Progress" value={stats.in_progress} tone="primary" />
+        <StatCard label="Completed" value={stats.completed} tone="success" />
       </div>
 
-      <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <p className="text-sm text-slate-600">Halaman {currentPage} dari {lastPage}</p>
-        <div className="flex gap-2">
-          <button type="button" className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50" disabled={!canGoPrev || loading} onClick={() => canGoPrev && setCurrentPage((page) => page - 1)}>Sebelumnya</button>
-          <button type="button" className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50" disabled={!canGoNext || loading} onClick={() => canGoNext && setCurrentPage((page) => page + 1)}>Berikutnya</button>
+      <Card title="Filters" icon={<IconSearch size={18} strokeWidth={1.7} />}>
+        <form className="grid grid-cols-1 gap-3 md:grid-cols-6" onSubmit={(event) => { event.preventDefault(); setCurrentPage(1) }}>
+          <input type="text" className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" placeholder="Cari nomor/customer/plate" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <select className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" value={status} onChange={(event) => setStatus(event.target.value)}>
+            <option value="all">Semua status</option>
+            <option value="pending">Pending</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="paid">Paid</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <select className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" value={mechanicID} onChange={(event) => setMechanicID(event.target.value)}>
+            <option value="all">Semua mekanik</option>
+            {mechanics.map((mechanic) => (
+              <option key={mechanic.id} value={String(mechanic.id)}>{mechanic.name || `Mekanik ${mechanic.id}`}</option>
+            ))}
+          </select>
+          <input type="date" className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
+          <input type="date" className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
+          <div className="flex gap-2">
+            <Button type="submit" className="w-full" icon={<IconSearch size={16} strokeWidth={1.8} />}>
+              Terapkan
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full"
+              onClick={() => {
+                setSearch('')
+                setStatus('all')
+                setMechanicID('all')
+                setDateFrom('')
+                setDateTo('')
+                setCurrentPage(1)
+              }}
+            >
+              Reset
+            </Button>
+          </div>
+        </form>
+      </Card>
+
+      <Table>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>Order</Table.Th>
+            <Table.Th>Customer</Table.Th>
+            <Table.Th>Status</Table.Th>
+            <Table.Th>Total</Table.Th>
+            <Table.Th>Aksi</Table.Th>
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {loading ? (
+            <Table.Empty colSpan={5}>Memuat data...</Table.Empty>
+          ) : error ? (
+            <Table.Empty colSpan={5}>{error}</Table.Empty>
+          ) : rows.length === 0 ? (
+            <Table.Empty colSpan={5}>Belum ada service order.</Table.Empty>
+          ) : rows.map((item) => (
+            <Table.Tr key={item.id}>
+              <Table.Td className="font-medium text-slate-800 dark:text-slate-100">{item.order_number || '-'}</Table.Td>
+              <Table.Td>{item.customer?.name || '-'}</Table.Td>
+              <Table.Td><Badge tone={STATUS_TONE[item.status] || 'neutral'}>{item.status || '-'}</Badge></Table.Td>
+              <Table.Td className="font-semibold text-slate-800 dark:text-slate-100">{Number(item.total || 0).toLocaleString('id-ID')}</Table.Td>
+              <Table.Td>
+                <Button href={`/service-orders/${item.id}`} size="sm" variant="secondary">
+                  Detail
+                </Button>
+              </Table.Td>
+            </Table.Tr>
+          ))}
+        </Table.Tbody>
+      </Table>
+
+      <Card>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-slate-600 dark:text-slate-300">Halaman {currentPage} dari {lastPage}</p>
+          <div className="flex gap-2">
+            <Button type="button" variant="secondary" size="sm" disabled={!canGoPrev || loading} onClick={() => canGoPrev && setCurrentPage((page) => page - 1)}>
+              Sebelumnya
+            </Button>
+            <Button type="button" variant="secondary" size="sm" disabled={!canGoNext || loading} onClick={() => canGoNext && setCurrentPage((page) => page + 1)}>
+              Berikutnya
+            </Button>
+          </div>
         </div>
-      </div>
+      </Card>
     </section>
   )
 }

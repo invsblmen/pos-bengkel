@@ -24,6 +24,7 @@ import {
     IconArrowsSort,
     IconDownload,
     IconCategory2,
+    IconTool,
 } from '@tabler/icons-react';
 
 const formatCurrency = (value = 0) =>
@@ -95,8 +96,10 @@ function ServiceCard({ service, checked, onToggle, isHighlighted }) {
             <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
                 <div className="flex items-center justify-between mb-2 gap-2 pl-6">
                     <span className="px-2.5 py-1 text-xs font-medium bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-400 rounded-md inline-flex items-center gap-1">
-                        <span>{service.category?.icon || 'ðŸ”§'}</span>
-                        <span>{service.category?.name || 'Uncategorized'}</span>
+                        <span className="inline-flex items-center justify-center text-primary-600 dark:text-primary-300">
+                            <IconTool size={12} />
+                        </span>
+                        <span>{service.category?.name || 'Tanpa Kategori'}</span>
                     </span>
                     <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${status.class}`}>
                         {status.label}
@@ -179,7 +182,6 @@ function Index({ services, categories = [] }) {
         return categories.map((category) => ({
             id: category.id,
             name: category.name,
-            icon: category.icon || 'ðŸ”§',
         }));
     }, [categories]);
 
@@ -512,7 +514,7 @@ function Index({ services, categories = [] }) {
                     <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-700 dark:text-slate-200">
                         <option value="all">Semua Kategori</option>
                         {categoryOptions.map((category) => (
-                            <option key={category.id} value={String(category.id)}>{category.icon} {category.name}</option>
+                            <option key={category.id} value={String(category.id)}>{category.name}</option>
                         ))}
                     </select>
 

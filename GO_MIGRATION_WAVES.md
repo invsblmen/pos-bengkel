@@ -44,7 +44,7 @@ Alasan:
 Exit criteria:
 
 - p95 dan error rate setara/lebih baik dari baseline Laravel selama 7 hari.
-- Shadow compare menunjukkan mismatch response < 1% (dengan whitelist field dinamis).
+- Historical compare menunjukkan mismatch response < 1% (dengan whitelist field dinamis).
 
 ## Wave 2 (Medium Risk)
 
@@ -150,6 +150,6 @@ Kontrol tambahan:
 - Permission rule:
 - Side effects (event/queue/notif):
 - Test kontrak:
-- Canary start date:
+- Historical rollout start date:
 - Cutover date:
 - Rollback trigger:

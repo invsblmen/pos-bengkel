@@ -244,7 +244,7 @@ php artisan go:sync:benchmark-capacity --timeouts=60,120,180 --iterations=10
 
 **Action Procedure:**
 - Retry Terkontrol: Execute retry with 10-batch limit, review results
-- Freeze Canary: Pause new batch creation if variance >10%
+- Freeze Sync Changes: Pause new batch creation if variance >10%
 - Capture Incident Log: Store error/stack to incident table for post-mortem
 
 **Closure Gate:**

@@ -20,10 +20,16 @@ Panduan terpusat untuk setup, pengembangan, testing, dan referensi fitur utama.
 14. [14. Rancangan Sinkronisasi Local ke Hosting](#14-rancangan-sinkronisasi-local-ke-hosting)
 15. [15. Referensi Desain Sinkron](#15-referensi-desain-sinkron)
 16. [16. Referensi Tracking Migrasi](#16-referensi-tracking-migrasi)
+17. [17. Boundary Arsitektur dan Audit Coupling](#17-boundary-arsitektur-dan-audit-coupling)
 
 ## 1. Ringkasan Proyek
 
 POS Bengkel adalah sistem kasir dan operasional bengkel motor berbasis Laravel + Inertia + React.
+
+Dokumen boundary dan audit terbaru:
+1. `ARCHITECTURE_BOUNDARY.md`
+2. `GO_TO_LARAVEL_SYNC_CHECKLIST.md`
+3. `BACKEND_COUPLING_AUDIT_2026-04-14.md`
 
 Cakupan utama:
 1. Service order dan appointment
@@ -184,11 +190,11 @@ php artisan reverb:watchdog-status --lines=20
 php artisan reverb:watchdog-maintain --max-kb=1024 --keep-lines=600
 ```
 
-Jika status menunjukkan Reverb tidak hidup, jalankan ulang watchdog lokal:
+Jika status menunjukkan Reverb tidak hidup, jalankan ulang runtime manual:
 
 ```powershell
-scripts\ensure-reverb-running.ps1
-scripts\watch-reverb.ps1
+scripts\manual-runtime.ps1 -Action start -WithReverb
+scripts\manual-runtime.ps1 -Action status
 ```
 
 Jika port 8080 sudah dipakai tetapi event tetap tidak masuk, cek apakah proses yang menempati port masih milik project ini dan pastikan `.env` memakai `REVERB_HOST=pos-bengkel.test` serta `REVERB_SCHEME=http` untuk dev lokal.
@@ -410,6 +416,19 @@ Dokumen teknis utama untuk implementasi sinkronisasi ada di [GO_SYNC_DESIGN.md](
 
 ## 16. Referensi Tracking Migrasi
 
+1. `GO_MIGRATION_BLUEPRINT.md`
+2. `GO_MIGRATION_TASKS_WEEKLY.md`
+3. `GO_MIGRATION_WAVES.md`
+
+## 17. Boundary Arsitektur dan Audit Coupling
+
+1. Policy boundary stack:
+  `ARCHITECTURE_BOUNDARY.md`
+2. Checklist implementasi sinkronisasi GO -> Laravel:
+  `GO_TO_LARAVEL_SYNC_CHECKLIST.md`
+3. Hasil audit backend route/controller:
+  `BACKEND_COUPLING_AUDIT_2026-04-14.md`
+
 Gunakan dokumen berikut sebagai acuan tracking operasional migrasi:
 
 1. `MIGRATION_MASTER_CHECKLIST.md` untuk status menyeluruh, weekly milestones, dan completion gate.
@@ -441,13 +460,6 @@ GO_SYNC_ALERT_LIMIT=20
 GO_SYNC_RECONCILIATION_ENABLED=true
 GO_SYNC_RECONCILIATION_DAILY_AT=00:15
 GO_SYNC_RECONCILIATION_MAX_VARIANCE=5
-GO_CANARY_GATE_MIN_DAYS=7
-GO_CANARY_GATE_MIN_SAMPLES=50
-GO_CANARY_GATE_MAX_AVG_MISMATCH_RATE=0.5
-GO_CANARY_GATE_MAX_PEAK_MISMATCH_RATE=1
-GO_CANARY_GATE_MAX_AVG_SKIPPED_RATE=20
-GO_CANARY_GATE_STEP_PERCENT=5
-GO_CANARY_GATE_MAX_PERCENT=100
 ```
 
 Command operasional:
@@ -459,8 +471,6 @@ php artisan go:sync:alert-long-failed --minutes=120 --limit=20
 php artisan go:sync:reconciliation-daily --max-variance-percent=5
 php artisan go:sync:purge-old --days=30 --dry-run=1
 php artisan go:sync:benchmark-capacity --timeouts=60,120,180 --iterations=1
-php artisan go:canary:gate --days=7 --current=5
-./scripts/collect-go-migration-metrics.ps1 -Date 2026-04-11 -VarianceThreshold 5 -TrendDays 7 -CurrentCanary 5
 ```
 
 Contoh retry dengan backoff policy:
@@ -492,10 +502,10 @@ Jika variance % melampaui threshold (default 5%), command mengembalikan exit cod
 Untuk operasional harian yang konsisten, gunakan script agregasi metrik berikut:
 
 ```powershell
-./scripts/collect-go-migration-metrics.ps1 -Date 2026-04-11 -VarianceThreshold 5 -TrendDays 7 -CurrentCanary 5
+./scripts/collect-go-migration-metrics.ps1 -Date 2026-04-11 -VarianceThreshold 5 -TrendDays 7
 ```
 
-Script akan menjalankan reconciliation, shadow summary, shadow trend, dan canary gate sekaligus, lalu menyimpan laporan ke `storage/logs/go-migration/metrics-<date>-<timestamp>.log`.
+Script akan menjalankan reconciliation dan ringkasan metrik sync yang masih aktif, lalu menyimpan laporan ke `storage/logs/go-migration/metrics-<date>-<timestamp>.log`.
 
 Profil tuning awal (disarankan):
 
@@ -533,18 +543,16 @@ Matrix threshold operasional (baseline):
 
 | Area | Indikator | Warning | Critical | Keputusan |
 | --- | --- | --- | --- | --- |
-| Sync Reconciliation | Variance batch_total | > 5% | > 10% | Warning: investigasi harian, Critical: freeze canary increase |
+| Sync Reconciliation | Variance batch_total | > 5% | > 10% | Warning: investigasi harian, Critical: freeze perubahan sync |
 | Sync Reconciliation | Variance acknowledged_total | > 5% | > 10% | Warning: retry + audit, Critical: eskalasi on-call |
-| Shadow Compare | mismatch_rate per fitur | > 2% | > 5% | Warning: tambah sampling, Critical: rollback fitur ke Laravel |
-| Shadow Compare | skipped_rate per fitur | > 20% | > 35% | Warning: perbaiki endpoint parity, Critical: stop evaluasi parity |
 | Failed Batch Aging | failed batch > 120 menit | >= 1 batch | >= 5 batch | Warning: retry manual, Critical: incident response |
 
-Proses sign-off bisnis:
+Proses sign-off operasional:
 
-1. Laporan mingguan dikirim ke product owner berisi variance, mismatch_rate, skipped_rate.
+1. Laporan mingguan dikirim ke product owner berisi variance dan status retry/aging.
 2. Sign-off diberikan jika 7 hari berturut-turut semua indikator berada di bawah level warning.
 3. Jika ada indikator di level critical, sign-off otomatis ditunda sampai 3 hari stabil kembali.
-4. Sebelum menaikkan persentase canary, jalankan gate formal `go:canary:gate`; kenaikan hanya saat hasil `GATE RESULT: PASS`.
+4. Jika perlu perubahan perilaku sync, update konfigurasi atau contract API, bukan menaikkan rollout runtime.
 
 ### 17.2 SOP Konflik dan Incident Sync
 
@@ -552,7 +560,7 @@ Peran utama:
 
 1. Operator shift: menjalankan cek rutin scheduler dan retry manual awal.
 2. On-call engineer: analisis root cause, patch konfigurasi, dan pemulihan data.
-3. Product owner: keputusan freeze/lanjut canary dan validasi dampak bisnis.
+3. Product owner: validasi dampak bisnis dan prioritas perbaikan contract sync.
 
 SLA respons:
 
@@ -567,22 +575,20 @@ Runbook incident singkat:
   - `php artisan go:sync:reconciliation-daily --max-variance-percent=5`
 2. Jika ada batch failed, lakukan retry terkontrol:
   - `php artisan go:sync:retry-failed --limit=20 --base-minutes=5 --max-minutes=240 --respect-backoff=1`
-3. Jika variance tetap critical setelah 2 siklus retry, nonaktifkan kenaikan canary dan pin endpoint bermasalah ke Laravel.
+3. Jika variance tetap critical setelah 2 siklus retry, hentikan deploy perubahan sync dan audit payload/endpoint bermasalah.
 4. Catat incident ke log operasional dengan data: waktu, batch_id terdampak, indikator threshold, tindakan, hasil.
 5. Tutup incident hanya jika 2 siklus reconciliation berikutnya kembali di bawah warning.
 
-Automasi Windows Task Scheduler (local dev):
+Runtime lokal sekarang dijalankan manual (tanpa task scheduler otomatis):
 
 ```powershell
-.\scripts\register-laravel-scheduler-task.ps1 -RunNow
+.\scripts\manual-runtime.ps1 -Action start -WithReverb -WithScheduler
 ```
 
-Perintah ini membuat task `POS-Bengkel-Laravel-Scheduler` yang menjalankan `php artisan schedule:run` setiap 1 menit.
-
-Untuk menghentikan automasi:
+Untuk menghentikan runtime:
 
 ```powershell
-.\scripts\unregister-laravel-scheduler-task.ps1
+.\scripts\manual-runtime.ps1 -Action stop
 ```
 
 Bagian ini merangkum masalah lokal yang sempat terjadi beserta konfigurasi/fix yang terbukti stabil.
@@ -628,8 +634,8 @@ Kalau Reverb tetap unreachable, gunakan urutan cek berikut:
 
 1. Pastikan command Reverb tersedia dengan `php artisan list | findstr /i reverb`.
 2. Cek status watchdog dengan `php artisan reverb:watchdog-status --lines=20`.
-3. Jalankan `scripts\ensure-reverb-running.ps1` untuk start/repair proses Reverb project-scoped.
-4. Jika masih gagal, buka `storage\logs\reverb-autostart.log` dan `storage\logs\reverb-watchdog.log` untuk melihat alasan stop/start terakhir.
+3. Jalankan `scripts\manual-runtime.ps1 -Action start -WithReverb` untuk start Reverb manual.
+4. Cek status dengan `scripts\manual-runtime.ps1 -Action status`.
 5. Setelah `.env` diubah, jalankan lagi `php artisan config:clear` lalu restart Vite.
 
 Jika site sebelumnya di-HTTPS Herd dan handshake gagal, nonaktifkan HTTPS lokal:

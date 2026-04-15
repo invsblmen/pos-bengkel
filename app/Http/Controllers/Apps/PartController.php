@@ -180,12 +180,26 @@ class PartController extends Controller
             'PartCreated'
         );
 
-        // Return JSON response dengan part data
-        return response()->json([
-            'success' => true,
-            'message' => 'Part created successfully.',
-            'part' => $part,
-        ], 201);
+        // Inertia requests must receive an Inertia-compatible redirect response.
+        if ($request->header('X-Inertia')) {
+            return redirect()
+                ->route('parts.index')
+                ->with('success', 'Part created successfully.')
+                ->with('flash', ['part' => $part]);
+        }
+
+        // For AJAX/modal flows, keep JSON contract.
+        if ($request->expectsJson() || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Part created successfully.',
+                'part' => $part,
+            ], 201);
+        }
+
+        return redirect()
+            ->route('parts.index')
+            ->with('success', 'Part created successfully.');
     }
 
     public function update(Request $request, $id)

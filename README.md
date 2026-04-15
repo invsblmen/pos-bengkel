@@ -11,6 +11,12 @@ Fokus repository saat ini adalah mode `workshop-only` (modul retail POS lama sud
 - Frontend harus parity (fitur, desain, UX) antara jalur Laravel dan GO.
 - Untuk jalur GO, realtime wajib native GO (WebSocket GO), tanpa ketergantungan Echo/Reverb.
 
+Boundary dokumen acuan (2026-04-14):
+
+- [ARCHITECTURE_BOUNDARY.md](ARCHITECTURE_BOUNDARY.md)
+- [GO_TO_LARAVEL_SYNC_CHECKLIST.md](GO_TO_LARAVEL_SYNC_CHECKLIST.md)
+- [BACKEND_COUPLING_AUDIT_2026-04-14.md](BACKEND_COUPLING_AUDIT_2026-04-14.md)
+
 ### Status Frontend GO (Update)
 
 - Frontend GO aktif sekarang berjalan sebagai Next.js App Router native di [go-frontend](go-frontend).
@@ -356,7 +362,7 @@ Perubahan stabilisasi dan UX yang baru ditambahkan:
 - Hardening realtime event dispatch agar transaksi inti tidak gagal saat broadcaster (Reverb) tidak tersedia sementara pada jalur Laravel.
 - Penambahan alert notifikasi in-app untuk kondisi Reverb down beruntun + recovery pada jalur Laravel.
 - Penambahan konfigurasi host khusus backend broadcast: `REVERB_BROADCAST_HOST` (jalur Laravel).
-- Otomatisasi startup Reverb lokal (Windows startup + watchdog script) untuk jalur Laravel.
+- Reverb lokal sekarang dijalankan manual saat dibutuhkan lewat launcher runtime.
 - Jalur GO local tetap memakai realtime native GO (`/ws`) dan tidak memerlukan dependensi Echo/Reverb.
 - Perbaikan route link referensi di detail service order agar aman terhadap route yang tidak tersedia.
 - Penambahan halaman detail pelanggan (`customers.show`) beserta akses dari daftar pelanggan.
@@ -376,10 +382,9 @@ php artisan reverb:watchdog-status --lines=20
 php artisan reverb:watchdog-maintain --max-kb=1024 --keep-lines=600
 ```
 
-Script lokal (Windows) yang digunakan untuk auto-start watchdog Reverb:
+Script lokal (Windows) untuk runtime manual:
 
-- `scripts/start-reverb-if-needed.ps1`
-- `scripts/watch-reverb.ps1`
+- `scripts/manual-runtime.ps1`
 
 ### 2026-03-27
 

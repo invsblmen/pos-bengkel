@@ -1,16 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import api from '@services/api'
 import { connectRealtime } from '@services/realtime'
+import { Badge, Button, Card, StatCard, Table } from '@components/ui'
+import { IconCalendar, IconSearch, IconUser } from '@tabler/icons-react'
 
 const STATUS_TONE = {
-  scheduled: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
-  confirmed: 'bg-sky-50 text-sky-700 ring-1 ring-sky-200',
-  completed: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
-  cancelled: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200',
+  scheduled: 'warning',
+  confirmed: 'primary',
+  completed: 'success',
+  cancelled: 'danger',
 }
 
 export default function AppointmentsPage() {
@@ -38,6 +39,14 @@ export default function AppointmentsPage() {
   const [refreshTick, setRefreshTick] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  const pageStats = useMemo(() => ({
+    today: stats?.today ?? 0,
+    scheduled: stats?.scheduled ?? 0,
+    confirmed: stats?.confirmed ?? 0,
+    completed: stats?.completed ?? 0,
+    cancelled: stats?.cancelled ?? 0,
+  }), [stats])
 
   useEffect(() => {
     if (!autoRefresh) return undefined
@@ -124,11 +133,6 @@ export default function AppointmentsPage() {
     }
   }, [currentPage, search, status, mechanicID, perPage, refreshTick])
 
-  const onApplyFilters = (event) => {
-    event.preventDefault()
-    setCurrentPage(1)
-  }
-
   const onResetFilters = () => {
     setSearch('')
     setStatus('all')
@@ -142,71 +146,108 @@ export default function AppointmentsPage() {
 
   return (
     <section className="space-y-5">
-      <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Native Next Route</p>
-        <h1 className="text-2xl font-semibold text-slate-900">Appointments</h1>
-        <p className="text-sm text-slate-600">Total data: {total}{from !== null && to !== null ? ` | Menampilkan ${from}-${to}` : ''}</p>
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
-          <label className="inline-flex items-center gap-2 text-slate-700">
-            <input className="h-4 w-4 rounded border-slate-300" type="checkbox" checked={autoRefresh} onChange={(event) => setAutoRefresh(event.target.checked)} />
-            Auto refresh (30s)
-          </label>
-          <span className="text-slate-500">{lastUpdatedAt ? `Last updated: ${lastUpdatedAt.toLocaleTimeString('id-ID')}` : 'Belum ada refresh'}</span>
-          <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${realtimeConnected ? 'bg-emerald-50 text-emerald-700' : (realtimeReconnecting ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700')}`}>
-            {realtimeConnected ? 'Realtime connected' : (realtimeReconnecting ? `Reconnecting (attempt ${realtimeReconnecting.attempt})` : 'Realtime disconnected')}
-          </span>
-          {lastRealtimeEvent ? <span className="text-slate-500">{lastRealtimeEvent}</span> : null}
+      <Card
+        title="Appointments"
+        icon={<IconCalendar size={18} strokeWidth={1.7} />}
+        footer={<p className="text-sm text-slate-500 dark:text-slate-400">Total data: {total}{from !== null && to !== null ? ` | Menampilkan ${from}-${to}` : ''}</p>}
+      >
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-3">
+            <p className="text-sm text-slate-600 dark:text-slate-300">Kelola antrian appointment, status, dan realtime update.</p>
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <label className="inline-flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                <input className="h-4 w-4 rounded border-slate-300" type="checkbox" checked={autoRefresh} onChange={(event) => setAutoRefresh(event.target.checked)} />
+                Auto refresh (30s)
+              </label>
+              <Badge tone={realtimeConnected ? 'success' : (realtimeReconnecting ? 'warning' : 'danger')}>
+                {realtimeConnected ? 'Realtime connected' : (realtimeReconnecting ? `Reconnecting (attempt ${realtimeReconnecting.attempt})` : 'Realtime disconnected')}
+              </Badge>
+              <span className="text-slate-500 dark:text-slate-400">{lastUpdatedAt ? `Last updated: ${lastUpdatedAt.toLocaleTimeString('id-ID')}` : 'Belum ada refresh'}</span>
+              {lastRealtimeEvent ? <span className="text-slate-500 dark:text-slate-400">{lastRealtimeEvent}</span> : null}
+            </div>
+          </div>
+          <Button href="/appointments/create" icon={<IconUser size={16} strokeWidth={1.8} />}>
+            Buat Appointment
+          </Button>
         </div>
-      </header>
+      </Card>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-slate-500">Today</p><p className="mt-1 text-xl font-semibold text-slate-900">{stats?.today ?? 0}</p></article>
-        <article className="rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-amber-700">Scheduled</p><p className="mt-1 text-xl font-semibold text-amber-900">{stats?.scheduled ?? 0}</p></article>
-        <article className="rounded-xl border border-sky-200 bg-sky-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-sky-700">Confirmed</p><p className="mt-1 text-xl font-semibold text-sky-900">{stats?.confirmed ?? 0}</p></article>
-        <article className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-emerald-700">Completed</p><p className="mt-1 text-xl font-semibold text-emerald-900">{stats?.completed ?? 0}</p></article>
-        <article className="rounded-xl border border-rose-200 bg-rose-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-rose-700">Cancelled</p><p className="mt-1 text-xl font-semibold text-rose-900">{stats?.cancelled ?? 0}</p></article>
+        <StatCard label="Today" value={pageStats.today} tone="slate" />
+        <StatCard label="Scheduled" value={pageStats.scheduled} tone="warning" />
+        <StatCard label="Confirmed" value={pageStats.confirmed} tone="primary" />
+        <StatCard label="Completed" value={pageStats.completed} tone="success" />
+        <StatCard label="Cancelled" value={pageStats.cancelled} tone="danger" />
       </div>
 
-      <form className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-5" onSubmit={onApplyFilters}>
-        <input type="text" className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" placeholder="Cari customer, plate, phone" value={search} onChange={(event) => setSearch(event.target.value)} />
-        <select className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">Semua status</option><option value="scheduled">Scheduled</option><option value="confirmed">Confirmed</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select>
-        <select className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" value={mechanicID} onChange={(event) => setMechanicID(event.target.value)}><option value="all">Semua mekanik</option>{mechanics.map((mechanic) => (<option key={mechanic.id} value={String(mechanic.id)}>{mechanic.name || `Mekanik ${mechanic.id}`}</option>))}</select>
-        <select className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" value={String(perPage)} onChange={(event) => setPerPage(Number(event.target.value) || 20)}><option value="10">10 per halaman</option><option value="20">20 per halaman</option><option value="50">50 per halaman</option></select>
-        <div className="flex gap-2"><button type="submit" className="w-full rounded-xl bg-slate-900 px-3 py-2.5 text-sm font-medium text-white hover:bg-slate-700">Terapkan</button><button type="button" className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100" onClick={onResetFilters}>Reset</button></div>
-      </form>
-
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        {loading ? <p className="p-4 text-sm text-slate-600">Memuat data...</p> : null}
-        {error ? <p className="p-4 text-sm text-rose-600">{error}</p> : null}
-        {!loading && !error && rows.length === 0 ? <p className="p-4 text-sm text-slate-600">Belum ada appointment.</p> : null}
-        {!loading && !error && rows.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50"><tr className="border-b border-slate-200 text-left text-slate-600"><th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Jadwal</th><th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Customer</th><th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Kendaraan</th><th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Mekanik</th><th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Status</th><th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Aksi</th></tr></thead>
-              <tbody className="divide-y divide-slate-100">
-                {rows.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50/80">
-                    <td className="px-4 py-3">{item.scheduled_at || '-'}</td>
-                    <td className="px-4 py-3">{item.customer?.name || '-'}</td>
-                    <td className="px-4 py-3">{item.vehicle?.plate_number || '-'}</td>
-                    <td className="px-4 py-3">{item.mechanic?.name || '-'}</td>
-                    <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_TONE[item.status] || 'bg-slate-100 text-slate-700 ring-1 ring-slate-200'}`}>{item.status || '-'}</span></td>
-                    <td className="px-4 py-3"><Link className="inline-flex rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100" href={`/appointments/${item.id}`}>Detail</Link></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <Card title="Filters" icon={<IconSearch size={18} strokeWidth={1.7} />}>
+        <form className="grid grid-cols-1 gap-3 md:grid-cols-5" onSubmit={(event) => { event.preventDefault(); setCurrentPage(1) }}>
+          <input type="text" className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" placeholder="Cari customer, plate, phone" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <select className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" value={status} onChange={(event) => setStatus(event.target.value)}>
+            <option value="all">Semua status</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <select className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" value={mechanicID} onChange={(event) => setMechanicID(event.target.value)}>
+            <option value="all">Semua mekanik</option>
+            {mechanics.map((mechanic) => (<option key={mechanic.id} value={String(mechanic.id)}>{mechanic.name || `Mekanik ${mechanic.id}`}</option>))}
+          </select>
+          <select className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" value={String(perPage)} onChange={(event) => setPerPage(Number(event.target.value) || 20)}>
+            <option value="10">10 per halaman</option>
+            <option value="20">20 per halaman</option>
+            <option value="50">50 per halaman</option>
+          </select>
+          <div className="flex gap-2">
+            <Button type="submit" className="w-full" icon={<IconSearch size={16} strokeWidth={1.8} />}>Terapkan</Button>
+            <Button type="button" variant="secondary" className="w-full" onClick={onResetFilters}>Reset</Button>
           </div>
-        ) : null}
-      </div>
+        </form>
+      </Card>
 
-      <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <p className="text-sm text-slate-600">Halaman {currentPage} dari {lastPage}</p>
-        <div className="flex gap-2">
-          <button type="button" className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50" disabled={!canGoPrev || loading} onClick={() => canGoPrev && setCurrentPage((page) => page - 1)}>Sebelumnya</button>
-          <button type="button" className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50" disabled={!canGoNext || loading} onClick={() => canGoNext && setCurrentPage((page) => page + 1)}>Berikutnya</button>
+      <Table>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>Jadwal</Table.Th>
+            <Table.Th>Customer</Table.Th>
+            <Table.Th>Kendaraan</Table.Th>
+            <Table.Th>Mekanik</Table.Th>
+            <Table.Th>Status</Table.Th>
+            <Table.Th>Aksi</Table.Th>
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {loading ? (
+            <Table.Empty colSpan={6}>Memuat data...</Table.Empty>
+          ) : error ? (
+            <Table.Empty colSpan={6}>{error}</Table.Empty>
+          ) : rows.length === 0 ? (
+            <Table.Empty colSpan={6}>Belum ada appointment.</Table.Empty>
+          ) : rows.map((item) => (
+            <Table.Tr key={item.id}>
+              <Table.Td>{item.scheduled_at || '-'}</Table.Td>
+              <Table.Td>{item.customer?.name || '-'}</Table.Td>
+              <Table.Td>{item.vehicle?.plate_number || '-'}</Table.Td>
+              <Table.Td>{item.mechanic?.name || '-'}</Table.Td>
+              <Table.Td><Badge tone={STATUS_TONE[item.status] || 'neutral'}>{item.status || '-'}</Badge></Table.Td>
+              <Table.Td>
+                <Button href={`/appointments/${item.id}`} size="sm" variant="secondary">Detail</Button>
+              </Table.Td>
+            </Table.Tr>
+          ))}
+        </Table.Tbody>
+      </Table>
+
+      <Card>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-slate-600 dark:text-slate-300">Halaman {currentPage} dari {lastPage}</p>
+          <div className="flex gap-2">
+            <Button type="button" variant="secondary" size="sm" disabled={!canGoPrev || loading} onClick={() => canGoPrev && setCurrentPage((page) => page - 1)}>Sebelumnya</Button>
+            <Button type="button" variant="secondary" size="sm" disabled={!canGoNext || loading} onClick={() => canGoNext && setCurrentPage((page) => page + 1)}>Berikutnya</Button>
+          </div>
         </div>
-      </div>
+      </Card>
     </section>
   )
 }

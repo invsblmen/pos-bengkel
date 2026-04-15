@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import api from '@services/api'
+import { Button, Card, StatCard } from '@components/ui'
+import { IconRefresh, IconRoute, IconAlertTriangle, IconCircleCheck, IconClock } from '@tabler/icons-react'
 
 export default function DashboardPage() {
   const [syncStatus, setSyncStatus] = useState(null)
@@ -37,44 +38,45 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-5">
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
-        <p className="mt-3 text-slate-600">GO Frontend native Next.js (App Router)</p>
-      </section>
+      <Card
+        title="Dashboard"
+        icon={<IconRoute size={18} strokeWidth={1.7} />}
+        footer={<p className="text-sm text-slate-500 dark:text-slate-400">GO Frontend native Next.js (App Router)</p>}
+      >
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm text-slate-600 dark:text-slate-300">Ringkasan sinkronisasi backend dan status realtime aktif.</p>
+          </div>
+          <Button href="/service-orders" size="md" icon={<IconRefresh size={16} strokeWidth={1.8} />}>
+            Buka Service Orders
+          </Button>
+        </div>
+      </Card>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <article className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Batch Total</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-900">{summary.batch_total ?? 0}</p>
-        </article>
-        <article className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <p className="text-xs uppercase tracking-wide text-amber-700">Pending</p>
-          <p className="mt-1 text-2xl font-semibold text-amber-900">{summary.pending_total ?? 0}</p>
-        </article>
-        <article className="rounded-xl border border-rose-200 bg-rose-50 p-4">
-          <p className="text-xs uppercase tracking-wide text-rose-700">Failed</p>
-          <p className="mt-1 text-2xl font-semibold text-rose-900">{summary.failed_total ?? 0}</p>
-        </article>
-        <article className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="text-xs uppercase tracking-wide text-emerald-700">Acknowledged</p>
-          <p className="mt-1 text-2xl font-semibold text-emerald-900">{summary.acknowledged_total ?? 0}</p>
-        </article>
+        <StatCard label="Batch Total" value={summary.batch_total ?? 0} tone="slate" icon={<IconRoute size={18} strokeWidth={1.8} />} />
+        <StatCard label="Pending" value={summary.pending_total ?? 0} tone="warning" icon={<IconClock size={18} strokeWidth={1.8} />} />
+        <StatCard label="Failed" value={summary.failed_total ?? 0} tone="danger" icon={<IconAlertTriangle size={18} strokeWidth={1.8} />} />
+        <StatCard label="Acknowledged" value={summary.acknowledged_total ?? 0} tone="success" icon={<IconCircleCheck size={18} strokeWidth={1.8} />} />
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <Card title="Status Sinkronisasi" icon={<IconRefresh size={18} strokeWidth={1.7} />}>
         {loading ? <p className="text-sm text-slate-600">Memuat status sinkronisasi...</p> : null}
         {error ? <p className="text-sm text-rose-600">{error}</p> : null}
         {!loading && !error ? (
           <div className="flex flex-wrap gap-2">
-            <Link href="/service-orders" className="rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 px-4 py-2 text-sm font-semibold text-white">
-              Buka Service Orders (Native)
-            </Link>
-            <Link href="/part-sales" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
-              Part Sales (Bridge)
-            </Link>
+            <Button href="/service-orders" icon={<IconRoute size={16} strokeWidth={1.8} />}>
+              Service Orders
+            </Button>
+            <Button href="/part-sales" variant="secondary">
+              Part Sales
+            </Button>
+            <Button href="/appointments" variant="ghost">
+              Appointments
+            </Button>
           </div>
         ) : null}
-      </section>
+      </Card>
     </div>
   )
 }

@@ -1,15 +1,20 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import api from '@services/api'
+import { Button, Card } from '@components/ui'
+import { IconArrowLeft, IconDeviceFloppy, IconReceipt } from '@tabler/icons-react'
 
 function toIntOrNil(value) {
   const parsed = Number(value)
   if (!Number.isFinite(parsed) || parsed <= 0) return null
   return Math.trunc(parsed)
 }
+
+const inputClass = 'mt-1 w-full rounded-2xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100'
+const selectClass = inputClass
+const labelClass = 'block text-sm font-medium text-slate-700 dark:text-slate-300'
 
 export default function PartSaleCreatePage() {
   const router = useRouter()
@@ -110,67 +115,79 @@ export default function PartSaleCreatePage() {
 
   return (
     <section className="space-y-5">
-      <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Native Next Route</p>
-        <h1 className="text-2xl font-semibold text-slate-900">Part Sale Create</h1>
-      </header>
-
-      <div>
-        <Link href="/part-sales" className="inline-flex rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Kembali ke part sales</Link>
-      </div>
-
-      <form onSubmit={onSubmit} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        {error ? <p className="mb-3 text-sm text-rose-600">{error}</p> : null}
-        {loadingSeed ? <p className="mb-3 text-sm text-slate-600">Memuat data referensi...</p> : null}
-
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <label className="text-sm text-slate-700">Customer
-            <select className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5" value={form.customer_id} onChange={onChange('customer_id')}>
-              <option value="">Pilih customer</option>
-              {seed.customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </label>
-          <label className="text-sm text-slate-700">Tanggal Penjualan
-            <input type="date" className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5" value={form.sale_date} onChange={onChange('sale_date')} />
-          </label>
-          <label className="text-sm text-slate-700">Part
-            <select className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5" value={form.part_id} onChange={onPartChange}>
-              <option value="">Pilih part</option>
-              {seed.parts.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.part_number || '-'})</option>)}
-            </select>
-          </label>
-          <label className="text-sm text-slate-700">Qty
-            <input type="number" min="1" className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5" value={form.quantity} onChange={onChange('quantity')} />
-          </label>
-          <label className="text-sm text-slate-700">Unit Price
-            <input type="number" min="0" className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5" value={form.unit_price} onChange={onChange('unit_price')} placeholder={String(selectedPartPrice)} />
-          </label>
-          <label className="text-sm text-slate-700">Status
-            <select className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5" value={form.status} onChange={onChange('status')}>
-              <option value="draft">draft</option>
-              <option value="confirmed">confirmed</option>
-              <option value="waiting_stock">waiting_stock</option>
-              <option value="ready_to_notify">ready_to_notify</option>
-              <option value="waiting_pickup">waiting_pickup</option>
-              <option value="completed">completed</option>
-              <option value="cancelled">cancelled</option>
-            </select>
-          </label>
-          <label className="text-sm text-slate-700">Paid Amount
-            <input type="number" min="0" className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5" value={form.paid_amount} onChange={onChange('paid_amount')} />
-          </label>
+      <Card
+        title="Part Sale Create"
+        icon={<IconReceipt size={18} strokeWidth={1.7} />}
+        footer={<p className="text-sm text-slate-500 dark:text-slate-400">Buat penjualan parts baru untuk customer.</p>}
+      >
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-2">
+            <p className="text-sm text-slate-600 dark:text-slate-300">Form ini mengikuti pola visual yang sama dengan service order.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Harga satuan dapat otomatis terisi dari master part.</p>
+          </div>
+          <Button href="/part-sales" variant="secondary" icon={<IconArrowLeft size={16} strokeWidth={1.8} />}>
+            Kembali ke part sales
+          </Button>
         </div>
+      </Card>
 
-        <label className="mt-3 block text-sm text-slate-700">Catatan
-          <textarea rows="3" className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5" value={form.notes} onChange={onChange('notes')} />
-        </label>
+      <Card title="Form Data" icon={<IconDeviceFloppy size={18} strokeWidth={1.7} />}>
+        {error ? <p className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-200">{error}</p> : null}
+        {loadingSeed ? <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">Memuat data referensi...</p> : null}
 
-        <div className="mt-4">
-          <button type="submit" disabled={submitting} className="rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
-            {submitting ? 'Menyimpan...' : 'Simpan Part Sale'}
-          </button>
-        </div>
-      </form>
+        <form onSubmit={onSubmit} className="space-y-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label className={labelClass}>Customer
+              <select className={selectClass} value={form.customer_id} onChange={onChange('customer_id')}>
+                <option value="">Pilih customer</option>
+                {seed.customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </label>
+            <label className={labelClass}>Tanggal Penjualan
+              <input type="date" className={inputClass} value={form.sale_date} onChange={onChange('sale_date')} />
+            </label>
+            <label className={labelClass}>Part
+              <select className={selectClass} value={form.part_id} onChange={onPartChange}>
+                <option value="">Pilih part</option>
+                {seed.parts.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.part_number || '-'})</option>)}
+              </select>
+            </label>
+            <label className={labelClass}>Qty
+              <input type="number" min="1" className={inputClass} value={form.quantity} onChange={onChange('quantity')} />
+            </label>
+            <label className={labelClass}>Unit Price
+              <input type="number" min="0" className={inputClass} value={form.unit_price} onChange={onChange('unit_price')} placeholder={String(selectedPartPrice)} />
+            </label>
+            <label className={labelClass}>Status
+              <select className={selectClass} value={form.status} onChange={onChange('status')}>
+                <option value="draft">draft</option>
+                <option value="confirmed">confirmed</option>
+                <option value="waiting_stock">waiting_stock</option>
+                <option value="ready_to_notify">ready_to_notify</option>
+                <option value="waiting_pickup">waiting_pickup</option>
+                <option value="completed">completed</option>
+                <option value="cancelled">cancelled</option>
+              </select>
+            </label>
+            <label className={labelClass}>Paid Amount
+              <input type="number" min="0" className={inputClass} value={form.paid_amount} onChange={onChange('paid_amount')} />
+            </label>
+          </div>
+
+          <label className={labelClass}>Catatan
+            <textarea rows="4" className={inputClass} value={form.notes} onChange={onChange('notes')} />
+          </label>
+
+          <div className="flex flex-wrap gap-3">
+            <Button type="submit" loading={submitting} icon={<IconDeviceFloppy size={16} strokeWidth={1.8} />}>
+              {submitting ? 'Menyimpan...' : 'Simpan Part Sale'}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => router.back()}>
+              Batal
+            </Button>
+          </div>
+        </form>
+      </Card>
     </section>
   )
 }

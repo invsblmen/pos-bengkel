@@ -16,7 +16,7 @@ Prinsip kerja:
 
 1. Laravel adalah source of truth untuk kebutuhan hosting dan akses online.
 2. Go adalah source of execution untuk operasi harian lokal di bengkel.
-3. Parity bisnis harus dijaga dengan contract test, shadow compare, dan rekonsiliasi data.
+3. Parity bisnis harus dijaga dengan contract test, historical comparison, dan rekonsiliasi data.
 4. Fitur sync tidak boleh mengubah aturan bisnis, hanya memindahkan data hasil operasi lokal ke hosting.
 
 ## 1. Kondisi Saat Ini (Baseline)
@@ -121,9 +121,9 @@ Kandidat domain:
 
 Strategi rollout:
 
-- Shadow mode: request tetap diproses Laravel, Go menerima mirror traffic.
-- Diff response otomatis untuk validasi perilaku.
-- Canary 5%-20%-50%-100%.
+- Historical mirror mode adalah catatan strategi migrasi historis, bukan mode operasional aktif di boundary Laravel Inertia.
+- Diff response otomatis dipertahankan hanya untuk analisis migrasi internal.
+- Staged rollout 5%-20%-50%-100% adalah pola rollout historis, bukan alur aktif saat ini.
 
 Deliverable:
 
@@ -240,7 +240,7 @@ Kontrol wajib:
 ## 6. Risiko Kritis dan Mitigasi
 
 1. Perilaku bisnis berubah diam-diam.
-   Mitigasi: contract test + golden dataset + shadow diff.
+   Mitigasi: contract test + golden dataset + historical diff.
 
 2. Deadlock/inkonsistensi data transaksi.
    Mitigasi: idempotency, transaksi DB eksplisit, rekonsiliasi harian.

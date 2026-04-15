@@ -1,14 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
 import api from '@services/api'
+import { Badge, Button, Card, StatCard, Table } from '@components/ui'
+import { IconBox, IconPlus, IconRefresh, IconShoppingCart } from '@tabler/icons-react'
 
 const STATUS_TONE = {
-  pending: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
-  ordered: 'bg-sky-50 text-sky-700 ring-1 ring-sky-200',
-  received: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
-  cancelled: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200',
+  pending: 'warning',
+  ordered: 'primary',
+  received: 'success',
+  cancelled: 'danger',
 }
 
 export default function PartPurchasesPage() {
@@ -17,13 +18,19 @@ export default function PartPurchasesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  const stats = useMemo(() => ({
+    total: rows.length,
+    ordered: rows.filter((item) => item.status === 'ordered').length,
+    received: rows.filter((item) => item.status === 'received').length,
+    pending: rows.filter((item) => item.status === 'pending').length,
+  }), [rows])
+
   useEffect(() => {
     let mounted = true
 
     const load = async () => {
       setLoading(true)
       setError('')
-
       try {
         const res = await api.get('/part-purchases')
         if (!mounted) return
@@ -47,59 +54,66 @@ export default function PartPurchasesPage() {
 
   return (
     <section className="space-y-5">
-      <header className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Native Next Route</p>
-          <h1 className="text-2xl font-semibold text-slate-900">Part Purchases</h1>
-          <p className="text-sm text-slate-600">Total data: {total}</p>
+      <Card
+        title="Part Purchases"
+        icon={<IconShoppingCart size={18} strokeWidth={1.7} />}
+        footer={<p className="text-sm text-slate-500 dark:text-slate-400">Total data: {total}</p>}
+      >
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <p className="text-sm text-slate-600 dark:text-slate-300">Daftar pembelian parts dengan status stok masuk.</p>
+          <Button href="/part-purchases/create" icon={<IconPlus size={16} strokeWidth={1.8} />}>
+            Buat Pembelian
+          </Button>
         </div>
-        <Link href="/part-purchases/create" className="rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 px-3 py-2 text-sm font-semibold text-white hover:from-primary-600 hover:to-primary-700">
-          Buat Pembelian
-        </Link>
-      </header>
+      </Card>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        {loading ? (
-          <p className="p-4 text-sm text-slate-600">Memuat data...</p>
-        ) : error ? (
-          <p className="p-4 text-sm text-rose-600">{error}</p>
-        ) : rows.length === 0 ? (
-          <p className="p-4 text-sm text-slate-600">Belum ada part purchases.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50">
-                <tr className="border-b border-slate-200 text-left text-slate-600">
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Nomor</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Supplier</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Tanggal</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Status</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Total</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {rows.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50/80">
-                    <td className="px-4 py-3 font-medium text-slate-800">{item.purchase_number || '-'}</td>
-                    <td className="px-4 py-3">{item.supplier?.name || '-'}</td>
-                    <td className="px-4 py-3">{item.purchase_date || '-'}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_TONE[item.status] || 'bg-slate-100 text-slate-700 ring-1 ring-slate-200'}`}>
-                        {item.status || '-'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-semibold text-slate-800">{Number(item.total_amount || item.grand_total || 0).toLocaleString('id-ID')}</td>
-                    <td className="px-4 py-3">
-                      <Link className="inline-flex rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100" href={`/part-purchases/${item.id}`}>Detail</Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatCard label="Purchases" value={stats.total} tone="slate" />
+        <StatCard label="Ordered" value={stats.ordered} tone="primary" />
+        <StatCard label="Received" value={stats.received} tone="success" />
+        <StatCard label="Pending" value={stats.pending} tone="warning" />
       </div>
+
+      <Card title="List" icon={<IconBox size={18} strokeWidth={1.7} />}>
+        <div className="flex justify-end pb-4">
+          <Button type="button" variant="secondary" size="sm" icon={<IconRefresh size={16} strokeWidth={1.8} />} onClick={() => setLoading((value) => !value)}>
+            Refresh
+          </Button>
+        </div>
+
+        <Table>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Nomor</Table.Th>
+              <Table.Th>Supplier</Table.Th>
+              <Table.Th>Tanggal</Table.Th>
+              <Table.Th>Status</Table.Th>
+              <Table.Th>Total</Table.Th>
+              <Table.Th>Aksi</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {loading ? (
+              <Table.Empty colSpan={6}>Memuat data...</Table.Empty>
+            ) : error ? (
+              <Table.Empty colSpan={6}>{error}</Table.Empty>
+            ) : rows.length === 0 ? (
+              <Table.Empty colSpan={6}>Belum ada part purchases.</Table.Empty>
+            ) : rows.map((item) => (
+              <Table.Tr key={item.id}>
+                <Table.Td className="font-medium text-slate-800 dark:text-slate-100">{item.purchase_number || '-'}</Table.Td>
+                <Table.Td>{item.supplier?.name || '-'}</Table.Td>
+                <Table.Td>{item.purchase_date || '-'}</Table.Td>
+                <Table.Td><Badge tone={STATUS_TONE[item.status] || 'neutral'}>{item.status || '-'}</Badge></Table.Td>
+                <Table.Td className="font-semibold text-slate-800 dark:text-slate-100">{Number(item.total_amount || item.grand_total || 0).toLocaleString('id-ID')}</Table.Td>
+                <Table.Td>
+                  <Button href={`/part-purchases/${item.id}`} size="sm" variant="secondary">Detail</Button>
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Card>
     </section>
   )
 }

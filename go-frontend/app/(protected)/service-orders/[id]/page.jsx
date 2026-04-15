@@ -1,8 +1,17 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import api from '@services/api'
+import { Badge, Button, Card, Table } from '@components/ui'
+import { IconArrowLeft, IconDeviceFloppy, IconTool } from '@tabler/icons-react'
+
+const STATUS_TONE = {
+  pending: 'warning',
+  in_progress: 'primary',
+  completed: 'success',
+  paid: 'success',
+  cancelled: 'danger',
+}
 
 export default function ServiceOrderShowPage({ params }) {
   const { id } = params
@@ -73,75 +82,98 @@ export default function ServiceOrderShowPage({ params }) {
 
   return (
     <section className="space-y-5">
-      <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Native Next Route</p>
-        <h1 className="text-2xl font-semibold text-slate-900">Service Order Detail</h1>
-        <p className="text-sm text-slate-600">ID: {id}</p>
-      </header>
-
-      <div className="flex gap-2">
-        <Link href="/service-orders" className="inline-flex rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Kembali ke service orders</Link>
-        <Link href={`/service-orders/${id}/edit`} className="inline-flex rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Edit</Link>
-      </div>
-
-      {!loading && !error && order ? (
-        <div className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-4">
-          <select className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm" value={nextStatus} onChange={(event) => setNextStatus(event.target.value)}>
-            <option value="pending">pending</option>
-            <option value="in_progress">in_progress</option>
-            <option value="completed">completed</option>
-            <option value="paid">paid</option>
-            <option value="cancelled">cancelled</option>
-          </select>
-          <input type="number" min="0" className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm" placeholder="Odometer" value={odometerKM} onChange={(event) => setOdometerKM(event.target.value)} />
-          <input type="text" className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm" placeholder="Catatan status" value={statusNotes} onChange={(event) => setStatusNotes(event.target.value)} />
-          <button type="button" className="rounded-xl bg-slate-900 px-3 py-2.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50" onClick={onUpdateStatus} disabled={updating}>{updating ? 'Menyimpan...' : 'Update Status'}</button>
-          {actionMessage ? <p className="text-sm font-medium text-emerald-700 md:col-span-4">{actionMessage}</p> : null}
+      <Card
+        title="Service Order Detail"
+        icon={<IconTool size={18} strokeWidth={1.7} />}
+        footer={<p className="text-sm text-slate-500 dark:text-slate-400">ID: {id}</p>}
+      >
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-2">
+            <p className="text-sm text-slate-600 dark:text-slate-300">Rincian transaksi workshop dan status tracking.</p>
+            <div className="flex flex-wrap gap-2">
+              <Badge tone={STATUS_TONE[order?.status] || 'neutral'}>{order?.status || 'loading'}</Badge>
+              {order?.order_number ? <Badge tone="primary">{order.order_number}</Badge> : null}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button href="/service-orders" variant="secondary" icon={<IconArrowLeft size={16} strokeWidth={1.8} />}>
+              Kembali
+            </Button>
+            <Button href={`/service-orders/${id}/edit`} icon={<IconDeviceFloppy size={16} strokeWidth={1.8} />}>
+              Edit
+            </Button>
+          </div>
         </div>
-      ) : null}
+      </Card>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        {loading ? <p className="text-sm text-slate-600">Memuat detail...</p> : null}
-        {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+      <Card title="Update Status" icon={<IconDeviceFloppy size={18} strokeWidth={1.7} />}>
         {!loading && !error && order ? (
-          <dl className="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
-            <div><dt className="text-slate-500">Nomor Order</dt><dd className="font-medium text-slate-900">{order.order_number || '-'}</dd></div>
-            <div><dt className="text-slate-500">Status</dt><dd className="font-medium text-slate-900">{order.status || '-'}</dd></div>
-            <div><dt className="text-slate-500">Tanggal</dt><dd className="font-medium text-slate-900">{order.created_at || '-'}</dd></div>
-            <div><dt className="text-slate-500">Customer</dt><dd className="font-medium text-slate-900">{order.customer?.name || '-'}</dd></div>
-            <div><dt className="text-slate-500">Kendaraan</dt><dd className="font-medium text-slate-900">{order.vehicle?.plate_number || '-'}</dd></div>
-            <div><dt className="text-slate-500">Mekanik</dt><dd className="font-medium text-slate-900">{order.mechanic?.name || '-'}</dd></div>
-          </dl>
-        ) : null}
-      </div>
-
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-lg font-semibold text-slate-900">Item Detail</h2>
-        {loading ? <p className="text-sm text-slate-600">Memuat item detail...</p> : null}
-        {!loading && details.length === 0 ? <p className="text-sm text-slate-600">Belum ada item detail.</p> : null}
-        {!loading && details.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead><tr className="border-b border-slate-200 text-left text-slate-600"><th className="px-3 py-2">Item</th><th className="px-3 py-2">Jenis</th><th className="px-3 py-2">Qty</th><th className="px-3 py-2">Harga</th><th className="px-3 py-2">Final</th><th className="px-3 py-2">Garansi</th></tr></thead>
-              <tbody>
-                {details.map((item) => {
-                  const warranty = warrantyRegistrations?.[item.id]
-                  return (
-                    <tr key={item.id} className="border-b border-slate-100">
-                      <td className="px-3 py-2">{item.service?.name || item.part?.name || '-'}</td>
-                      <td className="px-3 py-2">{item.service ? 'Service' : item.part ? 'Part' : '-'}</td>
-                      <td className="px-3 py-2">{Number(item.qty || 0).toLocaleString('id-ID')}</td>
-                      <td className="px-3 py-2">{Number(item.price || 0).toLocaleString('id-ID')}</td>
-                      <td className="px-3 py-2">{Number(item.final_amount || 0).toLocaleString('id-ID')}</td>
-                      <td className="px-3 py-2">{warranty?.status || '-'}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+            <select className="rounded-2xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" value={nextStatus} onChange={(event) => setNextStatus(event.target.value)}>
+              <option value="pending">pending</option>
+              <option value="in_progress">in_progress</option>
+              <option value="completed">completed</option>
+              <option value="paid">paid</option>
+              <option value="cancelled">cancelled</option>
+            </select>
+            <input type="number" min="0" className="rounded-2xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" placeholder="Odometer" value={odometerKM} onChange={(event) => setOdometerKM(event.target.value)} />
+            <input type="text" className="rounded-2xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" placeholder="Catatan status" value={statusNotes} onChange={(event) => setStatusNotes(event.target.value)} />
+            <Button type="button" loading={updating} onClick={onUpdateStatus}>
+              {updating ? 'Menyimpan...' : 'Update Status'}
+            </Button>
+            {actionMessage ? <p className="text-sm font-medium text-emerald-700 md:col-span-4 dark:text-emerald-300">{actionMessage}</p> : null}
           </div>
         ) : null}
-      </div>
+      </Card>
+
+      <Card title="Detail Utama" icon={<IconTool size={18} strokeWidth={1.7} />}>
+        {loading ? <p className="text-sm text-slate-600 dark:text-slate-300">Memuat detail...</p> : null}
+        {error ? <p className="text-sm text-rose-600 dark:text-rose-300">{error}</p> : null}
+        {!loading && !error && order ? (
+          <dl className="grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
+            <div><dt className="text-slate-500 dark:text-slate-400">Nomor Order</dt><dd className="font-medium text-slate-900 dark:text-slate-100">{order.order_number || '-'}</dd></div>
+            <div><dt className="text-slate-500 dark:text-slate-400">Status</dt><dd className="font-medium text-slate-900 dark:text-slate-100">{order.status || '-'}</dd></div>
+            <div><dt className="text-slate-500 dark:text-slate-400">Tanggal</dt><dd className="font-medium text-slate-900 dark:text-slate-100">{order.created_at || '-'}</dd></div>
+            <div><dt className="text-slate-500 dark:text-slate-400">Customer</dt><dd className="font-medium text-slate-900 dark:text-slate-100">{order.customer?.name || '-'}</dd></div>
+            <div><dt className="text-slate-500 dark:text-slate-400">Kendaraan</dt><dd className="font-medium text-slate-900 dark:text-slate-100">{order.vehicle?.plate_number || '-'}</dd></div>
+            <div><dt className="text-slate-500 dark:text-slate-400">Mekanik</dt><dd className="font-medium text-slate-900 dark:text-slate-100">{order.mechanic?.name || '-'}</dd></div>
+          </dl>
+        ) : null}
+      </Card>
+
+      <Card title="Item Detail" icon={<IconTool size={18} strokeWidth={1.7} />}>
+        {loading ? <p className="text-sm text-slate-600 dark:text-slate-300">Memuat item detail...</p> : null}
+        {!loading && details.length === 0 ? <p className="text-sm text-slate-600 dark:text-slate-300">Belum ada item detail.</p> : null}
+        {!loading && details.length > 0 ? (
+          <Table>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Item</Table.Th>
+                <Table.Th>Jenis</Table.Th>
+                <Table.Th>Qty</Table.Th>
+                <Table.Th>Harga</Table.Th>
+                <Table.Th>Final</Table.Th>
+                <Table.Th>Garansi</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {details.map((item) => {
+                const warranty = warrantyRegistrations?.[item.id]
+                return (
+                  <Table.Tr key={item.id}>
+                    <Table.Td className="font-medium text-slate-800 dark:text-slate-100">{item.service?.name || item.part?.name || '-'}</Table.Td>
+                    <Table.Td>{item.service ? 'Service' : item.part ? 'Part' : '-'}</Table.Td>
+                    <Table.Td>{Number(item.qty || 0).toLocaleString('id-ID')}</Table.Td>
+                    <Table.Td>{Number(item.price || 0).toLocaleString('id-ID')}</Table.Td>
+                    <Table.Td className="font-semibold text-slate-800 dark:text-slate-100">{Number(item.final_amount || 0).toLocaleString('id-ID')}</Table.Td>
+                    <Table.Td><Badge tone={warranty?.status ? 'success' : 'neutral'}>{warranty?.status || '-'}</Badge></Table.Td>
+                  </Table.Tr>
+                )
+              })}
+            </Table.Tbody>
+          </Table>
+        ) : null}
+      </Card>
     </section>
   )
 }

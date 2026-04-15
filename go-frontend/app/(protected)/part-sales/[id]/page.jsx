@@ -1,25 +1,26 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import api from '@services/api'
+import { Badge, Button, Card, Table } from '@components/ui'
+import { IconArrowLeft, IconDeviceFloppy, IconReceipt } from '@tabler/icons-react'
 
 const STATUS_TONE = {
-  draft: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
-  confirmed: 'bg-sky-50 text-sky-700 ring-1 ring-sky-200',
-  waiting_stock: 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200',
-  ready_to_notify: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
-  waiting_pickup: 'bg-violet-50 text-violet-700 ring-1 ring-violet-200',
-  completed: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
-  cancelled: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200',
+  draft: 'warning',
+  confirmed: 'primary',
+  waiting_stock: 'info',
+  ready_to_notify: 'success',
+  waiting_pickup: 'purple',
+  completed: 'success',
+  cancelled: 'danger',
 }
 
 const PAYMENT_TONE = {
-  unpaid: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
-  partial: 'bg-sky-50 text-sky-700 ring-1 ring-sky-200',
-  paid: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
-  refunded: 'bg-slate-50 text-slate-700 ring-1 ring-slate-200',
+  unpaid: 'warning',
+  partial: 'primary',
+  paid: 'success',
+  refunded: 'neutral',
 }
 
 export default function PartSaleShowPage() {
@@ -57,70 +58,90 @@ export default function PartSaleShowPage() {
 
   return (
     <section className="space-y-5">
-      <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Native Next Route</p>
-        <h1 className="text-2xl font-semibold text-slate-900">Part Sale Detail</h1>
-        <p className="text-sm text-slate-600">ID: {id}</p>
-      </header>
-
-      <div className="flex gap-2">
-        <Link href="/part-sales" className="inline-flex rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Kembali ke part sales</Link>
-        <Link href={`/part-sales/${id}/edit`} className="inline-flex rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Edit</Link>
-      </div>
-
-      {!loading && !error && sale ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
-            <article className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Sale ID</p>
-              <p className="mt-1 font-semibold text-slate-900">{sale.id || '-'}</p>
-            </article>
-            <article className="rounded-xl border border-slate-200 bg-white p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Status</p>
-              <p className="mt-1"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_TONE[sale.status] || 'bg-slate-100 text-slate-700 ring-1 ring-slate-200'}`}>{sale.status || '-'}</span></p>
-            </article>
-            <article className="rounded-xl border border-slate-200 bg-white p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Payment Status</p>
-              <p className="mt-1"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${PAYMENT_TONE[sale.payment_status] || 'bg-slate-100 text-slate-700 ring-1 ring-slate-200'}`}>{sale.payment_status || '-'}</span></p>
-            </article>
-            <article className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-              <p className="text-xs uppercase tracking-wide text-emerald-700">Grand Total</p>
-              <p className="mt-1 font-semibold text-emerald-900">{Number(sale.grand_total || sale.total || 0).toLocaleString('id-ID')}</p>
-            </article>
+      <Card
+        title="Part Sale Detail"
+        icon={<IconReceipt size={18} strokeWidth={1.7} />}
+        footer={<p className="text-sm text-slate-500 dark:text-slate-400">ID: {id}</p>}
+      >
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-2">
+            <p className="text-sm text-slate-600 dark:text-slate-300">Rincian penjualan parts dan status pembayaran.</p>
+            <div className="flex flex-wrap gap-2">
+              <Badge tone={STATUS_TONE[sale?.status] || 'neutral'}>{sale?.status || 'loading'}</Badge>
+              <Badge tone={PAYMENT_TONE[sale?.payment_status] || 'neutral'}>{sale?.payment_status || 'loading'}</Badge>
+            </div>
           </div>
-
-          <dl className="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
-            <div><dt className="text-slate-500">Customer</dt><dd className="font-medium text-slate-900">{sale.customer?.name || '-'}</dd></div>
-            <div><dt className="text-slate-500">Sale Date</dt><dd className="font-medium text-slate-900">{sale.sale_date || '-'}</dd></div>
-            <div><dt className="text-slate-500">Voucher</dt><dd className="font-medium text-slate-900">{sale.voucher?.code || '-'}</dd></div>
-          </dl>
+          <div className="flex flex-wrap gap-2">
+            <Button href="/part-sales" variant="secondary" icon={<IconArrowLeft size={16} strokeWidth={1.8} />}>Kembali</Button>
+            <Button href={`/part-sales/${id}/edit`} icon={<IconDeviceFloppy size={16} strokeWidth={1.8} />}>Edit</Button>
+          </div>
         </div>
-      ) : null}
+      </Card>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="p-5"><h2 className="text-lg font-semibold text-slate-900">Item Detail</h2></div>
-        {loading ? <p className="p-4 text-sm text-slate-600">Memuat item detail...</p> : null}
-        {error ? <p className="p-4 text-sm text-rose-600">{error}</p> : null}
-        {!loading && !error && details.length === 0 ? <p className="p-4 text-sm text-slate-600">Belum ada item detail pada part sale ini.</p> : null}
-        {!loading && !error && details.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50"><tr className="border-b border-slate-200 text-left text-slate-600"><th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Part</th><th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Qty</th><th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Unit Price</th><th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Discount</th><th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Subtotal</th></tr></thead>
-              <tbody className="divide-y divide-slate-100">
-                {details.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50/80">
-                    <td className="px-4 py-3 font-medium text-slate-800">{item.part?.name || '-'}</td>
-                    <td className="px-4 py-3">{Number(item.quantity || 0).toLocaleString('id-ID')}</td>
-                    <td className="px-4 py-3">{Number(item.unit_price || 0).toLocaleString('id-ID')}</td>
-                    <td className="px-4 py-3">{Number(item.discount_amount || 0).toLocaleString('id-ID')}</td>
-                    <td className="px-4 py-3 font-semibold text-slate-800">{Number(item.subtotal || 0).toLocaleString('id-ID')}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <Card title="Ringkasan" icon={<IconReceipt size={18} strokeWidth={1.7} />}>
+        {loading ? <p className="text-sm text-slate-600 dark:text-slate-300">Memuat detail...</p> : null}
+        {error ? <p className="text-sm text-rose-600 dark:text-rose-300">{error}</p> : null}
+        {!loading && !error && sale ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <article className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Sale ID</p>
+              <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">{sale.id || '-'}</p>
+            </article>
+            <article className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Customer</p>
+              <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">{sale.customer?.name || '-'}</p>
+            </article>
+            <article className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Sale Date</p>
+              <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">{sale.sale_date || '-'}</p>
+            </article>
+            <article className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/30">
+              <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-emerald-200">Grand Total</p>
+              <p className="mt-1 text-lg font-semibold text-emerald-900 dark:text-emerald-100">{Number(sale.grand_total || sale.total || 0).toLocaleString('id-ID')}</p>
+            </article>
           </div>
         ) : null}
-      </div>
+      </Card>
+
+      <Card title="Meta" icon={<IconReceipt size={18} strokeWidth={1.7} />}>
+        {!loading && !error && sale ? (
+          <dl className="grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
+            <div><dt className="text-slate-500 dark:text-slate-400">Voucher</dt><dd className="font-medium text-slate-900 dark:text-slate-100">{sale.voucher?.code || '-'}</dd></div>
+            <div><dt className="text-slate-500 dark:text-slate-400">Paid Amount</dt><dd className="font-medium text-slate-900 dark:text-slate-100">{Number(sale.paid_amount || 0).toLocaleString('id-ID')}</dd></div>
+            <div><dt className="text-slate-500 dark:text-slate-400">Notes</dt><dd className="font-medium text-slate-900 dark:text-slate-100">{sale.notes || '-'}</dd></div>
+          </dl>
+        ) : null}
+      </Card>
+
+      <Card title="Item Detail" icon={<IconReceipt size={18} strokeWidth={1.7} />}>
+        {loading ? <p className="text-sm text-slate-600 dark:text-slate-300">Memuat item detail...</p> : null}
+        {error ? <p className="text-sm text-rose-600 dark:text-rose-300">{error}</p> : null}
+        {!loading && !error && details.length === 0 ? <p className="text-sm text-slate-600 dark:text-slate-300">Belum ada item detail pada part sale ini.</p> : null}
+        {!loading && !error && details.length > 0 ? (
+          <Table>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Part</Table.Th>
+                <Table.Th>Qty</Table.Th>
+                <Table.Th>Unit Price</Table.Th>
+                <Table.Th>Discount</Table.Th>
+                <Table.Th>Subtotal</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {details.map((item) => (
+                <Table.Tr key={item.id}>
+                  <Table.Td className="font-medium text-slate-800 dark:text-slate-100">{item.part?.name || '-'}</Table.Td>
+                  <Table.Td>{Number(item.quantity || 0).toLocaleString('id-ID')}</Table.Td>
+                  <Table.Td>{Number(item.unit_price || 0).toLocaleString('id-ID')}</Table.Td>
+                  <Table.Td>{Number(item.discount_amount || 0).toLocaleString('id-ID')}</Table.Td>
+                  <Table.Td className="font-semibold text-slate-800 dark:text-slate-100">{Number(item.subtotal || 0).toLocaleString('id-ID')}</Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        ) : null}
+      </Card>
     </section>
   )
 }

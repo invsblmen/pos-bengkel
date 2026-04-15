@@ -59,21 +59,21 @@ Definition of done:
 2. Implement POST /webhooks/whatsapp di Go dengan signature validation.
 3. Implement endpoint vehicle insights read-only.
 4. Tambahkan contract tests wave-1 terhadap respons Laravel.
-5. Jalankan shadow traffic untuk endpoint wave-1.
-6. Buat dashboard mismatch response.
+5. Jalankan contract test dan sample replay untuk endpoint wave-1.
+6. Buat dashboard rekonsiliasi response.
 
 Definition of done:
 
 - Semua endpoint wave-1 jalan di staging.
 - Mismatch response berada di ambang aman.
 
-## Minggu 5 - Wave 1 Canary dan Hardening
+## Minggu 5 - Wave 1 Hardening
 
-1. Canary rollout 5% lalu 20% untuk wave-1.
+1. Finalisasi hardening wave-1 tanpa rollout aktif.
 2. Verifikasi error rate dan latency p95.
 3. Perbaiki mismatch payload dan edge case.
 4. Dokumentasikan runbook insiden wave-1.
-5. Canary 50% lalu 100% jika stabil.
+5. Validasi stabilitas penuh sebelum cutover internal.
 6. Freeze patch untuk wave-1 stabilisasi 48 jam.
 
 Definition of done:
@@ -92,12 +92,12 @@ Definition of done:
 
 Definition of done:
 
-- Endpoint appointment siap canary.
+- Endpoint appointment siap untuk migrasi internal.
 - Kontrak data kompatibel frontend.
 
-## Minggu 7 - Wave 2 Canary dan Optimasi
+## Minggu 7 - Wave 2 Hardening dan Optimasi
 
-1. Canary appointment 5%-20%-50%-100%.
+1. Hardening appointment tanpa skema rollout aktif.
 2. Verifikasi konsistensi kalender dan status.
 3. Tuning query bottleneck.
 4. Perbaiki retry policy notifikasi.
@@ -120,12 +120,12 @@ Definition of done:
 
 Definition of done:
 
-- Fondasi transaksi stok siap canary internal.
+- Fondasi transaksi stok siap untuk validasi migrasi internal.
 
 ## Minggu 9 - Wave 3 Rollout
 
-1. Canary endpoint stock movement.
-2. Canary endpoint part-purchases.
+1. Validasi endpoint stock movement.
+2. Validasi endpoint part-purchases.
 3. Audit deadlock dan lock contention.
 4. Jalankan rekonsiliasi harian otomatis.
 5. Patch inkonsistensi rounding/perhitungan.
@@ -149,9 +149,9 @@ Definition of done:
 
 - Transaksi penjualan lolos integration test kritikal.
 
-## Minggu 11 - Wave 4 Canary dan Persiapan Wave 5
+## Minggu 11 - Wave 4 Hardening dan Persiapan Wave 5
 
-1. Canary part-sales + cash settle.
+1. Validasi part-sales + cash settle.
 2. Verifikasi laporan keuangan harian.
 3. Tuning performa query transaksi puncak.
 4. Mulai split use case service-order (read dulu).

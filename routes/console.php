@@ -212,8 +212,6 @@ Schedule::command('low-stock:sync')->hourly();
 Schedule::command('warranty:notify-expiring --days=7')->dailyAt('07:30');
 Schedule::command('reverb:watchdog-maintain --max-kb=1024 --keep-lines=600')->weeklyOn(0, '03:10');
 Schedule::command('benchmark:reports --iterations=2 --warmup=1 --save-history')->dailyAt('02:30');
-Schedule::command('go:shadow:summary --top=50 --save-csv')->dailyAt('23:50')->withoutOverlapping();
-Schedule::command('go:shadow:trend --days=7')->dailyAt('23:55')->withoutOverlapping();
 
 Artisan::command('go:sync:run {--scope=daily} {--source_date=} {--tables=} {--timeout=}', function () {
     if (! (bool) config('go_backend.sync.enabled', false)) {
@@ -599,16 +597,16 @@ Artisan::command('go:sync:reconciliation-daily {--date=} {--timeout=} {--max-var
     $this->line('');
     $this->line('Comparison & Variance:');
     $this->table(['Metric', 'Variance %', 'Threshold %', 'Status'], [
-        ['Batch Total', $batchVariance, $maxVariancePercent, $batchVariance <= $maxVariancePercent ? '✓' : '✗'],
-        ['Acknowledged', $acknowledgedVariance, $maxVariancePercent, $acknowledgedVariance <= $maxVariancePercent ? '✓' : '✗'],
+        ['Batch Total', $batchVariance, $maxVariancePercent, $batchVariance <= $maxVariancePercent ? 'âœ“' : 'âœ—'],
+        ['Acknowledged', $acknowledgedVariance, $maxVariancePercent, $acknowledgedVariance <= $maxVariancePercent ? 'âœ“' : 'âœ—'],
     ]);
 
     $this->line('');
     if ($summary['status'] === 'OK') {
-        $this->info("✓ Reconciliation OK - Batches match within {$maxVariancePercent}% threshold");
+        $this->info("âœ“ Reconciliation OK - Batches match within {$maxVariancePercent}% threshold");
         return self::SUCCESS;
     } else {
-        $this->warn("⚠ {$summary['status']} - {$summary['alert']}");
+        $this->warn("âš  {$summary['status']} - {$summary['alert']}");
         return self::FAILURE;
     }
 })->purpose('Compare Go sync counts against Laravel received batches and log discrepancies');
@@ -1298,7 +1296,7 @@ Artisan::command('benchmark:reports:compare {--report_key=} {--run-offset=0} {--
         });
 
         if ($regressions->isNotEmpty()) {
-            $this->error('⚠ THRESHOLD ALERT: ' . $regressions->count() . ' report(s) exceeded the ' . $thresholdPercent . '% regression threshold:');
+            $this->error('âš  THRESHOLD ALERT: ' . $regressions->count() . ' report(s) exceeded the ' . $thresholdPercent . '% regression threshold:');
             foreach ($regressions as $regression) {
                 $this->error('  - ' . $regression['report'] . ': +' . $regression['delta_percent'] . '%');
             }
@@ -1306,7 +1304,7 @@ Artisan::command('benchmark:reports:compare {--report_key=} {--run-offset=0} {--
             $this->warn('Exiting with error code 1 (suitable for CI/CD pre-deploy validation)');
             return 1;
         } else {
-            $this->info('✓ All reports are within the ' . $thresholdPercent . '% threshold');
+            $this->info('âœ“ All reports are within the ' . $thresholdPercent . '% threshold');
         }
     }
 
@@ -1326,12 +1324,12 @@ Artisan::command('verify:cache-invalidation {--report=overall}', function () {
     $testData = ['timestamp' => now(), 'test_data' => true];
 
     \Illuminate\Support\Facades\Cache::put($cacheKey, $testData, 3600);
-    $this->line("✓ Cache entry created: {$cacheKey}");
+    $this->line("âœ“ Cache entry created: {$cacheKey}");
 
     if (\Illuminate\Support\Facades\Cache::has($cacheKey)) {
-        $this->line("✓ Cache entry verified");
+        $this->line("âœ“ Cache entry verified");
     } else {
-        $this->error("✗ Cache entry not found after creation");
+        $this->error("âœ— Cache entry not found after creation");
         return 1;
     }
 
@@ -1347,9 +1345,9 @@ Artisan::command('verify:cache-invalidation {--report=overall}', function () {
             'test' => true,
             'created_at' => now(),
         ]);
-        $this->line("✓ Event dispatched successfully");
+        $this->line("âœ“ Event dispatched successfully");
     } catch (\Exception $e) {
-        $this->warn("⚠ Event dispatch error (non-critical): " . mb_strimwidth($e->getMessage(), 0, 100, '...'));
+        $this->warn("âš  Event dispatch error (non-critical): " . mb_strimwidth($e->getMessage(), 0, 100, '...'));
     }
 
     usleep(100000);
@@ -1357,9 +1355,9 @@ Artisan::command('verify:cache-invalidation {--report=overall}', function () {
     // Test 3: Check cache status after event
     $this->line("");
     if (\Illuminate\Support\Facades\Cache::has($cacheKey)) {
-        $this->warn("⚠ Cache still exists (may be expected for file cache driver)");
+        $this->warn("âš  Cache still exists (may be expected for file cache driver)");
     } else {
-        $this->line("✓ Cache successfully invalidated by event");
+        $this->line("âœ“ Cache successfully invalidated by event");
     }
 
     // Test 4: Show registered listeners
@@ -1379,12 +1377,12 @@ Artisan::command('verify:cache-invalidation {--report=overall}', function () {
     $listenerCount = 0;
     foreach ($reportEvents as $eventClass) {
         if (isset($listeners[$eventClass]) && count($listeners[$eventClass]) > 0) {
-            $this->line("✓ " . class_basename($eventClass));
+            $this->line("âœ“ " . class_basename($eventClass));
             foreach ($listeners[$eventClass] as $listener) {
                 if (is_array($listener) && count($listener) >= 2) {
                     $listenerClass = is_object($listener[0]) ? $listener[0]::class : (string) $listener[0];
                     $method = (string) ($listener[1] ?? 'unknown');
-                    $this->line("  └─ " . class_basename($listenerClass) . "::{$method}()");
+                    $this->line("  â””â”€ " . class_basename($listenerClass) . "::{$method}()");
                     $listenerCount++;
                 }
             }
@@ -1395,740 +1393,10 @@ Artisan::command('verify:cache-invalidation {--report=overall}', function () {
     $this->info("Total event listeners: {$listenerCount}");
 
     if ($listenerCount === 0) {
-        $this->warn("⚠ No event listeners registered! Cache invalidation will not work.");
+        $this->warn("âš  No event listeners registered! Cache invalidation will not work.");
         return 1;
     }
 
-    $this->info("✓ Cache invalidation verification complete!");
+    $this->info("âœ“ Cache invalidation verification complete!");
     return 0;
 })->purpose('Verify event-driven cache invalidation is working correctly');
-
-Artisan::command('go:shadow:summary {--date=} {--since=} {--until=} {--log=} {--top=20} {--threshold=} {--save-csv} {--csv-path=}', function () {
-    $dateInput = (string) ($this->option('date') ?: now()->format('Y-m-d'));
-    $date = Carbon::parse($dateInput)->format('Y-m-d');
-    $sinceInput = trim((string) ($this->option('since') ?? ''));
-    $untilInput = trim((string) ($this->option('until') ?? ''));
-    $sinceAt = null;
-    $untilAt = null;
-
-    if ($sinceInput !== '') {
-        try {
-            $sinceAt = Carbon::parse($sinceInput);
-        } catch (\Throwable) {
-            $this->error('Invalid --since value. Use a valid datetime, e.g. 2026-04-09 13:00:00');
-            return 1;
-        }
-    }
-
-    if ($untilInput !== '') {
-        try {
-            $untilAt = Carbon::parse($untilInput);
-        } catch (\Throwable) {
-            $this->error('Invalid --until value. Use a valid datetime, e.g. 2026-04-09 14:00:00');
-            return 1;
-        }
-    }
-
-    if ($sinceAt !== null && $untilAt !== null && $sinceAt->gt($untilAt)) {
-        $this->error('Invalid time window: --since must be earlier than or equal to --until.');
-        return 1;
-    }
-
-    $top = max(1, min((int) $this->option('top'), 200));
-    $logPath = (string) ($this->option('log') ?: storage_path('logs/laravel.log'));
-    $threshold = $this->option('threshold');
-    $saveCsv = (bool) $this->option('save-csv');
-    $csvPath = (string) ($this->option('csv-path') ?: storage_path('app/go-shadow/summary.csv'));
-    $defaultThreshold = config('go_backend.shadow_compare.default_threshold');
-    $featureThresholds = (array) config('go_backend.shadow_compare.feature_thresholds', []);
-    $maxSkippedRate = max(0, min(100, (float) config('go_backend.shadow_compare.max_skipped_rate', 20)));
-
-    if (!File::exists($logPath)) {
-        $this->error('Log file not found: ' . $logPath);
-        return 1;
-    }
-
-    $lines = preg_split('/\r\n|\r|\n/', (string) File::get($logPath));
-    if (!is_array($lines) || count($lines) === 0) {
-        $this->warn('Log file is empty.');
-        return 0;
-    }
-
-    $summary = [];
-    $totalMatched = 0;
-    $totalMismatch = 0;
-    $totalSkipped = 0;
-
-    foreach ($lines as $line) {
-        if (!is_string($line) || $line === '' || !str_contains($line, $date)) {
-            continue;
-        }
-
-        if (!str_contains($line, 'Go shadow compare')) {
-            continue;
-        }
-
-        if ($sinceAt !== null || $untilAt !== null) {
-            if (preg_match('/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/', $line, $timeMatch) !== 1) {
-                continue;
-            }
-
-            try {
-                $lineAt = Carbon::parse($timeMatch[1]);
-            } catch (\Throwable) {
-                continue;
-            }
-
-            if ($sinceAt !== null && $lineAt->lt($sinceAt)) {
-                continue;
-            }
-
-            if ($untilAt !== null && $lineAt->gt($untilAt)) {
-                continue;
-            }
-        }
-
-        $type = null;
-        if (str_contains($line, 'matched.')) {
-            $type = 'matched';
-            $totalMatched++;
-        } elseif (str_contains($line, 'mismatch detected.')) {
-            $type = 'mismatch';
-            $totalMismatch++;
-        } elseif (str_contains($line, 'skipped because Go payload is unavailable.')) {
-            $type = 'skipped';
-            $totalSkipped++;
-        }
-
-        if ($type === null) {
-            continue;
-        }
-
-        $feature = 'unknown';
-        if (preg_match('/"feature"\s*:\s*"([^"]+)"/', $line, $m) === 1) {
-            $feature = $m[1];
-        }
-
-        if (!isset($summary[$feature])) {
-            $summary[$feature] = [
-                'feature' => $feature,
-                'matched' => 0,
-                'mismatch' => 0,
-                'skipped' => 0,
-            ];
-        }
-
-        $summary[$feature][$type]++;
-    }
-
-    if (empty($summary)) {
-        if ($saveCsv) {
-            $dir = dirname($csvPath);
-            if (!File::exists($dir)) {
-                File::makeDirectory($dir, 0755, true);
-            }
-
-            if (!File::exists($csvPath)) {
-                $stream = fopen($csvPath, 'a');
-                if ($stream !== false) {
-                    fputcsv($stream, [
-                        'recorded_at',
-                        'date',
-                        'feature',
-                        'matched',
-                        'mismatch',
-                        'skipped',
-                        'total',
-                        'mismatch_rate',
-                    ]);
-                    fclose($stream);
-                    $this->info('Shadow summary CSV initialized: ' . $csvPath);
-                }
-            }
-        }
-
-        $this->warn('No Go shadow compare entries found for ' . $date . '.');
-        return 0;
-    }
-
-    $rows = collect(array_values($summary))
-        ->map(function (array $row) {
-            $total = $row['matched'] + $row['mismatch'] + $row['skipped'];
-            $checked = max(1, $row['matched'] + $row['mismatch']);
-            $mismatchRate = $checked > 0 ? round(($row['mismatch'] / $checked) * 100, 2) : 0;
-
-            return [
-                'feature' => $row['feature'],
-                'matched' => $row['matched'],
-                'mismatch' => $row['mismatch'],
-                'skipped' => $row['skipped'],
-                'total' => $total,
-                'mismatch_rate' => $mismatchRate,
-            ];
-        })
-        ->sortByDesc('mismatch')
-        ->take($top)
-        ->values();
-
-    $this->line('Go shadow compare summary for ' . $date);
-    $this->line('Log file: ' . $logPath);
-    if ($sinceAt !== null || $untilAt !== null) {
-        $this->line('Time window: ' . ($sinceAt?->toDateTimeString() ?? '-') . ' -> ' . ($untilAt?->toDateTimeString() ?? '-'));
-    }
-    $this->line('');
-
-    $this->table(
-        ['Feature', 'Matched', 'Mismatch', 'Skipped', 'Checked', 'Total', 'Mismatch %', 'Skipped %'],
-        $rows->map(fn ($row) => [
-            $row['feature'],
-            $row['matched'],
-            $row['mismatch'],
-            $row['skipped'],
-            $row['matched'] + $row['mismatch'],
-            $row['total'],
-            $row['mismatch_rate'],
-            round(((float) $row['skipped'] / max(1, (int) $row['total'])) * 100, 2),
-        ])->all()
-    );
-
-    $checkedTotal = max(1, $totalMatched + $totalMismatch);
-    $overallMismatchRate = round(($totalMismatch / $checkedTotal) * 100, 2);
-    $overallTotal = max(1, $totalMatched + $totalMismatch + $totalSkipped);
-    $overallSkippedRate = round(($totalSkipped / $overallTotal) * 100, 2);
-
-    $this->line('Overall: matched=' . $totalMatched . ', mismatch=' . $totalMismatch . ', skipped=' . $totalSkipped . ', mismatch_rate=' . $overallMismatchRate . '%, skipped_rate=' . $overallSkippedRate . '%');
-
-    if ($saveCsv) {
-        $dir = dirname($csvPath);
-        if (!File::exists($dir)) {
-            File::makeDirectory($dir, 0755, true);
-        }
-
-        $isNewFile = !File::exists($csvPath);
-        $stream = fopen($csvPath, 'a');
-        if ($stream !== false) {
-            if ($isNewFile) {
-                fputcsv($stream, [
-                    'recorded_at',
-                    'date',
-                    'feature',
-                    'matched',
-                    'mismatch',
-                    'skipped',
-                    'total',
-                    'mismatch_rate',
-                ]);
-            }
-
-            $recordedAt = now()->toDateTimeString();
-            foreach ($rows as $row) {
-                fputcsv($stream, [
-                    $recordedAt,
-                    $date,
-                    $row['feature'],
-                    $row['matched'],
-                    $row['mismatch'],
-                    $row['skipped'],
-                    $row['total'],
-                    $row['mismatch_rate'],
-                ]);
-            }
-
-            fclose($stream);
-            $this->info('Shadow summary CSV appended: ' . $csvPath);
-        }
-    }
-
-    $featureViolations = collect();
-    if (!empty($featureThresholds)) {
-        $featureViolations = $rows
-            ->filter(function ($row) use ($featureThresholds) {
-                $feature = (string) ($row['feature'] ?? '');
-                if (!array_key_exists($feature, $featureThresholds)) {
-                    return false;
-                }
-
-                return (float) ($row['mismatch_rate'] ?? 0) > (float) $featureThresholds[$feature];
-            })
-            ->values();
-
-        if ($featureViolations->isNotEmpty()) {
-            $this->error('Feature threshold violation(s):');
-            foreach ($featureViolations as $violation) {
-                $limit = (float) $featureThresholds[$violation['feature']];
-                $this->error(' - ' . $violation['feature'] . ': ' . $violation['mismatch_rate'] . '% > ' . $limit . '%');
-            }
-        } else {
-            $this->info('Feature threshold check passed.');
-        }
-    }
-
-    if ($threshold !== null && $threshold !== '') {
-        $thresholdValue = max(0, (float) $threshold);
-        if ($overallMismatchRate > $thresholdValue) {
-            $this->error('Mismatch rate exceeds threshold: ' . $overallMismatchRate . '% > ' . $thresholdValue . '%');
-            return 1;
-        }
-
-        $this->info('Mismatch threshold check passed: ' . $overallMismatchRate . '% <= ' . $thresholdValue . '%');
-    } elseif ($defaultThreshold !== null) {
-        $thresholdValue = max(0, (float) $defaultThreshold);
-        if ($overallMismatchRate > $thresholdValue) {
-            $this->error('Mismatch rate exceeds default threshold: ' . $overallMismatchRate . '% > ' . $thresholdValue . '%');
-            return 1;
-        }
-
-        $this->info('Default mismatch threshold check passed: ' . $overallMismatchRate . '% <= ' . $thresholdValue . '%');
-    }
-
-    if ($featureViolations->isNotEmpty()) {
-        return 1;
-    }
-
-    if ($overallSkippedRate > $maxSkippedRate) {
-        $this->error('Skipped rate exceeds limit: ' . $overallSkippedRate . '% > ' . $maxSkippedRate . '%');
-        return 1;
-    }
-
-    return 0;
-})->purpose('Summarize Go shadow compare matches and mismatches from laravel log');
-
-Artisan::command('go:shadow:trend {--days=7} {--feature=} {--csv-path=} {--threshold=}', function () {
-    $days = max(1, min((int) $this->option('days'), 90));
-    $featureFilter = trim((string) ($this->option('feature') ?? ''));
-    $csvPath = (string) ($this->option('csv-path') ?: storage_path('app/go-shadow/summary.csv'));
-    $explicitThreshold = $this->option('threshold');
-    $defaultThreshold = config('go_backend.shadow_compare.default_threshold');
-    $featureThresholds = (array) config('go_backend.shadow_compare.feature_thresholds', []);
-    $maxSkippedRate = max(0, min(100, (float) config('go_backend.shadow_compare.max_skipped_rate', 20)));
-
-    if (!File::exists($csvPath)) {
-        $this->warn('Shadow summary CSV not found: ' . $csvPath);
-        return 0;
-    }
-
-    $rows = collect(array_map('str_getcsv', file($csvPath)))
-        ->filter(fn ($row) => is_array($row) && count($row) >= 2)
-        ->values();
-
-    if ($rows->count() <= 1) {
-        $this->warn('Shadow summary CSV is empty.');
-        return 0;
-    }
-
-    $headers = $rows->first();
-    $rawData = $rows->slice(1)
-        ->map(function ($row) use ($headers) {
-            $headerCount = count($headers);
-            $rowCount = count($row);
-
-            if ($rowCount < $headerCount) {
-                $row = array_pad($row, $headerCount, '');
-            } elseif ($rowCount > $headerCount) {
-                $row = array_slice($row, 0, $headerCount);
-            }
-
-            $combined = array_combine($headers, $row);
-            return is_array($combined) ? $combined : null;
-        })
-        ->filter()
-        ->values();
-
-    $startDate = Carbon::today()->subDays($days - 1)->format('Y-m-d');
-    $data = $rawData
-        ->filter(function ($row) use ($startDate, $featureFilter) {
-            $date = (string) ($row['date'] ?? '');
-            if ($date < $startDate) {
-                return false;
-            }
-
-            if ($featureFilter !== '' && (string) ($row['feature'] ?? '') !== $featureFilter) {
-                return false;
-            }
-
-            return true;
-        })
-        ->values();
-
-    if ($data->isEmpty()) {
-        $this->warn('No trend rows found for selected window/filter.');
-        return 0;
-    }
-
-    $byFeature = $data
-        ->groupBy('feature')
-        ->map(function ($group, $feature) {
-            $rates = $group->pluck('mismatch_rate')->map(fn ($v) => (float) $v)->values();
-            $samples = $group->count();
-            $avgRate = round($rates->avg() ?? 0, 2);
-            $maxRate = round($rates->max() ?? 0, 2);
-            $lastRate = round((float) ($group->sortBy('recorded_at')->last()['mismatch_rate'] ?? 0), 2);
-            $lastSeen = (string) ($group->sortBy('recorded_at')->last()['recorded_at'] ?? '-');
-
-            return [
-                'feature' => $feature,
-                'samples' => $samples,
-                'avg_mismatch_rate' => $avgRate,
-                'max_mismatch_rate' => $maxRate,
-                'last_mismatch_rate' => $lastRate,
-                'last_seen' => $lastSeen,
-            ];
-        })
-        ->sortByDesc('avg_mismatch_rate')
-        ->values();
-
-    $this->line('Go shadow trend for last ' . $days . ' day(s)');
-    $this->line('CSV: ' . $csvPath);
-    if ($featureFilter !== '') {
-        $this->line('Feature filter: ' . $featureFilter);
-    }
-    $this->line('');
-
-    $this->table(
-        ['Feature', 'Samples', 'Avg %', 'Max %', 'Last %', 'Last Seen'],
-        $byFeature->map(fn ($row) => [
-            $row['feature'],
-            $row['samples'],
-            $row['avg_mismatch_rate'],
-            $row['max_mismatch_rate'],
-            $row['last_mismatch_rate'],
-            $row['last_seen'],
-        ])->all()
-    );
-
-    $daily = $data
-        ->groupBy('date')
-        ->map(function ($group, $date) {
-            $matched = $group->sum(fn ($row) => (int) ($row['matched'] ?? 0));
-            $mismatch = $group->sum(fn ($row) => (int) ($row['mismatch'] ?? 0));
-            $skipped = $group->sum(fn ($row) => (int) ($row['skipped'] ?? 0));
-            $checked = max(1, $matched + $mismatch);
-            $total = max(1, $matched + $mismatch + $skipped);
-            return [
-                'date' => $date,
-                'matched' => $matched,
-                'mismatch' => $mismatch,
-                'skipped' => $skipped,
-                'mismatch_rate' => round(($mismatch / $checked) * 100, 2),
-                'skipped_rate' => round(($skipped / $total) * 100, 2),
-            ];
-        })
-        ->sortBy('date')
-        ->values();
-
-    $this->line('');
-    $this->table(
-        ['Date', 'Matched', 'Mismatch', 'Skipped', 'Mismatch %', 'Skipped %'],
-        $daily->map(fn ($row) => [
-            $row['date'],
-            $row['matched'],
-            $row['mismatch'],
-            $row['skipped'],
-            $row['mismatch_rate'],
-            $row['skipped_rate'],
-        ])->all()
-    );
-
-    $violations = collect();
-    foreach ($byFeature as $row) {
-        $feature = (string) $row['feature'];
-        $limit = null;
-
-        if ($explicitThreshold !== null && $explicitThreshold !== '') {
-            $limit = max(0, (float) $explicitThreshold);
-        } elseif (array_key_exists($feature, $featureThresholds)) {
-            $limit = max(0, (float) $featureThresholds[$feature]);
-        } elseif ($defaultThreshold !== null) {
-            $limit = max(0, (float) $defaultThreshold);
-        }
-
-        if ($limit !== null && (float) $row['avg_mismatch_rate'] > $limit) {
-            $violations->push([
-                'feature' => $feature,
-                'avg_rate' => (float) $row['avg_mismatch_rate'],
-                'limit' => $limit,
-            ]);
-        }
-    }
-
-    if ($violations->isNotEmpty()) {
-        $this->error('Trend threshold violation(s):');
-        foreach ($violations as $violation) {
-            $this->error(' - ' . $violation['feature'] . ': avg ' . $violation['avg_rate'] . '% > ' . $violation['limit'] . '%');
-        }
-    } else {
-        $this->info('Trend threshold checks passed.');
-    }
-
-    $overallAvg = round((float) ($byFeature->avg('avg_mismatch_rate') ?? 0), 2);
-    $overallMax = round((float) ($byFeature->max('max_mismatch_rate') ?? 0), 2);
-    $overallSamples = (int) $byFeature->sum('samples');
-
-    $overallSkippedAvg = round((float) ($daily->avg('skipped_rate') ?? 0), 2);
-
-    if ($overallSamples >= 50 && $overallAvg <= 0.5 && $overallMax <= 1.0 && $overallSkippedAvg <= $maxSkippedRate && $violations->isEmpty()) {
-        $this->info('Canary recommendation: safe to increase gradually (e.g. +5%).');
-    } else {
-        $this->warn('Canary recommendation: hold current percentage and investigate mismatches/skipped first.');
-    }
-
-    return ($violations->isNotEmpty() || $overallSkippedAvg > $maxSkippedRate) ? 1 : 0;
-})->purpose('Analyze Go shadow mismatch trends from summary CSV');
-
-Artisan::command('go:canary:gate {--days=} {--feature=} {--csv-path=} {--current=} {--step=} {--max=} {--force}', function () {
-    $gateConfig = (array) config('go_backend.canary.gate', []);
-    $days = max(1, min((int) ($this->option('days') ?: ($gateConfig['min_days'] ?? 7)), 30));
-    $featureFilter = trim((string) ($this->option('feature') ?? ''));
-    $csvPath = (string) ($this->option('csv-path') ?: storage_path('app/go-shadow/summary.csv'));
-    $minDays = max(1, min((int) ($gateConfig['min_days'] ?? 7), 30));
-    $minSamples = max(1, min((int) ($gateConfig['min_samples'] ?? 50), 100000));
-    $maxAvgMismatchRate = max(0, min((float) ($gateConfig['max_avg_mismatch_rate'] ?? 0.5), 100));
-    $maxPeakMismatchRate = max(0, min((float) ($gateConfig['max_peak_mismatch_rate'] ?? 1), 100));
-    $maxAvgSkippedRate = max(0, min((float) ($gateConfig['max_avg_skipped_rate'] ?? 20), 100));
-    $stepPercent = max(1, min((int) ($this->option('step') ?: ($gateConfig['step_percent'] ?? 5)), 20));
-    $maxPercent = max(1, min((int) ($this->option('max') ?: ($gateConfig['max_percent'] ?? 100)), 100));
-    $currentPercent = max(0, min((int) ($this->option('current') ?: config('go_backend.canary.default_percentage', 0)), 100));
-    $force = (bool) $this->option('force');
-    $featureThresholds = (array) config('go_backend.shadow_compare.feature_thresholds', []);
-    $defaultThreshold = config('go_backend.shadow_compare.default_threshold');
-
-    if (!File::exists($csvPath)) {
-        $this->error('Shadow summary CSV not found: ' . $csvPath);
-        return 1;
-    }
-
-    $rows = collect(array_map('str_getcsv', file($csvPath)))
-        ->filter(fn ($row) => is_array($row) && count($row) >= 2)
-        ->values();
-
-    if ($rows->count() <= 1) {
-        $this->error('Shadow summary CSV is empty. Jalankan go:shadow:summary --save-csv terlebih dahulu.');
-        return 1;
-    }
-
-    $headers = $rows->first();
-    $rawData = $rows->slice(1)
-        ->map(function ($row) use ($headers) {
-            $headerCount = count($headers);
-            $rowCount = count($row);
-
-            if ($rowCount < $headerCount) {
-                $row = array_pad($row, $headerCount, '');
-            } elseif ($rowCount > $headerCount) {
-                $row = array_slice($row, 0, $headerCount);
-            }
-
-            $combined = array_combine($headers, $row);
-            return is_array($combined) ? $combined : null;
-        })
-        ->filter()
-        ->values();
-
-    $startDate = Carbon::today()->subDays($days - 1)->format('Y-m-d');
-    $data = $rawData
-        ->filter(function ($row) use ($startDate, $featureFilter) {
-            $date = (string) ($row['date'] ?? '');
-            if ($date < $startDate) {
-                return false;
-            }
-
-            if ($featureFilter !== '' && (string) ($row['feature'] ?? '') !== $featureFilter) {
-                return false;
-            }
-
-            return true;
-        })
-        ->values();
-
-    if ($data->isEmpty()) {
-        $this->error('No shadow summary rows found for selected window/filter.');
-        return 1;
-    }
-
-    $distinctDays = $data->pluck('date')->unique()->count();
-    $samples = $data->count();
-    $matched = (int) $data->sum(fn ($row) => (int) ($row['matched'] ?? 0));
-    $mismatch = (int) $data->sum(fn ($row) => (int) ($row['mismatch'] ?? 0));
-    $skipped = (int) $data->sum(fn ($row) => (int) ($row['skipped'] ?? 0));
-    $checked = max(1, $matched + $mismatch);
-    $total = max(1, $matched + $mismatch + $skipped);
-
-    $overallMismatchRate = round(($mismatch / $checked) * 100, 2);
-    $overallSkippedRate = round(($skipped / $total) * 100, 2);
-    $peakMismatchRate = round((float) ($data->max(fn ($row) => (float) ($row['mismatch_rate'] ?? 0)) ?? 0), 2);
-
-    $featureStats = $data
-        ->groupBy('feature')
-        ->map(function ($group, $feature) {
-            $matched = (int) $group->sum(fn ($row) => (int) ($row['matched'] ?? 0));
-            $mismatch = (int) $group->sum(fn ($row) => (int) ($row['mismatch'] ?? 0));
-            $skipped = (int) $group->sum(fn ($row) => (int) ($row['skipped'] ?? 0));
-            $checked = max(1, $matched + $mismatch);
-            $total = max(1, $matched + $mismatch + $skipped);
-
-            return [
-                'feature' => (string) $feature,
-                'mismatch_rate' => round(($mismatch / $checked) * 100, 2),
-                'skipped_rate' => round(($skipped / $total) * 100, 2),
-                'samples' => $group->count(),
-            ];
-        })
-        ->sortByDesc('mismatch_rate')
-        ->values();
-
-    $featureViolations = $featureStats
-        ->filter(function ($row) use ($featureThresholds, $defaultThreshold) {
-            $feature = (string) $row['feature'];
-            $limit = null;
-
-            if (array_key_exists($feature, $featureThresholds)) {
-                $limit = (float) $featureThresholds[$feature];
-            } elseif ($defaultThreshold !== null) {
-                $limit = (float) $defaultThreshold;
-            }
-
-            if ($limit === null) {
-                return false;
-            }
-
-            return (float) $row['mismatch_rate'] > $limit;
-        })
-        ->values();
-
-    $checks = [
-        ['Check', 'Target', 'Actual', 'Status'],
-        ['Coverage hari', '>= ' . $minDays, (string) $distinctDays, $distinctDays >= $minDays ? 'PASS' : 'FAIL'],
-        ['Jumlah sample', '>= ' . $minSamples, (string) $samples, $samples >= $minSamples ? 'PASS' : 'FAIL'],
-        ['Avg mismatch %', '<= ' . $maxAvgMismatchRate, (string) $overallMismatchRate, $overallMismatchRate <= $maxAvgMismatchRate ? 'PASS' : 'FAIL'],
-        ['Peak mismatch %', '<= ' . $maxPeakMismatchRate, (string) $peakMismatchRate, $peakMismatchRate <= $maxPeakMismatchRate ? 'PASS' : 'FAIL'],
-        ['Avg skipped %', '<= ' . $maxAvgSkippedRate, (string) $overallSkippedRate, $overallSkippedRate <= $maxAvgSkippedRate ? 'PASS' : 'FAIL'],
-        ['Feature threshold', '0 violation', (string) $featureViolations->count(), $featureViolations->isEmpty() ? 'PASS' : 'FAIL'],
-    ];
-
-    $this->line('Go canary gate evaluation (window ' . $days . ' day(s))');
-    $this->line('CSV: ' . $csvPath);
-    if ($featureFilter !== '') {
-        $this->line('Feature filter: ' . $featureFilter);
-    }
-    $this->line('');
-    $this->table($checks[0], array_slice($checks, 1));
-
-    $this->line('');
-    $this->table(
-        ['Feature', 'Samples', 'Mismatch %', 'Skipped %'],
-        $featureStats->map(fn ($row) => [
-            $row['feature'],
-            $row['samples'],
-            $row['mismatch_rate'],
-            $row['skipped_rate'],
-        ])->all()
-    );
-
-    $passed = collect(array_slice($checks, 1))->every(fn ($row) => (string) $row[3] === 'PASS');
-    $nextPercent = min($maxPercent, $currentPercent + $stepPercent);
-
-    $this->line('');
-    if ($passed) {
-        $this->info('GATE RESULT: PASS');
-        $this->line('Recommendation: naikkan canary bertahap dari ' . $currentPercent . '% ke ' . $nextPercent . '%.');
-        $this->line('Suggested command: php artisan go:shadow:enable --canary=' . $nextPercent);
-        return 0;
-    }
-
-    $this->warn('GATE RESULT: HOLD');
-    if ($featureViolations->isNotEmpty()) {
-        $this->warn('Feature threshold violation(s):');
-        foreach ($featureViolations as $violation) {
-            $this->warn(' - ' . $violation['feature'] . ': mismatch=' . $violation['mismatch_rate'] . '%');
-        }
-    }
-
-    if ($force) {
-        $this->warn('Force option enabled: returning success code despite HOLD result.');
-        return 0;
-    }
-
-    return 1;
-})->purpose('Evaluate formal go/no-go gate before increasing canary percentage');
-
-Artisan::command('go:shadow:enable {--canary=5} {--sample=100} {--threshold=1}', function () {
-    $envPath = base_path('.env');
-    if (!File::exists($envPath)) {
-        $this->error('.env file not found at ' . $envPath);
-        return 1;
-    }
-
-    $canary = max(0, min(100, (int) $this->option('canary')));
-    $sample = max(0, min(100, (int) $this->option('sample')));
-    $threshold = max(0, (float) $this->option('threshold'));
-
-    $featurePercentages = implode(',', [
-        'appointment_index:' . $canary,
-        'appointment_calendar:' . $canary,
-        'appointment_slots:' . $canary,
-        'service_order_index:' . $canary,
-        'vehicle_index:' . $canary,
-        'vehicle_insights:' . $canary,
-        'vehicle_service_history:' . $canary,
-        'vehicle_recommendations:' . $canary,
-        'vehicle_maintenance_schedule:' . $canary,
-        'report_part_sales_profit:' . $canary,
-        'report_overall:' . $canary,
-    ]);
-
-    $featureThresholds = implode(',', [
-        'appointment_index:' . $threshold,
-        'appointment_calendar:' . $threshold,
-        'appointment_slots:' . $threshold,
-        'service_order_index:' . $threshold,
-        'vehicle_index:' . max(0, $threshold / 2),
-        'vehicle_insights:' . $threshold,
-        'vehicle_service_history:' . $threshold,
-        'vehicle_recommendations:' . $threshold,
-        'vehicle_maintenance_schedule:' . $threshold,
-        'report_part_sales_profit:' . max($threshold, 2),
-        'report_part_sales_profit_by_supplier:' . max($threshold, 2),
-        'report_overall:' . max($threshold, 2),
-    ]);
-
-    $toggles = [
-        'GO_CANARY_ENABLED' => 'true',
-        'GO_CANARY_DEFAULT_PERCENT' => (string) $canary,
-        'GO_CANARY_FEATURES' => $featurePercentages,
-        'GO_SHADOW_COMPARE_ENABLED' => 'true',
-        'GO_SHADOW_COMPARE_SAMPLE_RATE' => (string) $sample,
-        'GO_SHADOW_COMPARE_DEFAULT_THRESHOLD' => (string) $threshold,
-        'GO_SHADOW_COMPARE_FEATURE_THRESHOLDS' => $featureThresholds,
-        'GO_APPOINTMENT_INDEX_USE_GO' => 'true',
-        'GO_APPOINTMENT_CALENDAR_USE_GO' => 'true',
-        'GO_APPOINTMENT_SLOTS_USE_GO' => 'true',
-        'GO_SERVICE_ORDER_INDEX_USE_GO' => 'true',
-        'GO_VEHICLE_INDEX_USE_GO' => 'true',
-        'GO_VEHICLE_INSIGHTS_USE_GO' => 'true',
-        'GO_VEHICLE_SERVICE_HISTORY_USE_GO' => 'true',
-        'GO_VEHICLE_RECOMMENDATIONS_USE_GO' => 'true',
-        'GO_VEHICLE_MAINTENANCE_SCHEDULE_USE_GO' => 'true',
-        'GO_REPORT_PART_SALES_PROFIT_USE_GO' => 'true',
-        'GO_REPORT_OVERALL_USE_GO' => 'true',
-    ];
-
-    $content = (string) File::get($envPath);
-    foreach ($toggles as $key => $value) {
-        $pattern = '/^' . preg_quote($key, '/') . '=.*$/m';
-        $line = $key . '=' . $value;
-
-        if (preg_match($pattern, $content) === 1) {
-            $content = preg_replace($pattern, $line, $content);
-        } else {
-            $content = rtrim($content) . PHP_EOL . $line . PHP_EOL;
-        }
-    }
-
-    File::put($envPath, $content);
-
-    $this->info('Go shadow/canary flags have been written to .env');
-    $this->line('canary=' . $canary . '%, sample=' . $sample . '%, threshold=' . $threshold . '%');
-    $this->line('Run: php artisan config:clear');
-
-    return 0;
-})->purpose('Enable Go shadow compare and canary flags in .env for controlled rollout');

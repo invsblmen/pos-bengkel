@@ -2,8 +2,7 @@ param(
     [string]$Date = (Get-Date).ToString('yyyy-MM-dd'),
     [int]$VarianceThreshold = 5,
     [int]$TrendDays = 7,
-    [int]$CurrentCanary = 5,
-    [switch]$SkipGate
+    [switch]$SkipRetention
 )
 
 $ErrorActionPreference = 'Stop'
@@ -46,25 +45,21 @@ function Invoke-AndLog {
 
 Set-Location $repoRoot
 
-("Collecting Go migration metrics for date {0}" -f $Date) | Tee-Object -FilePath $reportPath -Append | Out-Null
+("Collecting Go sync metrics for date {0}" -f $Date) | Tee-Object -FilePath $reportPath -Append | Out-Null
 ("Report file: {0}" -f $reportPath) | Tee-Object -FilePath $reportPath -Append | Out-Null
 
 $reconciliationExit = Invoke-AndLog -Title 'Reconciliation Daily' -Command ("php artisan go:sync:reconciliation-daily --date={0} --max-variance-percent={1}" -f $Date, $VarianceThreshold)
-$summaryExit = Invoke-AndLog -Title 'Shadow Summary' -Command ("php artisan go:shadow:summary --date={0} --save-csv" -f $Date)
-$trendExit = Invoke-AndLog -Title 'Shadow Trend' -Command ("php artisan go:shadow:trend --days={0}" -f $TrendDays)
 
-$gateExit = 0
-if (-not $SkipGate) {
-    $gateExit = Invoke-AndLog -Title 'Canary Gate' -Command ("php artisan go:canary:gate --days={0} --current={1}" -f $TrendDays, $CurrentCanary)
+$retentionExit = 0
+if (-not $SkipRetention) {
+    $retentionExit = Invoke-AndLog -Title 'Retention Purge Dry Run' -Command ("php artisan go:sync:purge-old --days=30 --dry-run=1")
 }
 
 Write-Section -Title 'Summary'
 ("reconciliation_exit={0}" -f $reconciliationExit) | Tee-Object -FilePath $reportPath -Append | Out-Null
-("shadow_summary_exit={0}" -f $summaryExit) | Tee-Object -FilePath $reportPath -Append | Out-Null
-("shadow_trend_exit={0}" -f $trendExit) | Tee-Object -FilePath $reportPath -Append | Out-Null
-("canary_gate_exit={0}" -f $gateExit) | Tee-Object -FilePath $reportPath -Append | Out-Null
+("retention_exit={0}" -f $retentionExit) | Tee-Object -FilePath $reportPath -Append | Out-Null
 
-if ($reconciliationExit -eq 0 -and $summaryExit -eq 0 -and $trendExit -eq 0 -and ($SkipGate -or $gateExit -eq 0)) {
+if ($reconciliationExit -eq 0 -and ($SkipRetention -or $retentionExit -eq 0)) {
     Write-Host ("Metrics collection completed successfully. Report: {0}" -f $reportPath)
     exit 0
 }

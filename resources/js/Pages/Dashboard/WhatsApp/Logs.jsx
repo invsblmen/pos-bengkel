@@ -3,7 +3,7 @@ import { Head, router, usePage } from "@inertiajs/react";
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import Pagination from "@/Components/Dashboard/Pagination";
 import { toDisplayDateTime } from "@/Utils/datetime";
-import { useGoRealtime } from "@/Hooks/useGoRealtime";
+import { useRealtimeEvents } from "@/Hooks/useRealtimeEvents";
 import {
     IconBrandWhatsapp,
     IconClockHour4,
@@ -139,7 +139,7 @@ export default function Logs({ filters, summary, outboundStatuses, webhookEvents
         }, 500);
     }, []);
 
-    const { status: goRealtimeStatus } = useGoRealtime({
+    const { status: realtimeConnectionStatus } = useRealtimeEvents({
         enabled: true,
         domains: ["whatsapp"],
         onEvent: (payload) => {
@@ -148,9 +148,9 @@ export default function Logs({ filters, summary, outboundStatuses, webhookEvents
         },
     });
 
-    const realtimeStatus = goRealtimeStatus === "connected"
+    const realtimeStatus = realtimeConnectionStatus === "connected"
         ? "connected"
-        : goRealtimeStatus === "connecting"
+        : realtimeConnectionStatus === "connecting"
             ? "checking"
             : "disconnected";
 
@@ -629,3 +629,4 @@ export default function Logs({ filters, summary, outboundStatuses, webhookEvents
 }
 
 Logs.layout = (page) => <DashboardLayout children={page} />;
+

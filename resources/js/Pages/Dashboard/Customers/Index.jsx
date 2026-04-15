@@ -202,7 +202,7 @@ export default function Index({ customers }) {
                     <div className="w-full sm:w-96">
                         <Search
                             url={route("customers.index")}
-                            placeholder="ðŸ” Cari nama, telepon, atau email..."
+                            placeholder="Cari nama, telepon, atau email..."
                         />
                     </div>
                     {/* Clear Filter Button */}

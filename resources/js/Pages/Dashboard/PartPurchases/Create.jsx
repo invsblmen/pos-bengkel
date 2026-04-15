@@ -517,6 +517,9 @@ export default function Create({ suppliers = [], parts = [], categories = [] }) 
                                                     <tr key={index} className="bg-white dark:bg-slate-900/70 shadow-sm ring-1 ring-slate-200/60 dark:ring-slate-800/60">
                                                         <td className="px-2 py-1.5 first:rounded-l-lg">
                                                             <div className="font-semibold text-slate-900 dark:text-white text-sm">{item.part_name}</div>
+                                                            {item.part_number && (
+                                                                <div className="text-xs text-slate-500 dark:text-slate-400">Kode: {item.part_number}</div>
+                                                            )}
                                                             {discountAmount > 0 && (
                                                                 <div className="text-[10px] text-red-600 dark:text-red-400 mt-0.5 font-medium">
                                                                     -{formatCurrency(discountAmount)}
@@ -616,6 +619,9 @@ export default function Create({ suppliers = [], parts = [], categories = [] }) 
                                                 <div className="flex items-start justify-between gap-3">
                                                     <div className="flex-1">
                                                         <p className="font-bold text-slate-900 dark:text-white">{item.part_name}</p>
+                                                        {item.part_number && (
+                                                            <p className="text-xs text-slate-500 dark:text-slate-400">Kode: {item.part_number}</p>
+                                                        )}
                                                         {discountAmount > 0 && (
                                                             <p className="text-[10px] text-red-600 dark:text-red-400 mt-0.5 font-medium">
                                                                 -{formatCurrency(discountAmount)}

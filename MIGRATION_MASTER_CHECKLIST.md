@@ -67,14 +67,13 @@ Legend:
 - [x] Sync UI page scaffolded for monitoring.
 - [~] Hosting-side reconciliation and conflict surfacing for operators.
 
-## 7) Feature Rollout Controls (Canary and Shadow Compare)
+## 7) Feature Rollout Controls (Retired)
 
 - [x] Feature-level Go toggle helper implemented.
-- [x] Canary percentage config implemented.
-- [x] Shadow comparator implemented and integrated into key controllers.
-- [x] Shadow summary/trend artisan commands added.
-- [~] Threshold calibration using real traffic data.
-- [x] Formal go/no-go rollout gate for increasing canary percentage.
+- [x] Rollout flow existed for the migration phase.
+- [x] Comparator and gate commands are retained only as historical records.
+- [~] Threshold calibration history retained for reference only.
+- [x] No active rollout ramping remains in the Laravel boundary.
 
 ## 8) Data Import Support for Migration
 
@@ -136,8 +135,8 @@ Scheduling evidence:
 - [x] Artisan commands added: `go:sync:run`, `go:sync:retry-failed`, and `go:sync:reconciliation-daily`.
 - [x] Laravel scheduler registration added behind `GO_SYNC_SCHEDULE_ENABLED=true`.
 - [x] Schedule wiring validated via `php artisan schedule:list` (daily run + 30-minute retry + 30-minute alert + daily reconciliation jobs).
-- [x] Windows task scripts added for local scheduler automation (`scripts/register-laravel-scheduler-task.ps1`, `scripts/unregister-laravel-scheduler-task.ps1`).
-- [x] Local Windows scheduler task `POS-Bengkel-Laravel-Scheduler` registered and running with 1-minute interval runner (`scripts/run-laravel-scheduler.bat`).
+- [x] Legacy Windows scheduler automation scripts dibersihkan untuk mencegah auto-run tak terkontrol.
+- [x] Runtime manual pengganti disediakan melalui `scripts/manual-runtime.ps1` (start/stop/status).
 - [~] Retry command now supports exponential backoff gating (`--base-minutes`, `--max-minutes`, `--respect-backoff`), full prolonged-failure test cycle pending.
 - [~] Alert command and scheduler hook added (`go:sync:alert-long-failed`) with threshold config, production notification channel integration pending.
 - [x] Reconciliation command `go:sync:reconciliation-daily` implemented with variance detection (batch total, acknowledged counts), configurable threshold (default 5%), scheduled daily at 00:15, logs to application log channel.
@@ -149,7 +148,7 @@ Scheduling evidence:
 
 ## 13) Business Parity and Reconciliation
 
-- [~] Shadow compare enabled on key migrated read flows.
+- [~] Historical compare was enabled on key migrated read flows during migration.
 - [~] Define accepted mismatch thresholds per feature with business sign-off.
 - [x] Daily reconciliation report between local and hosting totals.
 - [x] Conflict resolution SOP (who acts, how to resolve, SLA).
@@ -207,7 +206,7 @@ Mark migration as complete only when all below are true:
 1. Finalize single-instance startup workflow (preflight check + stable start/stop procedure).
 2. Run full E2E sync smoke test (status, create/run, receive, retry).
 3. Finalize scheduling and alerting for daily operation.
-4. Close reconciliation thresholds and canary ramp policy.
+4. Close reconciliation thresholds and retire any remaining rollout policy.
 5. Complete operational docs and perform final sign-off.
 
 ## 17) Weekly Milestones (Operational Tracking)
@@ -232,7 +231,7 @@ Mark migration as complete only when all below are true:
 
 - [~] Move critical screens to full parity pass in FRONTEND_PARITY_MATRIX.
 - [~] Complete side-by-side UAT for critical screens.
-- [~] Finalize mismatch thresholds and canary ramp policy.
+- [~] Finalize mismatch thresholds and document that rollout policy is retired.
 - [x] Finalize operator SOP and incident runbook.
 - [ ] Prepare release-ready governance pass (clean grouping/review checklist).
 

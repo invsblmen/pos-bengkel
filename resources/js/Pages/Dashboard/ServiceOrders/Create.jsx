@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { Head, useForm, router } from '@inertiajs/react';
 import ServiceOrderLayout from '@/Layouts/ServiceOrderLayout';
 import ServiceGrid from '@/Components/ServiceOrder/ServiceGrid';
@@ -10,7 +10,7 @@ import Autocomplete from '@/Components/Dashboard/Autocomplete';
 import QuickCreateVehicleModal from '@/Components/Dashboard/QuickCreateVehicleModal';
 import QuickCreatePartModal from '@/Components/Dashboard/QuickCreatePartModal';
 import VehicleHistoryModal from '@/Components/ServiceOrder/VehicleHistoryModal';
-import { useGoRealtime } from '@/Hooks/useGoRealtime';
+import { useRealtimeEvents } from '@/Hooks/useRealtimeEvents';
 import {
     IconDeviceFloppy,
     IconTrash,
@@ -96,7 +96,7 @@ export default function Create({ customers, mechanics, services, parts, vehicles
         setLiveVehicles(vehicles || []);
     }, [vehicles]);
 
-    useGoRealtime({
+    useRealtimeEvents({
         enabled: true,
         domains: ['customers', 'vehicles'],
         onEvent: (payload) => {
@@ -626,7 +626,7 @@ export default function Create({ customers, mechanics, services, parts, vehicles
                             <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">
                                 {currentVehicle.brand} {currentVehicle.model} ({currentVehicle.year})
                                 {insights.vehicle_km !== null && (
-                                    <span> • KM: {insights.vehicle_km?.toLocaleString('id-ID')}</span>
+                                    <span> â€¢ KM: {insights.vehicle_km?.toLocaleString('id-ID')}</span>
                                 )}
                             </div>
                         )}
@@ -751,7 +751,7 @@ export default function Create({ customers, mechanics, services, parts, vehicles
                                                                     className="flex items-center justify-between text-xs"
                                                                 >
                                                                     <span className="text-slate-600 dark:text-slate-400 flex-1 truncate">
-                                                                        {partData?.name || 'Sparepart'} ×{part.qty}
+                                                                        {partData?.name || 'Sparepart'} Ã—{part.qty}
                                                                     </span>
                                                                     <span className="text-slate-900 dark:text-white font-medium">
                                                                         {formatCurrency(part.price * part.qty)}
@@ -990,3 +990,4 @@ export default function Create({ customers, mechanics, services, parts, vehicles
 }
 
 // No need for layout wrapper since we're using ServiceOrderLayout directly
+

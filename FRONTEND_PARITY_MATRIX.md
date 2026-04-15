@@ -94,7 +94,7 @@ Week considered "frontend parity green" only when:
 - [x] Highlight/refresh behavior hardened: ✓ (Inertia reload with preserveScroll/preserveState, 6s highlight timer).
 - [x] Event metadata logging: ✓ (action + timestamp displayed in UI).
 - [x] Backend GO handler available: ✓ (appointment_index.go, appointment_index_params, full query support).
-- [x] Feature flag configured: ✓ (.env setting `GO_APPOINTMENT_INDEX_USE_GO`=false by default, approachable for canary).
+- [x] Feature flag configured: ✓ (.env setting `GO_APPOINTMENT_INDEX_USE_GO`=false by default, legacy migration reference only).
 
 **UAT Manual Tests Required (Side-by-side Laravel vs Go):**
 - [ ] C1 Layout parity: Card grid view, list view, header, filters, action buttons.
@@ -166,7 +166,7 @@ Gunakan checklist ini untuk setiap screen yang diuji side-by-side Laravel vs Go.
 
 Pre-check:
 - [ ] User role penguji ditetapkan (Admin/Kasir/Service Advisor/Owner).
-- [ ] Toggle fitur dicatat (canary %, feature key, source backend aktif).
+- [ ] Toggle fitur dicatat (legacy migration reference, feature key, source backend aktif).
 - [ ] Data sample pengujian disiapkan (normal, empty-case, error-case).
 
 Step uji inti:
@@ -199,8 +199,8 @@ Metadata:
 Ringkasan metrik 7 hari terakhir:
 - Reconciliation variance batch_total (%):
 - Reconciliation variance acknowledged_total (%):
-- Shadow mismatch_rate (%):
-- Shadow skipped_rate (%):
+- Legacy mismatch_rate (%):
+- Legacy skipped_rate (%):
 - Jumlah incident parity severity tinggi:
 
 Keputusan:

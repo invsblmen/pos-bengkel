@@ -199,10 +199,10 @@ Contoh payload:
 
 ### 8.3 SOP Operasional Konflik
 
-1. Trigger warning: variance rekonsiliasi > 5% atau mismatch shadow compare > 2%.
+1. Trigger warning: variance rekonsiliasi > 5% atau mismatch compare historis > 2%.
 2. Trigger critical: variance > 10%, mismatch > 5%, atau failed batch aging >= 5 batch.
 3. Pada warning, operator menjalankan retry terkontrol dan verifikasi ulang dalam 30 menit.
-4. Pada critical, on-call melakukan freeze kenaikan canary dan memaksa fallback endpoint bermasalah ke Laravel.
+4. Pada critical, on-call menghentikan perubahan sync dan memaksa fallback endpoint bermasalah ke Laravel.
 5. Incident ditutup jika dua siklus rekonsiliasi berurutan kembali di bawah threshold warning.
 
 ## 9. Retry Policy
@@ -225,11 +225,11 @@ Implementasi operasional saat ini:
   - `go:sync:retry-failed` setiap 30 menit.
   - `go:sync:alert-long-failed` setiap 30 menit jika `GO_SYNC_ALERT_ENABLED=true`.
   - `go:sync:reconciliation-daily` pada `GO_SYNC_RECONCILIATION_DAILY_AT` (default `00:15`) jika `GO_SYNC_RECONCILIATION_ENABLED=true`.
-7. Di Windows local, `php artisan schedule:run` perlu dijalankan tiap menit via Task Scheduler.
+7. Di Windows local, runtime scheduler/reverb dijalankan manual sesuai kebutuhan.
 8. Helper script yang tersedia:
-  - `scripts/register-laravel-scheduler-task.ps1`
-  - `scripts/unregister-laravel-scheduler-task.ps1`
-  - `scripts/run-laravel-scheduler.bat`
+  - `scripts/manual-runtime.ps1 -Action start -WithScheduler`
+  - `scripts/manual-runtime.ps1 -Action status`
+  - `scripts/manual-runtime.ps1 -Action stop`
 
 Variabel env terkait:
 

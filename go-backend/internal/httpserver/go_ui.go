@@ -424,7 +424,7 @@ func goUIHandler(cfg config.Config) http.HandlerFunc {
       {
         key: 'reports',
         label: 'Reports',
-        description: 'Ringkasan report domain bengkel yang paling sering dipakai pada fase canary.',
+        description: 'Ringkasan report domain bengkel untuk monitoring operasional harian.',
         items: [
           { method: 'GET', path: '/api/v1/reports/overall', note: 'overall KPI + transactions' },
           { method: 'GET', path: '/api/v1/reports/part-sales-profit', note: 'profit report' },
@@ -529,7 +529,7 @@ func goUIHandler(cfg config.Config) http.HandlerFunc {
       const el = document.getElementById('ws-status');
       const sect = document.getElementById('ws-section');
       if (!el || !sect) return;
-      
+
       if (connected) {
         el.textContent = '● Connected';
         el.style.background = '#c8e6c9';
@@ -567,7 +567,7 @@ func goUIHandler(cfg config.Config) http.HandlerFunc {
             const msg = JSON.parse(event.data);
             const eventType = msg.type || 'unknown';
             const at = new Date().toLocaleTimeString();
-            
+
             const eventAction = (msg.action || '').toLowerCase();
 
             // Auto-trigger probe for lifecycle/status events
@@ -582,7 +582,7 @@ func goUIHandler(cfg config.Config) http.HandlerFunc {
               runProbe();
             }
 
-            writeLog('[Real-time ' + at + '] ' + eventType, 
+            writeLog('[Real-time ' + at + '] ' + eventType,
               'Domain: ' + (msg.domain || 'N/A') + '\n' +
               'ID: ' + (msg.id || 'N/A') + '\n' +
               'Action: ' + (msg.action || 'N/A') + '\n' +

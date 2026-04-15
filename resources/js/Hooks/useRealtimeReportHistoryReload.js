@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef } from 'react';
+﻿import { useCallback, useEffect, useRef } from 'react';
 import { router } from '@inertiajs/react';
-import { useGoRealtime } from '@/Hooks/useGoRealtime';
+import { useRealtimeEvents } from '@/Hooks/useRealtimeEvents';
 
 const DEFAULT_SUBSCRIPTIONS = [
     { channel: 'workshop.serviceorders', events: ['serviceorder.created', 'serviceorder.updated', 'serviceorder.deleted'] },
@@ -63,7 +63,7 @@ export function useRealtimeReportHistoryReload({
         }, debounceMs);
     }, [enabled, debounceMs, only, preserveScroll, preserveState]);
 
-    useGoRealtime({
+    useRealtimeEvents({
         enabled: enabled && domains.length > 0,
         domains,
         onEvent: () => {
@@ -79,3 +79,4 @@ export function useRealtimeReportHistoryReload({
         };
     }, []);
 }
+

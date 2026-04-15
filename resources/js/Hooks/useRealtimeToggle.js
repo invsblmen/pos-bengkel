@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const REALTIME_STORAGE_KEY = 'service-orders-go-realtime-enabled';
+const REALTIME_STORAGE_KEY = 'service-orders-realtime-enabled';
 
 export function useRealtimeToggle() {
     const [realtimeEnabled, setRealtimeEnabled] = useState(() => {
