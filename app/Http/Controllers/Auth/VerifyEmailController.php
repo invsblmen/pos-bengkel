@@ -14,7 +14,7 @@ class VerifyEmailController extends Controller
     /**
      * Mark the authenticated user's email address as verified.
      */
-    public function __invoke(EmailVerificationRequest $request): RedirectResponse
+    public function __invoke(EmailVerificationRequest $request)
     {
         if ($request->user()->hasVerifiedEmail()) {
             return $this->jsonOrRedirect('dashboard', ['verified' => 1], 'Email sudah terverifikasi');
