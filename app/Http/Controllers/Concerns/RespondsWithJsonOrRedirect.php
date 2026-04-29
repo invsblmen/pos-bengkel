@@ -17,7 +17,11 @@ trait RespondsWithJsonOrRedirect
      */
     protected function jsonOrRedirect(?string $routeName = null, array $routeParams = [], ?string $message = null, $data = null, int $status = 200, string $flashType = 'success')
     {
-        if (request()->expectsJson() || request()->ajax() || request()->wantsJson()) {
+        // If this is an Inertia request, prefer redirects/Inertia responses
+        // instead of returning plain JSON (Inertia expects an Inertia response).
+        $isInertia = request()->header('X-Inertia') !== null;
+
+        if (!$isInertia && (request()->expectsJson() || request()->ajax() || request()->wantsJson())) {
             $payload = ['success' => true];
             if ($message !== null) {
                 $payload['message'] = $message;
@@ -61,7 +65,9 @@ trait RespondsWithJsonOrRedirect
      */
     protected function errorResponse(string $message = 'Error', array $errors = [], int $status = 422)
     {
-        if (request()->expectsJson() || request()->ajax() || request()->wantsJson()) {
+        $isInertia = request()->header('X-Inertia') !== null;
+
+        if (!$isInertia && (request()->expectsJson() || request()->ajax() || request()->wantsJson())) {
             return response()->json([
                 'success' => false,
                 'message' => $message,
