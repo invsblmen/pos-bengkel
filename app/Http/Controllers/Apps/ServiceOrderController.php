@@ -27,10 +27,12 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 
 class ServiceOrderController extends Controller
 {
     use DispatchesBroadcastSafely;
+    use RespondsWithJsonOrRedirect;
 
     public function __construct(
         private WarrantyRegistrationService $warrantyRegistrationService,
@@ -242,13 +244,11 @@ class ServiceOrderController extends Controller
 
         $existingOrderId = Cache::get($resultKey);
         if ($existingOrderId) {
-            return redirect()
-                ->route('service-orders.show', $existingOrderId)
-                ->with('info', 'Permintaan sudah diproses sebelumnya.');
+            return $this->jsonOrRedirect('service-orders.show', [$existingOrderId], 'Permintaan sudah diproses sebelumnya.', null, 200, 'info');
         }
 
         if (!Cache::add($processingKey, 1, now()->addSeconds(30))) {
-            return back()->with('warning', 'Permintaan sedang diproses. Mohon tunggu beberapa detik.');
+            return $this->jsonOrRedirect(null, [], 'Permintaan sedang diproses. Mohon tunggu beberapa detik.', null, 429, 'warning');
         }
 
         try {
@@ -296,7 +296,7 @@ class ServiceOrderController extends Controller
                     ->max('odometer_km');
                 if ($prevOrderKm && $order->odometer_km < $prevOrderKm) {
                     $order->delete();
-                    return back()->withErrors(['odometer_km' => 'Odometer tidak boleh kurang dari km sebelumnya (' . number_format($prevOrderKm, 0, ',', '.') . ' km).'])->withInput();
+                    throw ValidationException::withMessages(['odometer_km' => 'Odometer tidak boleh kurang dari km sebelumnya (' . number_format($prevOrderKm, 0, ',', '.') . ' km).']);
                 }
             }
 
@@ -316,7 +316,7 @@ class ServiceOrderController extends Controller
 
             Cache::put($resultKey, $order->id, now()->addMinutes(10));
 
-            return redirect()->route('service-orders.index')->with('success', 'Service order created.');
+            return $this->jsonOrRedirect('service-orders.index', [], 'Service order created.', $order->load(['customer', 'vehicle', 'mechanic', 'details.service', 'details.part'])->toArray());
         } finally {
             Cache::forget($processingKey);
         }
@@ -408,14 +408,10 @@ class ServiceOrderController extends Controller
         $submitMode = $validated['submit_mode'] ?? 'view_detail';
 
         if ($submitMode === 'create_again') {
-            return redirect()
-                ->route('service-orders.quick-intake.create')
-                ->with('success', 'Penerimaan konsumen berhasil dibuat.');
+            return $this->jsonOrRedirect('service-orders.quick-intake.create', [], 'Penerimaan konsumen berhasil dibuat.');
         }
 
-        return redirect()
-            ->route('service-orders.show', $order->id)
-            ->with('success', 'Penerimaan konsumen berhasil dibuat.');
+        return $this->jsonOrRedirect('service-orders.show', [$order->id], 'Penerimaan konsumen berhasil dibuat.', $order->toArray());
     }
 
     public function update(Request $request, $id)
@@ -497,7 +493,7 @@ class ServiceOrderController extends Controller
                 ->where('id', '!=', $order->id)
                 ->max('odometer_km');
             if ($prevOrderKm && $order->odometer_km < $prevOrderKm) {
-                return back()->withErrors(['odometer_km' => 'Odometer tidak boleh kurang dari km sebelumnya (' . number_format($prevOrderKm, 0, ',', '.') . ' km).'])->withInput();
+                throw ValidationException::withMessages(['odometer_km' => 'Odometer tidak boleh kurang dari km sebelumnya (' . number_format($prevOrderKm, 0, ',', '.') . ' km).']);
             }
         }
 
@@ -512,7 +508,7 @@ class ServiceOrderController extends Controller
             'ServiceOrderUpdated'
         );
 
-        return redirect()->route('service-orders.show', $order->id)->with('success', 'Service order updated.');
+        return $this->jsonOrRedirect('service-orders.show', [$order->id], 'Service order updated.', $order->load(['customer', 'vehicle', 'mechanic', 'details.service', 'details.part'])->toArray());
     }
 
     public function updateStatus(Request $request, $id)
@@ -528,7 +524,7 @@ class ServiceOrderController extends Controller
         // If moving to completed, require odometer (either existing or provided now)
         if ($request->status === 'completed') {
             if (is_null($order->odometer_km) && is_null($request->odometer_km)) {
-                return back()->withErrors(['odometer_km' => 'Odometer (km) wajib diisi saat menyelesaikan order.'])->withInput();
+                throw ValidationException::withMessages(['odometer_km' => 'Odometer (km) wajib diisi saat menyelesaikan order.']);
             }
             if (!is_null($request->odometer_km)) {
                 // Validate progression vs previous
@@ -538,7 +534,7 @@ class ServiceOrderController extends Controller
                         ->where('id', '!=', $order->id)
                         ->max('odometer_km');
                     if ($prevOrderKm && (int)$request->odometer_km < $prevOrderKm) {
-                        return back()->withErrors(['odometer_km' => 'Odometer tidak boleh kurang dari km sebelumnya (' . number_format($prevOrderKm, 0, ',', '.') . ' km).'])->withInput();
+                        throw ValidationException::withMessages(['odometer_km' => 'Odometer tidak boleh kurang dari km sebelumnya (' . number_format($prevOrderKm, 0, ',', '.') . ' km).']);
                     }
                 }
                 $order->odometer_km = $request->odometer_km;
@@ -572,7 +568,7 @@ class ServiceOrderController extends Controller
             $this->warrantyRegistrationService->removeByServiceOrder($order->id);
         }
 
-        return back()->with('success', 'Status updated.');
+        return $this->jsonOrRedirect(null, [], 'Status updated.', $order->toArray());
     }
 
     public function claimWarranty(Request $request, $id, $detailId)
@@ -621,8 +617,7 @@ class ServiceOrderController extends Controller
             'claimed_by' => Auth::id(),
             'claim_notes' => $validated['claim_notes'] ?? null,
         ]);
-
-        return back()->with('success', 'Klaim garansi berhasil dicatat');
+        return $this->jsonOrRedirect(null, [], 'Klaim garansi berhasil dicatat', $registration->toArray());
     }
 
     public function destroy($id)
@@ -637,7 +632,7 @@ class ServiceOrderController extends Controller
             'ServiceOrderDeleted'
         );
 
-        return redirect()->route('service-orders.index')->with('success', 'Service order deleted.');
+        return $this->jsonOrRedirect('service-orders.index', [], 'Service order deleted.');
     }
 
     /**

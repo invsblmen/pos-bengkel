@@ -15,10 +15,12 @@ use App\Support\DispatchesBroadcastSafely;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 
 class VoucherController extends Controller
 {
     use DispatchesBroadcastSafely;
+    use RespondsWithJsonOrRedirect;
 
     public function index(Request $request)
     {
@@ -100,7 +102,7 @@ class VoucherController extends Controller
             );
         }
 
-        return redirect()->route('vouchers.index')->with('success', 'Voucher berhasil dibuat.');
+        return $this->jsonOrRedirect('vouchers.index', [], 'Voucher berhasil dibuat.', $createdVoucher?->toArray());
     }
 
     public function edit(Voucher $voucher)
@@ -171,7 +173,7 @@ class VoucherController extends Controller
             );
         }
 
-        return redirect()->route('vouchers.index')->with('success', 'Voucher berhasil diperbarui.');
+        return $this->jsonOrRedirect('vouchers.index', [], 'Voucher berhasil diperbarui.', $updatedVoucher?->toArray());
     }
 
     public function destroy(Voucher $voucher)
@@ -184,7 +186,7 @@ class VoucherController extends Controller
             'VoucherDeleted'
         );
 
-        return back()->with('success', 'Voucher berhasil dihapus.');
+        return $this->jsonOrRedirect(null, [], 'Voucher berhasil dihapus.');
     }
 
     private function toRealtimePayload(Voucher $voucher): array

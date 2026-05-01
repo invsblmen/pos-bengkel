@@ -17,13 +17,31 @@ use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 
 class PartSaleController extends Controller
 {
     use DispatchesBroadcastSafely;
+    use RespondsWithJsonOrRedirect;
 
     public function index(Request $request)
     {
+        // Proxy to GO backend when enabled
+        if (config('go_backend.features.part_sales_index', false)) {
+            $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+            try {
+                $resp = Http::timeout((int) config('go_backend.timeout_seconds', 5))->get($baseUrl . '/api/v1/part-sales', $request->query());
+                $json = $resp->json();
+                if (is_array($json)) {
+                    return Inertia::render('Dashboard/Parts/Sales/Index', $json);
+                }
+            } catch (\Throwable $e) {
+                Log::error('Part sales index proxy error: ' . $e->getMessage());
+            }
+        }
+
         $sales = PartSale::with(['user'])->orderByDesc('created_at')->paginate(15)->withQueryString();
         return Inertia::render('Dashboard/Parts/Sales/Index', [
             'sales' => $sales,
@@ -33,6 +51,20 @@ class PartSaleController extends Controller
 
     public function create()
     {
+        // Proxy to GO backend when enabled
+        if (config('go_backend.features.part_sales_create', false)) {
+            $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+            try {
+                $resp = Http::timeout((int) config('go_backend.timeout_seconds', 5))->get($baseUrl . '/api/v1/part-sales/create');
+                $json = $resp->json();
+                if (is_array($json)) {
+                    return Inertia::render('Dashboard/Parts/Sales/Create', $json);
+                }
+            } catch (\Throwable $e) {
+                Log::error('Part sales create proxy error: ' . $e->getMessage());
+            }
+        }
+
         return Inertia::render('Dashboard/Parts/Sales/Create', [
             'parts' => Part::with('category')->orderBy('name')->get(),
         ]);
@@ -40,6 +72,20 @@ class PartSaleController extends Controller
 
     public function show($id)
     {
+        // Proxy to GO backend when enabled
+        if (config('go_backend.features.part_sales_show', false)) {
+            $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+            try {
+                $resp = Http::timeout((int) config('go_backend.timeout_seconds', 5))->get($baseUrl . '/api/v1/part-sales/' . $id);
+                $json = $resp->json();
+                if (is_array($json)) {
+                    return Inertia::render('Dashboard/Parts/Sales/Show', $json);
+                }
+            } catch (\Throwable $e) {
+                Log::error('Part sale show proxy error: ' . $e->getMessage());
+            }
+        }
+
         $sale = PartSale::with(['details.part', 'user'])->findOrFail($id);
 
         return Inertia::render('Dashboard/Parts/Sales/Show', [
@@ -63,7 +109,7 @@ class PartSaleController extends Controller
             'tax_value' => 'nullable|numeric|min:0',
         ]);
 
-        DB::transaction(function () use ($data) {
+        $sale = DB::transaction(function () use ($data) {
             $invoice = 'PS-' . strtoupper(Str::random(8));
             $total = 0;
 
@@ -132,8 +178,9 @@ class PartSaleController extends Controller
                 fn () => broadcast(new PartSaleCreated($sale->fresh()->toArray())),
                 PartSaleCreated::class
             );
+            return $sale;
         });
 
-        return redirect()->route('part-sales.index')->with('success', 'Penjualan sparepart berhasil disimpan');
+        return $this->jsonOrRedirect('part-sales.index', [], 'Penjualan sparepart berhasil disimpan', $sale->toArray());
     }
 }

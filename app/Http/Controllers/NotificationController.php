@@ -9,9 +9,11 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 
 class NotificationController extends Controller
 {
+    use RespondsWithJsonOrRedirect;
     public function index(Request $request)
     {
         $status = $request->string('status')->toString() ?: 'all';
@@ -158,7 +160,7 @@ class NotificationController extends Controller
             }
         }
 
-        return back()->with('success', 'Notifikasi ditandai sudah dibaca.');
+        return $this->jsonOrRedirect(null, [], 'Notifikasi ditandai sudah dibaca.');
     }
 
     public function markAllRead(Request $request)
@@ -175,7 +177,7 @@ class NotificationController extends Controller
             }
         }
 
-        return back()->with('success', 'Semua notifikasi ditandai sudah dibaca.');
+        return $this->jsonOrRedirect(null, [], 'Semua notifikasi ditandai sudah dibaca.');
     }
 
     public function destroy(Request $request)
@@ -193,6 +195,6 @@ class NotificationController extends Controller
             LowStockAlert::whereKey($data['id'])->delete();
         }
 
-        return back()->with('success', 'Notifikasi berhasil dihapus.');
+        return $this->jsonOrRedirect(null, [], 'Notifikasi berhasil dihapus.');
     }
 }

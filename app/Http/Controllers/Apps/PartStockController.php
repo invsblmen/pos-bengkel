@@ -9,9 +9,11 @@ use App\Models\PartStockMovement;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 
 class PartStockController extends Controller
 {
+    use RespondsWithJsonOrRedirect;
     public function index(Request $request)
     {
         $query = PartStockMovement::with(['part', 'supplier', 'user'])->orderByDesc('created_at');
@@ -67,7 +69,7 @@ class PartStockController extends Controller
             'created_by' => Auth::id(),
         ]);
 
-        return redirect()->route('parts.stock.index')->with('success', 'Stok berhasil ditambah');
+        return $this->jsonOrRedirect('parts.stock.index', [], 'Stok berhasil ditambah');
     }
 
     public function createOut()
@@ -88,7 +90,7 @@ class PartStockController extends Controller
 
         $part = Part::findOrFail($data['part_id']);
         if ($part->stock < $data['qty']) {
-            return back()->with('error', 'Stok tidak mencukupi');
+            return $this->jsonOrRedirect(null, [], 'Stok tidak mencukupi', null, 409, 'error');
         }
 
         $before = $part->stock;
@@ -105,6 +107,6 @@ class PartStockController extends Controller
             'created_by' => Auth::id(),
         ]);
 
-        return redirect()->route('parts.stock.index')->with('success', 'Stok berhasil dikurangi');
+        return $this->jsonOrRedirect('parts.stock.index', [], 'Stok berhasil dikurangi');
     }
 }

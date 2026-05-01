@@ -22,11 +22,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 use Throwable;
 
 class PartPurchaseController extends Controller
 {
     use DispatchesBroadcastSafely;
+    use RespondsWithJsonOrRedirect;
     public function index(Request $request)
     {
         $query = PartPurchase::with(['supplier', 'details'])
@@ -204,14 +206,10 @@ class PartPurchaseController extends Controller
 
             $this->notifyPendingPurchase($purchase, 'created');
 
-            return redirect()
-                ->route('part-purchases.show', $purchase->id)
-                ->with('success', 'Purchase created successfully with number: ' . $purchase->purchase_number);
+            return $this->jsonOrRedirect('part-purchases.show', [$purchase->id], 'Purchase created successfully with number: ' . $purchase->purchase_number, $purchase->toArray());
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()
-                ->withInput()
-                ->withErrors(['error' => 'Failed to create purchase: ' . $e->getMessage()]);
+            return $this->errorResponse('Failed to create purchase: ' . $e->getMessage(), ['error' => ['Failed to create purchase: ' . $e->getMessage()]], 422);
         }
     }
 
@@ -243,8 +241,7 @@ class PartPurchaseController extends Controller
 
         // Only allow editing pending or ordered purchases
         if (!in_array($purchase->status, ['pending', 'ordered'])) {
-            return redirect()->route('part-purchases.show', $id)
-                ->with('error', 'Cannot edit purchase with status: ' . $purchase->status);
+            return $this->jsonOrRedirect('part-purchases.show', [$id], 'Cannot edit purchase with status: ' . $purchase->status, null, 302, 'error');
         }
 
         $suppliers = Supplier::orderBy('name')->get();
@@ -269,7 +266,7 @@ class PartPurchaseController extends Controller
 
         // Only allow updating pending or ordered purchases
         if (!in_array($purchase->status, ['pending', 'ordered'])) {
-            return back()->withErrors(['error' => 'Cannot update purchase with status: ' . $purchase->status]);
+            throw ValidationException::withMessages(['error' => 'Cannot update purchase with status: ' . $purchase->status]);
         }
 
         $validated = $request->validate([
@@ -348,12 +345,10 @@ class PartPurchaseController extends Controller
 
             $this->dispatchBroadcastSafely(fn () => broadcast(new PartPurchaseUpdated($purchase->fresh()->toArray())), PartPurchaseUpdated::class);
 
-            return redirect()->route('part-purchases.show', $purchase->id)
-                ->with('success', 'Purchase updated successfully');
+            return $this->jsonOrRedirect('part-purchases.show', [$purchase->id], 'Purchase updated successfully', $purchase->toArray());
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'Failed to update purchase: ' . $e->getMessage()])
-                ->withInput();
+            return $this->errorResponse('Failed to update purchase: ' . $e->getMessage(), ['error' => ['Failed to update purchase: ' . $e->getMessage()]], 422);
         }
     }
 
@@ -422,10 +417,10 @@ class PartPurchaseController extends Controller
                 $this->notifyPendingPurchase($purchase, 'status-change');
             }
 
-            return back()->with('success', 'Purchase status updated to: ' . $newStatus);
+            return $this->jsonOrRedirect(null, [], 'Purchase status updated to: ' . $newStatus, $purchase->toArray());
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'Failed to update status: ' . $e->getMessage()]);
+            return $this->errorResponse('Failed to update status: ' . $e->getMessage(), ['error' => ['Failed to update status: ' . $e->getMessage()]], 422);
         }
     }
 

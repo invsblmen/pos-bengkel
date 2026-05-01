@@ -1,5 +1,5 @@
 import React from "react";
-import { Head, usePage, useForm, Link } from "@inertiajs/react";
+import { Head, usePage, useForm, Link, router } from "@inertiajs/react";
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import {
     IconUserEdit,
@@ -36,7 +36,7 @@ export default function Edit() {
     const submit = (e) => {
         e.preventDefault();
         post(route("users.update", user.id), {
-            onSuccess: () => toast.success("Pengguna berhasil diperbarui"),
+            onSuccess: () => { toast.success("Pengguna berhasil diperbarui"); router.reload(); },
             onError: () => toast.error("Gagal memperbarui pengguna"),
         });
     };

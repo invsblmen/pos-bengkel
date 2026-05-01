@@ -2,7 +2,7 @@
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import { Head, router } from "@inertiajs/react";
 import { Card, CardBody, CardHeader, CardTitle } from "@/Components/Card";
-import { IconChartInfographic, IconDownload, IconFilter } from "@tabler/icons-react";
+import { IconChartInfographic, IconDownload, IconExternalLink, IconFilter } from "@tabler/icons-react";
 import { useRealtimeReportHistoryReload } from "@/Hooks/useRealtimeReportHistoryReload";
 
 const formatCurrency = (value = 0) =>
@@ -536,12 +536,13 @@ export default function OverallReport({ summary, filters, transactions, statusOp
                                         <th className="text-right py-3 px-3 font-semibold">Nominal</th>
                                         <th className="text-left py-3 px-3 font-semibold">Status</th>
                                         <th className="text-right py-3 px-3 font-semibold">Saldo Berjalan</th>
+                                        <th className="text-right py-3 px-3 font-semibold">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
                                     {transactionData.length === 0 ? (
                                         <tr>
-                                            <td colSpan={8} className="py-8 text-center text-slate-500">
+                                            <td colSpan={9} className="py-8 text-center text-slate-500">
                                                 Tidak ada data transaksi pada rentang tanggal ini.
                                             </td>
                                         </tr>
@@ -574,6 +575,19 @@ export default function OverallReport({ summary, filters, transactions, statusOp
                                                     </span>
                                                 </td>
                                                 <td className="py-3 px-3 text-right font-semibold">{formatCurrency(item.running_balance || 0)}</td>
+                                                <td className="py-3 px-3 text-right">
+                                                    {item.detail_url ? (
+                                                        <a
+                                                            href={item.detail_url}
+                                                            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                                                        >
+                                                            <IconExternalLink size={14} />
+                                                            Buka Detail
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-xs text-slate-400">Tidak tersedia</span>
+                                                    )}
+                                                </td>
                                             </tr>
                                         ))
                                     )}

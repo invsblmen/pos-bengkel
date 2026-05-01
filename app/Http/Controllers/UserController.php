@@ -8,9 +8,11 @@ use App\Http\Requests\UserRequest;
 use Inertia\Inertia;
 use Spatie\Permission\Models\Role;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 
 class UserController extends Controller
 {
+    use RespondsWithJsonOrRedirect;
     /**
      * Display a listing of the resource.
      */
@@ -64,7 +66,7 @@ class UserController extends Controller
         $user->assignRole($request->selectedRoles);
 
         // render view
-        return to_route('users.index');
+        return $this->jsonOrRedirect('users.index', [], 'Pengguna berhasil dibuat', $user, 201);
     }
 
     /**
@@ -109,7 +111,7 @@ class UserController extends Controller
         $user->syncRoles($request->selectedRoles);
 
         // render view
-        return to_route('users.index');
+        return $this->jsonOrRedirect('users.index', [], 'Pengguna berhasil diperbarui', $user);
     }
 
     /**
@@ -125,6 +127,6 @@ class UserController extends Controller
             User::findOrFail($id)->delete();
 
         // render view
-        return back();
+        return $this->jsonOrRedirect('users.index', [], 'Pengguna berhasil dihapus');
     }
 }

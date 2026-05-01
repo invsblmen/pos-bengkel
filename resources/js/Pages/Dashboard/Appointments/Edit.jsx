@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
+import toast from 'react-hot-toast';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/Card';
 import {
@@ -106,6 +107,10 @@ export default function Edit({ appointment, mechanics }) {
 
         router.put(route('appointments.update', appointment.id), submitData, {
             preserveScroll: true,
+            onSuccess: () => {
+                toast.success('Appointment diperbarui');
+                router.reload();
+            },
             onError: (errors) => setErrors(errors),
         });
     };

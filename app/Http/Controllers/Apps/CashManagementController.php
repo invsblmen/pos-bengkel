@@ -13,9 +13,11 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 
 class CashManagementController extends Controller
 {
+    use RespondsWithJsonOrRedirect;
     public function index()
     {
         $denominations = CashDenomination::query()
@@ -158,7 +160,7 @@ class CashManagementController extends Controller
             ]);
         });
 
-        return back()->with('success', 'Stok pecahan kas berhasil diperbarui.');
+        return $this->jsonOrRedirect(null, [], 'Stok pecahan kas berhasil diperbarui.');
     }
 
     public function storeTransaction(Request $request)
@@ -241,7 +243,7 @@ class CashManagementController extends Controller
             }
         });
 
-        return back()->with('success', 'Transaksi kas berhasil dicatat.');
+        return $this->jsonOrRedirect(null, [], 'Transaksi kas berhasil dicatat.');
     }
 
     public function exchangeDenominations(Request $request)
@@ -362,7 +364,7 @@ class CashManagementController extends Controller
             }
         });
 
-        return back()->with('success', 'Tukar pecahan kas berhasil dicatat.');
+        return $this->jsonOrRedirect(null, [], 'Tukar pecahan kas berhasil dicatat.');
     }
 
     public function suggestChange(Request $request, CashChangeSuggestionService $service)

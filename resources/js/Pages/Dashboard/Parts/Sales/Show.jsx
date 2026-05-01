@@ -132,6 +132,9 @@ export default function Show({ sale, businessProfile, cashDenominations = [] }) 
     const roundingAdjustment = Number(sale.rounding_adjustment || 0);
     const grandTotal = sale.grand_total ?? subtotal - discountAmount - voucherDiscountAmount + taxAmount;
     const minimumDownPaymentReminder = Math.ceil(grandTotal * 0.5);
+    const paymentMeta = sale.payment_meta || {};
+    const cashReceivedTotal = Number(paymentMeta.cash_received_total || 0);
+    const cashChangeAmount = Number(paymentMeta.cash_change_amount || 0);
     const paidAmount = sale.paid_amount || 0;
     const remainingAmount = sale.remaining_amount ?? (grandTotal - paidAmount);
     const businessName = businessProfile?.business_name || 'POS BENGKEL';
@@ -536,11 +539,17 @@ export default function Show({ sale, businessProfile, cashDenominations = [] }) 
                                             <span className="text-slate-600 dark:text-slate-400 font-medium">Sudah Bayar</span>
                                             <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(paidAmount)}</span>
                                         </div>
-                                        {paidAmount > grandTotal && (
+                                        {cashReceivedTotal > 0 && (
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-slate-600 dark:text-slate-400 font-medium">Cash Diterima</span>
+                                                <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(cashReceivedTotal)}</span>
+                                            </div>
+                                        )}
+                                        {cashChangeAmount > 0 && (
                                             <div className="px-4 py-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-700/30">
                                                 <div className="flex items-center justify-between">
                                                     <span className="font-bold text-blue-700 dark:text-blue-400">Kembalian</span>
-                                                    <span className="font-bold text-blue-600 dark:text-blue-400">{formatCurrency(paidAmount - grandTotal)}</span>
+                                                    <span className="font-bold text-blue-600 dark:text-blue-400">{formatCurrency(cashChangeAmount)}</span>
                                                 </div>
                                             </div>
                                         )}

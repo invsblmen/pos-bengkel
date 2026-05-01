@@ -10,10 +10,13 @@ use App\Models\PartCategory;
 use App\Support\DispatchesBroadcastSafely;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
+use Illuminate\Validation\ValidationException;
 
 class PartCategoryController extends Controller
 {
     use DispatchesBroadcastSafely;
+    use RespondsWithJsonOrRedirect;
 
     public function index(Request $request)
     {
@@ -53,7 +56,7 @@ class PartCategoryController extends Controller
             'PartCategoryCreated'
         );
 
-        return redirect()->route('part-categories.index')->with('success', 'Part category created successfully');
+        return $this->jsonOrRedirect('part-categories.index', [], 'Part category created successfully', $category, 201);
     }
 
     public function edit(PartCategory $partCategory)
@@ -78,14 +81,14 @@ class PartCategoryController extends Controller
             'PartCategoryUpdated'
         );
 
-        return redirect()->route('part-categories.index')->with('success', 'Part category updated successfully');
+        return $this->jsonOrRedirect('part-categories.index', [], 'Part category updated successfully', $partCategory->toArray());
     }
 
     public function destroy(PartCategory $partCategory)
     {
         // Cek apakah ada parts yang menggunakan kategori ini
         if ($partCategory->parts()->count() > 0) {
-            return back()->withErrors(['error' => 'Cannot delete category that has parts']);
+            throw ValidationException::withMessages(['error' => 'Cannot delete category that has parts']);
         }
 
         $categoryId = $partCategory->id;
@@ -96,7 +99,7 @@ class PartCategoryController extends Controller
             'PartCategoryDeleted'
         );
 
-        return back()->with('success', 'Part category deleted successfully');
+        return $this->jsonOrRedirect('part-categories.index', [], 'Part category deleted successfully');
     }
 
     /**

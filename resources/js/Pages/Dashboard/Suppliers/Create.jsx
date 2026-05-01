@@ -1,6 +1,6 @@
 import React from 'react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
-import { Head, useForm, Link } from '@inertiajs/react';
+import { Head, useForm, Link, router } from '@inertiajs/react';
 import toast from 'react-hot-toast';
 import {
     IconTruck,
@@ -23,7 +23,7 @@ export default function Create() {
     const submit = (e) => {
         e.preventDefault();
         post(route('suppliers.store'), {
-            onSuccess: () => toast.success('Supplier berhasil dibuat'),
+            onSuccess: () => { toast.success('Supplier berhasil dibuat'); router.reload(); },
             onError: () => toast.error('Gagal membuat supplier'),
         });
     };

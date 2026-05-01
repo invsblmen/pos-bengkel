@@ -12,9 +12,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 
 class WhatsAppLogController extends Controller
 {
+    use RespondsWithJsonOrRedirect;
     public function index(Request $request)
     {
         $outboundQueryText = trim((string) $request->get('outbound_q', ''));
@@ -119,7 +121,7 @@ class WhatsAppLogController extends Controller
         SendWhatsAppMessageJob::dispatch($outbound->id)
             ->onQueue((string) config('whatsapp.notifications.queue', 'default'));
 
-        return redirect()->back()->with('success', 'Pesan WhatsApp di-queue ulang untuk retry.');
+        return $this->jsonOrRedirect(null, [], 'Pesan WhatsApp di-queue ulang untuk retry.');
     }
 
     public function healthCheck(): JsonResponse

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Head, useForm, Link } from '@inertiajs/react';
+import { Head, useForm, Link, router } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import { IconArrowLeft, IconDeviceFloppy } from '@tabler/icons-react';
 import toast from 'react-hot-toast';
@@ -23,7 +23,7 @@ function Edit({ auth, category }) {
         e.preventDefault();
         put(route('service-categories.update', category.id), {
             preserveScroll: true,
-            onSuccess: () => toast.success('Kategori berhasil diperbarui'),
+            onSuccess: () => { toast.success('Kategori berhasil diperbarui'); router.reload(); },
             onError: () => toast.error('Gagal memperbarui kategori'),
         });
     };

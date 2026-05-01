@@ -9,9 +9,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 
 class ConfirmablePasswordController extends Controller
 {
+    use RespondsWithJsonOrRedirect;
     /**
      * Show the confirm password view.
      */
@@ -23,7 +25,7 @@ class ConfirmablePasswordController extends Controller
     /**
      * Confirm the user's password.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request)
     {
         if (! Auth::guard('web')->validate([
             'email' => $request->user()->email,
@@ -36,6 +38,6 @@ class ConfirmablePasswordController extends Controller
 
         $request->session()->put('auth.password_confirmed_at', time());
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        return $this->jsonOrRedirect('dashboard', [], 'Password dikonfirmasi');
     }
 }

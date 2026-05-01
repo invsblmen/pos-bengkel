@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
-import { Head, useForm, Link } from '@inertiajs/react';
+import { Head, useForm, Link, router } from '@inertiajs/react';
 import Input from '@/Components/Dashboard/Input';
 import Textarea from '@/Components/Dashboard/TextArea';
 import AddPartCategoryModal from '@/Components/Dashboard/AddPartCategoryModal';
@@ -84,7 +84,7 @@ export default function Create({ suppliers: initialSuppliers, categories: initia
     const submit = (e) => {
         e.preventDefault();
         post(route('parts.store'), {
-            onSuccess: () => toast.success('Part berhasil dibuat'),
+            onSuccess: () => { toast.success('Part berhasil dibuat'); router.reload(); },
             onError: () => toast.error('Gagal membuat part'),
         });
     };

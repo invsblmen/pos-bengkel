@@ -1,4 +1,4 @@
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, router } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import { IconArrowLeft, IconDeviceFloppy } from '@tabler/icons-react';
 import toast from 'react-hot-toast';
@@ -14,7 +14,7 @@ function Create({ auth }) {
     const handleSubmit = (e) => {
         e.preventDefault();
         post(route('service-categories.store'), {
-            onSuccess: () => toast.success('Kategori berhasil dibuat'),
+            onSuccess: () => { toast.success('Kategori berhasil dibuat'); router.reload(); },
             onError: () => toast.error('Gagal membuat kategori'),
         });
     };

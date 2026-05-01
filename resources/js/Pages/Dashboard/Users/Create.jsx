@@ -1,5 +1,5 @@
 import React from "react";
-import { Head, usePage, useForm, Link } from "@inertiajs/react";
+import { Head, usePage, useForm, Link, router } from "@inertiajs/react";
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import {
     IconUserPlus,
@@ -35,7 +35,7 @@ export default function Create() {
     const submit = (e) => {
         e.preventDefault();
         post(route("users.store"), {
-            onSuccess: () => toast.success("Pengguna berhasil ditambahkan"),
+            onSuccess: () => { toast.success("Pengguna berhasil ditambahkan"); router.reload(); },
             onError: () => toast.error("Gagal menyimpan pengguna"),
         });
     };

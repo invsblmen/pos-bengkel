@@ -14,10 +14,12 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Illuminate\Support\Str;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 
 class ServiceController extends Controller
 {
     use DispatchesBroadcastSafely;
+    use RespondsWithJsonOrRedirect;
 
     public function index(Request $request)
     {
@@ -159,7 +161,7 @@ class ServiceController extends Controller
             'ServiceCreated'
         );
 
-        return redirect()->route('services.index')->with('success', 'Layanan berhasil ditambahkan');
+        return $this->jsonOrRedirect('services.index', [], 'Layanan berhasil ditambahkan', $service->toArray());
     }
 
     public function edit(Service $service)
@@ -279,14 +281,14 @@ class ServiceController extends Controller
             'ServiceUpdated'
         );
 
-        return redirect()->route('services.index')->with('success', 'Layanan berhasil diperbarui');
+        return $this->jsonOrRedirect('services.index', [], 'Layanan berhasil diperbarui', $service->toArray());
     }
 
     public function destroy(Service $service)
     {
         // Cek apakah ada service order detail yang menggunakan service ini
         if ($service->serviceOrderDetails()->count() > 0) {
-            return back()->withErrors(['error' => 'Cannot delete service that is used in service orders']);
+            throw ValidationException::withMessages(['error' => 'Cannot delete service that is used in service orders']);
         }
 
         $serviceId = $service->id;
@@ -298,7 +300,7 @@ class ServiceController extends Controller
             'ServiceDeleted'
         );
 
-        return back()->with('success', 'Service deleted successfully');
+        return $this->jsonOrRedirect(null, [], 'Service deleted successfully');
     }
 
     public function bulkStatus(Request $request)
@@ -325,7 +327,7 @@ class ServiceController extends Controller
 
         $statusLabel = $validated['status'] === 'active' ? 'aktif' : 'nonaktif';
 
-        return back()->with('success', "{$services->count()} layanan berhasil diubah ke status {$statusLabel}.");
+        return $this->jsonOrRedirect(null, [], "{$services->count()} layanan berhasil diubah ke status {$statusLabel}.");
     }
 
     public function bulkDelete(Request $request)
@@ -358,14 +360,14 @@ class ServiceController extends Controller
         $blockedCount = $blocked->count();
 
         if ($deletedCount > 0 && $blockedCount === 0) {
-            return back()->with('success', "{$deletedCount} layanan berhasil dihapus.");
+            return $this->jsonOrRedirect(null, [], "{$deletedCount} layanan berhasil dihapus.", null);
         }
 
         if ($deletedCount > 0 && $blockedCount > 0) {
-            return back()->with('warning', "{$deletedCount} layanan dihapus, {$blockedCount} layanan tidak bisa dihapus karena sudah dipakai di service order.");
+            return $this->jsonOrRedirect(null, [], "{$deletedCount} layanan dihapus, {$blockedCount} layanan tidak bisa dihapus karena sudah dipakai di service order.", null, 200, 'warning');
         }
 
-        return back()->withErrors([
+        throw ValidationException::withMessages([
             'error' => 'Tidak ada layanan yang dapat dihapus karena semua sudah dipakai di service order.',
         ]);
     }

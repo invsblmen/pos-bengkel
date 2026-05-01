@@ -10,10 +10,13 @@ use App\Models\ServiceCategory;
 use App\Support\DispatchesBroadcastSafely;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
+use Illuminate\Validation\ValidationException;
 
 class ServiceCategoryController extends Controller
 {
     use DispatchesBroadcastSafely;
+    use RespondsWithJsonOrRedirect;
 
     public function index(Request $request)
     {
@@ -54,7 +57,7 @@ class ServiceCategoryController extends Controller
             'ServiceCategoryCreated'
         );
 
-        return redirect()->route('service-categories.index')->with('success', 'Service category created successfully');
+        return $this->jsonOrRedirect('service-categories.index', [], 'Service category created successfully', $category, 201);
     }
 
     public function edit(ServiceCategory $serviceCategory)
@@ -80,14 +83,14 @@ class ServiceCategoryController extends Controller
             'ServiceCategoryUpdated'
         );
 
-        return redirect()->route('service-categories.index')->with('success', 'Service category updated successfully');
+        return $this->jsonOrRedirect('service-categories.index', [], 'Service category updated successfully', $serviceCategory->toArray());
     }
 
     public function destroy(ServiceCategory $serviceCategory)
     {
         // Cek apakah ada services yang menggunakan kategori ini
         if ($serviceCategory->services()->count() > 0) {
-            return back()->withErrors(['error' => 'Cannot delete category that has services']);
+            throw ValidationException::withMessages(['error' => 'Cannot delete category that has services']);
         }
 
         $categoryId = $serviceCategory->id;
@@ -98,6 +101,6 @@ class ServiceCategoryController extends Controller
             'ServiceCategoryDeleted'
         );
 
-        return back()->with('success', 'Service category deleted successfully');
+        return $this->jsonOrRedirect('service-categories.index', [], 'Service category deleted successfully');
     }
 }

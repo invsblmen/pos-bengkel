@@ -1,6 +1,6 @@
 import React from "react";
 import DashboardLayout from "@/Layouts/DashboardLayout";
-import { Head, useForm, usePage, Link } from "@inertiajs/react";
+import { Head, useForm, usePage, Link, router } from "@inertiajs/react";
 import Input from "@/Components/Dashboard/Input";
 import Textarea from "@/Components/Dashboard/TextArea";
 import toast from "react-hot-toast";
@@ -25,7 +25,7 @@ export default function Edit({ customer }) {
     const submit = (e) => {
         e.preventDefault();
         post(route("customers.update", customer.id), {
-            onSuccess: () => toast.success("Pelanggan berhasil diperbarui"),
+            onSuccess: () => { toast.success("Pelanggan berhasil diperbarui"); router.reload(); },
             onError: () => toast.error("Gagal memperbarui pelanggan"),
         });
     };

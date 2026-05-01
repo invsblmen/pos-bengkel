@@ -1,6 +1,6 @@
 import React from 'react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
-import { Head, useForm, Link } from '@inertiajs/react';
+import { Head, useForm, Link, router } from '@inertiajs/react';
 import toast from 'react-hot-toast';
 import {
     IconTruck,
@@ -23,7 +23,7 @@ export default function Edit({ supplier }) {
     const submit = (e) => {
         e.preventDefault();
         patch(route('suppliers.update', supplier.id), {
-            onSuccess: () => toast.success('Supplier berhasil diperbarui'),
+            onSuccess: () => { toast.success('Supplier berhasil diperbarui'); router.reload(); },
             onError: () => toast.error('Gagal memperbarui supplier'),
         });
     };

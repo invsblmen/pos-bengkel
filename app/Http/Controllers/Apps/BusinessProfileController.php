@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\BusinessProfile;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 
 class BusinessProfileController extends Controller
 {
+    use RespondsWithJsonOrRedirect;
     public function edit()
     {
         $profile = BusinessProfile::firstOrCreate([], [
@@ -65,8 +67,6 @@ class BusinessProfileController extends Controller
 
         $profile->update($data);
 
-        return redirect()
-            ->route('settings.business-profile.edit')
-            ->with('success', 'Profil bisnis berhasil disimpan.');
+        return $this->jsonOrRedirect('settings.business-profile.edit', [], 'Profil bisnis berhasil disimpan.');
     }
 }

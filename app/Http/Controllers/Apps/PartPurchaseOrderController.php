@@ -12,11 +12,13 @@ use App\Models\Supplier;
 use App\Support\DispatchesBroadcastSafely;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 use Illuminate\Support\Facades\DB;
 
 class PartPurchaseOrderController extends Controller
 {
     use DispatchesBroadcastSafely;
+    use RespondsWithJsonOrRedirect;
 
     public function index(Request $request)
     {
@@ -114,11 +116,10 @@ class PartPurchaseOrderController extends Controller
                 'PartPurchaseOrderCreated'
             );
 
-            return redirect()->route('part-purchase-orders.show', $order->id)
-                ->with('success', 'Purchase order created successfully');
+            return $this->jsonOrRedirect('part-purchase-orders.show', [$order->id], 'Purchase order created successfully', $order, 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to create purchase order: ' . $e->getMessage());
+            return $this->errorResponse('Failed to create purchase order: ' . $e->getMessage(), ['error' => ['Failed to create purchase order: ' . $e->getMessage()]], 500);
         }
     }
 
@@ -193,11 +194,10 @@ class PartPurchaseOrderController extends Controller
 
             DB::commit();
 
-            return redirect()->route('part-purchase-orders.show', $partPurchaseOrder->id)
-                ->with('success', 'Purchase order status updated successfully');
+            return $this->jsonOrRedirect('part-purchase-orders.show', [$partPurchaseOrder->id], 'Purchase order status updated successfully', $partPurchaseOrder);
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'Failed to update status: ' . $e->getMessage()]);
+            return $this->errorResponse('Failed to update status: ' . $e->getMessage(), ['error' => ['Failed to update status: ' . $e->getMessage()]], 500);
         }
     }
 }

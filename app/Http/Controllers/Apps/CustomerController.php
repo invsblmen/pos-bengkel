@@ -10,10 +10,15 @@ use App\Support\DispatchesBroadcastSafely;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 
 class CustomerController extends Controller
 {
     use DispatchesBroadcastSafely;
+    use RespondsWithJsonOrRedirect;
 
     /**
      * Display a listing of the resource.
@@ -22,6 +27,20 @@ class CustomerController extends Controller
      */
     public function index(Request $request)
     {
+        // If GO bridge for customer index is enabled, proxy to Go backend
+        if (config('go_backend.features.customer_index', false)) {
+            $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+            try {
+                $resp = Http::timeout((int) config('go_backend.timeout_seconds', 5))->get($baseUrl . '/api/v1/customers', $request->query());
+                $json = $resp->json();
+                if (is_array($json)) {
+                    return Inertia::render('Dashboard/Customers/Index', $json);
+                }
+            } catch (\Throwable $e) {
+                // fallback to local
+            }
+        }
+
         //get customers
         $customers = Customer::with('vehicles')
             ->when(request()->search, function ($query) {
@@ -67,6 +86,29 @@ class CustomerController extends Controller
             'address' => 'nullable',
         ]);
 
+        // If GO bridge for customer store is enabled, proxy to Go backend
+        if (config('go_backend.features.customer_store', false)) {
+            $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+            try {
+                $resp = Http::timeout((int) config('go_backend.timeout_seconds', 5))->post($baseUrl . '/api/v1/customers', $validated);
+                if ($resp->status() === 422) {
+                    $errors = $resp->json('errors') ?? [];
+                    throw ValidationException::withMessages($errors);
+                }
+
+                $json = $resp->json();
+                $message = $json['message'] ?? null;
+                $customerData = $json['customer'] ?? null;
+
+                $flashData = $customerData ? ['customer' => ['id' => $customerData['id']]] : null;
+                return $this->jsonOrRedirect('customers.index', [], $message, $flashData, $resp->status());
+            } catch (ValidationException $ve) {
+                throw $ve;
+            } catch (\Throwable $e) {
+                Log::error('Customer store proxy error: ' . $e->getMessage());
+            }
+        }
+
         //create customer
         $customer = Customer::create([
             'name'    => $validated['name'],
@@ -87,9 +129,7 @@ class CustomerController extends Controller
         );
 
         //redirect with flash data
-        return to_route('customers.index')->with('flash', [
-            'customer' => $customer
-        ]);
+        return $this->jsonOrRedirect('customers.index', [], null, ['customer' => $customer]);
     }
 
     /**
@@ -125,6 +165,20 @@ class CustomerController extends Controller
                 'message' => 'Nomor telepon sudah terdaftar',
                 'errors'  => ['phone' => ['Nomor telepon sudah terdaftar']]
             ], 422);
+        }
+
+        // If GO bridge for customer store ajax is enabled, proxy to Go backend
+        if (config('go_backend.features.customer_store_ajax', false)) {
+            $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+            try {
+                $resp = Http::timeout((int) config('go_backend.timeout_seconds', 5))->post($baseUrl . '/api/v1/customers/store-ajax', $validated);
+                $status = $resp->status();
+                $json = $resp->json();
+                return response()->json($json, $status);
+            } catch (\Throwable $e) {
+                Log::error('Customer storeAjax proxy error: ' . $e->getMessage());
+                return response()->json(['success' => false, 'message' => 'Gagal menambahkan pelanggan via bridge'], 500);
+            }
         }
 
         try {
@@ -253,7 +307,7 @@ class CustomerController extends Controller
         );
 
         //redirect
-        return to_route('customers.index');
+        return $this->jsonOrRedirect('customers.index', [], 'Customer updated', $customer->toArray());
     }
 
     /**
@@ -279,7 +333,7 @@ class CustomerController extends Controller
         );
 
         //redirect
-        return back();
+        return $this->jsonOrRedirect(null, [], 'Customer deleted.');
     }
 
     /**

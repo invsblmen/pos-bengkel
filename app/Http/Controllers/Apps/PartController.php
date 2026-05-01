@@ -12,10 +12,12 @@ use App\Support\DispatchesBroadcastSafely;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 
 class PartController extends Controller
 {
     use DispatchesBroadcastSafely;
+    use RespondsWithJsonOrRedirect;
 
     public function index(Request $request)
     {
@@ -180,26 +182,7 @@ class PartController extends Controller
             'PartCreated'
         );
 
-        // Inertia requests must receive an Inertia-compatible redirect response.
-        if ($request->header('X-Inertia')) {
-            return redirect()
-                ->route('parts.index')
-                ->with('success', 'Part created successfully.')
-                ->with('flash', ['part' => $part]);
-        }
-
-        // For AJAX/modal flows, keep JSON contract.
-        if ($request->expectsJson() || $request->wantsJson() || $request->ajax()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Part created successfully.',
-                'part' => $part,
-            ], 201);
-        }
-
-        return redirect()
-            ->route('parts.index')
-            ->with('success', 'Part created successfully.');
+        return $this->jsonOrRedirect('parts.index', [], 'Part created successfully.', ['part' => $part], 201);
     }
 
     public function update(Request $request, $id)
@@ -258,10 +241,7 @@ class PartController extends Controller
             'PartUpdated'
         );
 
-        return redirect()->back()->with([
-            'success' => 'Part updated successfully.',
-            'flash' => ['part' => $part]
-        ]);
+        return $this->jsonOrRedirect('parts.index', [], 'Part updated successfully.', ['part' => $part]);
     }
 
     public function show($id)
@@ -291,6 +271,6 @@ class PartController extends Controller
             'PartDeleted'
         );
 
-        return redirect()->back()->with('success', 'Part deleted successfully.');
+        return $this->jsonOrRedirect('parts.index', [], 'Part deleted successfully.');
     }
 }

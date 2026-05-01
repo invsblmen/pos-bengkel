@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HandlesPaymentSettlement;
 use Illuminate\Database\Eloquent\Model;
 use App\Services\DiscountTaxService;
 
 class PartPurchase extends Model
 {
+    use HandlesPaymentSettlement;
+
     protected $fillable = [
         'purchase_number',
         'supplier_id',
@@ -109,18 +112,8 @@ class PartPurchase extends Model
         $this->rounding_adjustment = $totals['rounding_adjustment'];
         $this->grand_total = $totals['grand_total'];
 
-        $paidAmount = max(0, (int) ($this->paid_amount ?? 0));
-        $this->paid_amount = $paidAmount;
-        $this->remaining_amount = max(0, $this->grand_total - $paidAmount);
-
-        if ($paidAmount >= $this->grand_total) {
-            $this->payment_status = 'paid';
-            $this->remaining_amount = 0;
-        } elseif ($paidAmount > 0) {
-            $this->payment_status = 'partial';
-        } else {
-            $this->payment_status = 'unpaid';
-        }
+        $this->applyManualPaymentRounding();
+        $this->syncPaymentSettlementStatus();
 
         return $this;
     }

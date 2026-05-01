@@ -14,10 +14,13 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
+use Illuminate\Validation\ValidationException;
 
 class AppointmentController extends Controller
 {
     use DispatchesBroadcastSafely;
+    use RespondsWithJsonOrRedirect;
 
     /**
      * Display appointments list view
@@ -260,7 +263,7 @@ class AppointmentController extends Controller
             ->first();
 
         if ($existingAppointment) {
-            return back()->withErrors(['scheduled_at' => 'Slot ini sudah dibooking.']);
+            throw ValidationException::withMessages(['scheduled_at' => 'Slot ini sudah dibooking.']);
         }
 
         // Parse scheduled_at in app timezone (Asia/Jakarta)
@@ -284,7 +287,7 @@ class AppointmentController extends Controller
             ]);
         }
 
-        return redirect()->route('appointments.calendar')->with('success', 'Appointment berhasil dijadwalkan.');
+        return $this->jsonOrRedirect('appointments.calendar', [], 'Appointment berhasil dijadwalkan.', $appointment->toArray());
     }
 
     /**
@@ -298,7 +301,7 @@ class AppointmentController extends Controller
         $appointment->status = $request->status;
         $appointment->save();
 
-        return back()->with('success', 'Appointment updated.');
+        return $this->jsonOrRedirect(null, [], 'Appointment updated.', $appointment->toArray());
     }
 
     /**
@@ -343,7 +346,7 @@ class AppointmentController extends Controller
                 ->first();
 
             if ($existingAppointment) {
-                return back()->withErrors(['scheduled_at' => 'Slot ini sudah dibooking mekanik lain.']);
+                throw ValidationException::withMessages(['scheduled_at' => 'Slot ini sudah dibooking mekanik lain.']);
             }
         }
 
@@ -363,7 +366,7 @@ class AppointmentController extends Controller
             AppointmentUpdated::class
         );
 
-        return redirect()->route('appointments.calendar')->with('success', 'Appointment berhasil diperbarui.');
+        return $this->jsonOrRedirect('appointments.calendar', [], 'Appointment berhasil diperbarui.', $appointment->fresh()->toArray());
     }
 
     /**
@@ -384,7 +387,7 @@ class AppointmentController extends Controller
             ]);
         }
 
-        return back()->with('success', 'Appointment cancelled.');
+        return $this->jsonOrRedirect(null, [], 'Appointment cancelled.');
     }
 
     /**

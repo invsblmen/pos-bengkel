@@ -8,9 +8,11 @@ use Inertia\Inertia;
 use Spatie\Permission\Models\Role;
 use App\Http\Controllers\Controller;
 use Spatie\Permission\Models\Permission;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 
 class RoleController extends Controller
 {
+    use RespondsWithJsonOrRedirect;
     /**
      * Display a listing of the resource.
      */
@@ -50,7 +52,7 @@ class RoleController extends Controller
         $role->givePermissionTo($request->selectedPermission);
 
         // render view
-        return back();
+        return $this->jsonOrRedirect(null, [], 'Role berhasil dibuat', $role, 201);
     }
 
     /**
@@ -65,7 +67,7 @@ class RoleController extends Controller
         $role->syncPermissions($request->selectedPermission);
 
         // render view
-        return back();
+        return $this->jsonOrRedirect(null, [], 'Role berhasil diperbarui', $role);
     }
 
     /**
@@ -77,6 +79,6 @@ class RoleController extends Controller
         $role->delete();
 
         // render view
-        return back();
+        return $this->jsonOrRedirect(null, [], 'Role berhasil dihapus');
     }
 }

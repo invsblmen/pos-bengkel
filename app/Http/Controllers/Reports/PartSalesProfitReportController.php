@@ -30,7 +30,7 @@ class PartSalesProfitReportController extends Controller
         // Base filtered query for part sales
         $baseQuery = PartSale::query()
             ->when($filters['invoice'] ?? null, fn ($q, $invoice) =>
-                $q->where('invoice', 'like', '%' . $invoice . '%')
+                $q->where('sale_number', 'like', '%' . $invoice . '%')
             )
             ->when($startDateTime, fn ($q, $start) =>
                 $q->where('created_at', '>=', $start)
@@ -98,7 +98,7 @@ class PartSalesProfitReportController extends Controller
             $row = PartSaleDetail::query()
                 ->join('part_sales', 'part_sale_details.part_sale_id', '=', 'part_sales.id')
                 ->when($filters['invoice'] ?? null, fn ($q, $invoice) =>
-                    $q->where('part_sales.invoice', 'like', '%' . $invoice . '%')
+                    $q->where('part_sales.sale_number', 'like', '%' . $invoice . '%')
                 )
                 ->when($startDateTime, fn ($q, $start) =>
                     $q->where('part_sales.created_at', '>=', $start)
@@ -147,7 +147,7 @@ class PartSalesProfitReportController extends Controller
                 ')
                 ->join('part_sales', 'part_sale_details.part_sale_id', '=', 'part_sales.id')
                 ->when($filters['invoice'] ?? null, fn ($q, $invoice) =>
-                    $q->where('part_sales.invoice', 'like', '%' . $invoice . '%')
+                    $q->where('part_sales.sale_number', 'like', '%' . $invoice . '%')
                 )
                 ->when($startDateTime, fn ($q, $start) =>
                     $q->where('part_sales.created_at', '>=', $start)

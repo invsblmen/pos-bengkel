@@ -6,11 +6,27 @@ use App\Http\Controllers\Controller;
 use App\Models\LowStockAlert;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class LowStockAlertController extends Controller
 {
     public function index(Request $request)
     {
+        // Proxy to GO backend when enabled
+        if (config('go_backend.features.parts_low_stock', false)) {
+            $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
+            try {
+                $resp = Http::timeout((int) config('go_backend.timeout_seconds', 5))->get($baseUrl . '/api/v1/parts/low-stock', $request->query());
+                $json = $resp->json();
+                if (is_array($json)) {
+                    return Inertia::render('Dashboard/Parts/LowStock', $json);
+                }
+            } catch (\Throwable $e) {
+                Log::error('LowStock proxy error: ' . $e->getMessage());
+            }
+        }
+
         LowStockAlert::where('is_read', false)->update(['is_read' => true]);
 
         $sortBy = $request->query('sort_by', 'created_at');

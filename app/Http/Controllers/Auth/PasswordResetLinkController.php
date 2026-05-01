@@ -9,9 +9,11 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 
 class PasswordResetLinkController extends Controller
 {
+    use RespondsWithJsonOrRedirect;
     /**
      * Display the password reset link request view.
      */
@@ -27,7 +29,7 @@ class PasswordResetLinkController extends Controller
      *
      * @throws \Illuminate\Validation\ValidationException
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request)
     {
         $request->validate([
             'email' => 'required|email',
@@ -41,11 +43,9 @@ class PasswordResetLinkController extends Controller
         );
 
         if ($status == Password::RESET_LINK_SENT) {
-            return back()->with('status', __($status));
+            return $this->jsonOrRedirect(null, [], __($status));
         }
 
-        throw ValidationException::withMessages([
-            'email' => [trans($status)],
-        ]);
+        return $this->errorResponse('Failed to send reset link', ['email' => [trans($status)]], 422);
     }
 }

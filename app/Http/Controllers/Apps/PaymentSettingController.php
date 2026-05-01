@@ -7,9 +7,12 @@ use App\Models\PaymentSetting;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use Illuminate\Validation\ValidationException;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 
 class PaymentSettingController extends Controller
 {
+    use RespondsWithJsonOrRedirect;
     public function edit()
     {
         $setting = PaymentSetting::firstOrCreate([], [
@@ -51,15 +54,15 @@ class PaymentSettingController extends Controller
         $xenditEnabled = (bool) ($data['xendit_enabled'] ?? false);
 
         if ($midtransEnabled && (empty($data['midtrans_server_key']) || empty($data['midtrans_client_key']))) {
-            return back()->withErrors([
-                'midtrans_server_key' => 'Server key dan Client key Midtrans wajib diisi saat mengaktifkan Midtrans.',
-            ])->withInput();
+            throw ValidationException::withMessages([
+                'midtrans_server_key' => ['Server key dan Client key Midtrans wajib diisi saat mengaktifkan Midtrans.'],
+            ]);
         }
 
         if ($xenditEnabled && empty($data['xendit_secret_key'])) {
-            return back()->withErrors([
-                'xendit_secret_key' => 'Secret key Xendit wajib diisi saat mengaktifkan Xendit.',
-            ])->withInput();
+            throw ValidationException::withMessages([
+                'xendit_secret_key' => ['Secret key Xendit wajib diisi saat mengaktifkan Xendit.'],
+            ]);
         }
 
         if (
@@ -67,9 +70,9 @@ class PaymentSettingController extends Controller
             && !(($data['default_gateway'] === PaymentSetting::GATEWAY_MIDTRANS && $midtransEnabled)
                 || ($data['default_gateway'] === PaymentSetting::GATEWAY_XENDIT && $xenditEnabled))
         ) {
-            return back()->withErrors([
-                'default_gateway' => 'Gateway default harus dalam kondisi aktif.',
-            ])->withInput();
+            throw ValidationException::withMessages([
+                'default_gateway' => ['Gateway default harus dalam kondisi aktif.'],
+            ]);
         }
 
         $setting->update([
@@ -84,8 +87,6 @@ class PaymentSettingController extends Controller
             'xendit_production' => (bool) ($data['xendit_production'] ?? false),
         ]);
 
-        return redirect()
-            ->route('settings.payments.edit')
-            ->with('success', 'Konfigurasi payment gateway berhasil disimpan.');
+        return $this->jsonOrRedirect('settings.payments.edit', [], 'Konfigurasi payment gateway berhasil disimpan.');
     }
 }

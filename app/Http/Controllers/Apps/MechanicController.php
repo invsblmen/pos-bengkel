@@ -10,10 +10,12 @@ use App\Events\MechanicDeleted;
 use App\Support\DispatchesBroadcastSafely;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 
 class MechanicController extends Controller
 {
     use DispatchesBroadcastSafely;
+    use RespondsWithJsonOrRedirect;
 
     public function index(Request $request)
     {
@@ -69,10 +71,7 @@ class MechanicController extends Controller
             'MechanicCreated'
         );
 
-        return redirect()->back()->with([
-            'success' => 'Mechanic created successfully.',
-            'flash' => ['mechanic' => $mechanic]
-        ]);
+        return $this->jsonOrRedirect(null, [], 'Mechanic created successfully.', ['mechanic' => $mechanic]);
     }
 
     public function update(Request $request, $id)
@@ -105,10 +104,7 @@ class MechanicController extends Controller
             'MechanicUpdated'
         );
 
-        return redirect()->back()->with([
-            'success' => 'Mechanic updated successfully.',
-            'flash' => ['mechanic' => $mechanic]
-        ]);
+        return $this->jsonOrRedirect(null, [], 'Mechanic updated successfully.', ['mechanic' => $mechanic]);
     }
 
     public function destroy(Request $request, $id)
@@ -122,6 +118,6 @@ class MechanicController extends Controller
             'MechanicDeleted'
         );
 
-        return redirect()->back()->with('success', 'Mechanic deleted successfully.');
+        return $this->jsonOrRedirect(null, [], 'Mechanic deleted successfully.');
     }
 }

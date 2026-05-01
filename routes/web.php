@@ -175,6 +175,35 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
         ->middleware('permission:reports-access')
         ->name('sync.index');
 
+    // SDMS API authentication page (Inertia)
+    Route::get('/sdms-auth', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'index'])
+        ->middleware('permission:reports-access')
+        ->name('sdms.auth.index');
+
+    Route::post('/sdms-auth', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'login'])
+        ->middleware('permission:reports-access')
+        ->name('sdms.auth.login');
+
+    // SDMS dashboard (shows token & quick links)
+    Route::get('/sdms', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'dashboard'])
+        ->middleware('permission:reports-access')
+        ->name('sdms.dashboard');
+
+    // SDMS PKB list (Inertia page)
+    Route::get('/sdms/pkb', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'pkb'])
+        ->middleware('permission:reports-access')
+        ->name('sdms.pkb.index');
+
+    // SDMS Delivery Orders (List Pemesanan) - Inertia page
+    Route::get('/sdms/delivery-orders', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'deliveryOrders'])
+        ->middleware('permission:reports-access')
+        ->name('sdms.delivery.index');
+
+    // SDMS SPG detail page
+    Route::get('/sdms/spg', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'spg'])
+        ->middleware('permission:reports-access')
+        ->name('sdms.spg.index');
+
     Route::post('services/bulk-status', [ServiceController::class, 'bulkStatus'])
         ->middleware('permission:services-edit')
         ->name('services.bulk-status');
@@ -309,6 +338,7 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
 
     // Service Reports
     Route::get('/reports/overall', [\App\Http\Controllers\Apps\ServiceReportController::class, 'overall'])->middleware('permission:reports-access')->name('reports.overall.index');
+    Route::get('/reports/daily-finance', [\App\Http\Controllers\Apps\ServiceReportController::class, 'dailyFinance'])->middleware('permission:reports-access')->name('reports.daily-finance.index');
     Route::get('/reports/service-revenue', [\App\Http\Controllers\Apps\ServiceReportController::class, 'revenue'])->middleware('permission:reports-access')->name('reports.service-revenue.index');
     Route::get('/reports/mechanic-productivity', [\App\Http\Controllers\Apps\ServiceReportController::class, 'mechanicProductivity'])->middleware('permission:reports-access')->name('reports.mechanic-productivity.index');
     Route::get('/reports/mechanic-payroll', [\App\Http\Controllers\Apps\ServiceReportController::class, 'mechanicPayroll'])->middleware('permission:reports-access')->name('reports.mechanic-payroll.index');

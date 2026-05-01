@@ -12,9 +12,11 @@ use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 use Inertia\Response;
 use Spatie\Permission\Models\Role;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 
 class RegisteredUserController extends Controller
 {
+    use RespondsWithJsonOrRedirect;
     /**
      * Display the registration view.
      */
@@ -28,7 +30,7 @@ class RegisteredUserController extends Controller
      *
      * @throws \Illuminate\Validation\ValidationException
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request)
     {
         $request->validate([
             'name'     => 'required|string|max:255',
@@ -54,6 +56,6 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
-        return redirect(route('dashboard', absolute: false));
+        return $this->jsonOrRedirect('dashboard', [], 'Pendaftaran berhasil, Anda masuk sebagai pengguna baru', $user);
     }
 }

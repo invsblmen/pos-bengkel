@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
-import { Head, useForm, Link } from '@inertiajs/react';
+import { Head, useForm, Link, router } from '@inertiajs/react';
 import Input from '@/Components/Dashboard/Input';
 import Select from '@/Components/Dashboard/Select';
 import toast from 'react-hot-toast';
@@ -19,7 +19,7 @@ export default function Create({ type, parts, suppliers }) {
         e.preventDefault();
         const routeName = type === 'in' ? 'parts.stock.in.store' : 'parts.stock.out.store';
         post(route(routeName), {
-            onSuccess: () => toast.success('Berhasil'),
+            onSuccess: () => { toast.success('Berhasil'); router.reload(); },
             onError: () => toast.error('Gagal menyimpan'),
         });
     };

@@ -15,10 +15,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
+use Illuminate\Validation\ValidationException;
 
 class PartSalesOrderController extends Controller
 {
     use DispatchesBroadcastSafely;
+    use RespondsWithJsonOrRedirect;
 
     public function index(Request $request)
     {
@@ -125,11 +128,10 @@ class PartSalesOrderController extends Controller
                 'PartSalesOrderCreated'
             );
 
-            return redirect()->route('part-sales-orders.show', $order->id)
-                ->with('success', 'Sales order created successfully');
+            return $this->jsonOrRedirect('part-sales-orders.show', [$order->id], 'Sales order created successfully', $order, 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'Failed to create sales order: ' . $e->getMessage()]);
+            return $this->errorResponse('Failed to create sales order: ' . $e->getMessage(), ['error' => ['Failed to create sales order: ' . $e->getMessage()]], 500);
         }
     }
 
@@ -159,8 +161,8 @@ class PartSalesOrderController extends Controller
                 foreach ($order->details as $detail) {
                     $part = $detail->part;
                     if ($part->stock < $detail->quantity) {
-                        return back()->withErrors([
-                            'error' => "Insufficient stock for {$part->name}. Available: {$part->stock}, Required: {$detail->quantity}"
+                        throw ValidationException::withMessages([
+                            'error' => ["Insufficient stock for {$part->name}. Available: {$part->stock}, Required: {$detail->quantity}"]
                         ]);
                     }
                 }
@@ -224,10 +226,10 @@ class PartSalesOrderController extends Controller
 
             DB::commit();
 
-            return back()->with('success', 'Order status updated successfully');
+            return $this->jsonOrRedirect('part-sales-orders.show', [$order->id], 'Order status updated successfully', $order);
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'Failed to update status: ' . $e->getMessage()]);
+            return $this->errorResponse('Failed to update status: ' . $e->getMessage(), ['error' => ['Failed to update status: ' . $e->getMessage()]], 500);
         }
     }
 }

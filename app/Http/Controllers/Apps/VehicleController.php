@@ -11,10 +11,12 @@ use App\Models\Customer;
 use App\Support\DispatchesBroadcastSafely;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
 
 class VehicleController extends Controller
 {
     use DispatchesBroadcastSafely;
+    use RespondsWithJsonOrRedirect;
 
     public function index(Request $request)
     {
@@ -168,20 +170,7 @@ class VehicleController extends Controller
             'VehicleCreated'
         );
 
-        // For AJAX/modal requests, return JSON
-        if ($request->expectsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Kendaraan berhasil ditambahkan!',
-                'vehicle' => $vehicle
-            ]);
-        }
-
-        // For regular form submissions, redirect to vehicles list
-        return redirect()->route('vehicles.index')->with([
-            'success' => 'Kendaraan berhasil ditambahkan!',
-            'vehicle' => $vehicle
-        ]);
+        return $this->jsonOrRedirect('vehicles.index', [], 'Kendaraan berhasil ditambahkan!', $vehicle);
     }
 
     public function edit($id)
@@ -334,7 +323,7 @@ class VehicleController extends Controller
             'VehicleUpdated'
         );
 
-        return redirect()->route('vehicles.index')->with('success', 'Kendaraan berhasil diperbarui!');
+        return $this->jsonOrRedirect('vehicles.index', [], 'Kendaraan berhasil diperbarui!', $vehicle);
     }
 
     public function destroy($id)
@@ -349,7 +338,7 @@ class VehicleController extends Controller
             'VehicleDeleted'
         );
 
-        return redirect()->route('vehicles.index')->with('success', 'Kendaraan berhasil dihapus!');
+        return $this->jsonOrRedirect('vehicles.index', [], 'Kendaraan berhasil dihapus!');
     }
 
     public function maintenanceInsights($id)
