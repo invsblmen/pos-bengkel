@@ -27,10 +27,28 @@ Route::get('/part/DeliveryOrder', function (Request $request) {
     return $controller->proxy($request, 'api/part/DeliveryOrder');
 })->middleware('web');
 
+// Proxy specific ShipmentPackageNonMulia endpoint for SPG detail page
+Route::get('/part/ShipmentPackageNonMulia', function (Request $request) {
+    $controller = app(\App\Http\Controllers\ApiProxyController::class);
+    return $controller->proxy($request, 'api/part/ShipmentPackageNonMulia');
+})->middleware('web');
+
 // Proxy specific OrderItem DO endpoint so frontend can call local /api/part/orderitemdo
 Route::get('/part/orderitemdo', function (Request $request) {
     $controller = app(\App\Http\Controllers\ApiProxyController::class);
     return $controller->proxy($request, 'api/part/orderitemdo');
+})->middleware('web');
+
+// Proxy SPG item endpoint so frontend can call local /api/part/goodPartDetail/getpartspg
+Route::get('/part/goodPartDetail/getpartspg', function (Request $request) {
+    $controller = app(\App\Http\Controllers\ApiProxyController::class);
+    return $controller->proxy($request, 'api/part/goodPartDetail/getpartspg');
+})->middleware('web');
+
+// Proxy ComparePartReceive endpoint (PUT) for SPG compare action
+Route::put('/part/ComparePartReceive', function (Request $request) {
+    $controller = app(\App\Http\Controllers\ApiProxyController::class);
+    return $controller->proxy($request, 'api/part/ComparePartReceive');
 })->middleware('web');
 
 // Generic proxy: /api/docs-proxy/{path} -> forwards to {SDMS_API_BASE}/{path}

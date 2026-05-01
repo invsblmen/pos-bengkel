@@ -237,6 +237,13 @@ export default function Menu() {
                             permissions: hasAnyPermission(["reports-access"]),
                         },
                         {
+                            title: "Monitoring Harian",
+                            href: route("reports.daily-finance.index"),
+                            active: url.startsWith("/dashboard/reports/daily-finance"),
+                            icon: <IconCash size={20} strokeWidth={1.5} />,
+                            permissions: hasAnyPermission(["reports-access"]),
+                        },
+                        {
                             title: "Revenue Servis",
                             href: route("reports.service-revenue.index"),
                             active: url.startsWith("/dashboard/reports/service-revenue"),
@@ -323,6 +330,13 @@ export default function Menu() {
                     href: route("sdms.delivery.index"),
                     active: url.startsWith("/dashboard/sdms/delivery-orders"),
                     icon: <IconFileDescription size={20} strokeWidth={1.5} />,
+                    permissions: hasAnyPermission(["reports-access"]),
+                },
+                {
+                    title: "API Docs",
+                    href: "/api-docs/index.html",
+                    active: url.startsWith("/api-docs"),
+                    icon: <IconExternalLink size={20} strokeWidth={1.5} />,
                     permissions: hasAnyPermission(["reports-access"]),
                 },
             ],

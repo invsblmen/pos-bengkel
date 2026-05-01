@@ -1,39 +1,50 @@
-# SDMS Dealer API — Dokumentasi (Swagger UI)
+# SDMS Dealer API — Dokumentasi Swagger
 
-Lokasi file:
+Halaman ini memuat spesifikasi OpenAPI dan Swagger UI untuk endpoint yang dipakai aplikasi Laravel:
 
-- `openapi.yaml` — spesifikasi OpenAPI 3.0 untuk endpoint autentikasi
-- `index.html` — halaman Swagger UI statis yang memuat `openapi.yaml`
+- `openapi.yaml` — kontrak API untuk autentikasi, PKB, DeliveryOrder, dan detail item DO
+- `index.html` — halaman Swagger UI statis
+- `EXAMPLES.md` — contoh request `curl`, Node.js, dan PHP
 
-Cara melihat (lokal):
+## Cara membuka
 
-1. Pastikan file ada di `public/api-docs` di dalam project Laravel.
-2. Jalankan server Laravel (contoh):
+Jalankan aplikasi Laravel seperti biasa, lalu buka:
+
+```text
+http://localhost:8000/api-docs/index.html
+```
+
+Jika Anda memakai `php artisan serve`:
 
 ```bash
 php artisan serve --port=8000
 ```
 
-3. Buka: `http://localhost:8000/api-docs/index.html`
+## Server yang tersedia di Swagger UI
 
-Catatan "Try it out":
+- `https://sdmsdealer-h23.mpm-motor.com:22000/` untuk produksi
+- `http://localhost:8000/` untuk proxy Laravel
+- `http://localhost:3000/` untuk proxy Node lokal
 
-- Untuk fitur "Try it out" bekerja di browser, server API (`https://sdmsdealer-...:22000`) harus mengizinkan CORS dari origin tempat halaman docs diload.
-- Jika API tidak mengizinkan CORS, Anda bisa menggunakan proxy atau menjalankan docs dari origin yang diizinkan.
+## Proxy lokal
 
-Selanjutnya saya bisa:
+Jika browser menolak request karena CORS, gunakan salah satu proxy berikut.
 
-- Menambahkan potongan kode contoh (curl, JavaScript/fetch, PHP) ke dalam spec dan README.
-- Menambah endpoint lain ke `openapi.yaml`.
+### Proxy Laravel
 
-Beritahu saya bahasa contoh kode yang Anda mau, lalu saya tambahkan contoh dan endpoint tambahan.
+Route proxy tersedia di `routes/api.php`:
 
-Local proxy
-------------
+- `POST /api/authenticate`
+- `GET /api/reception/Pkb`
+- `GET /api/part/DeliveryOrder`
+- `GET /api/part/orderitemdo`
+- `ANY /api/docs-proxy/{path}`
 
-Jika server API eksternal tidak mengizinkan CORS, jalankan proxy lokal yang saya sediakan di `scripts/node/proxy`.
+Pilih server `http://localhost:8000/` di Swagger UI agar request lewat aplikasi ini.
 
-1. Masuk ke folder proxy:
+### Proxy Node
+
+Proxy Node ada di `scripts/node/proxy`.
 
 ```bash
 cd scripts/node/proxy
@@ -41,31 +52,15 @@ npm install
 npm start
 ```
 
-2. Buka `http://localhost:8000/api-docs/index.html` dan pilih server `http://localhost:3000/` di Swagger UI.
+Lalu pilih server `http://localhost:3000/` di Swagger UI.
 
-3. Sekarang fitur "Try it out" akan mengirimkan permintaan ke proxy lokal yang meneruskan ke API eksternal.
+## Catatan penggunaan
 
-Catatan keamanan: proxy hanya untuk pengembangan — jangan publikasikan atau gunakan di production tanpa proteksi.
+- Endpoint PKB dan DeliveryOrder membutuhkan header `Authorization`, `username`, dan `idInternal`.
+- Endpoint `orderitemdo` memakai query `fill` untuk mengambil detail item berdasarkan `idBilling`.
+- Proxy Laravel sekarang mengisi `idInternal` dari claim token bila tersedia agar tidak terjadi mismatch dengan upstream.
 
-Laravel proxy (alternatif)
---------------------------
+## Jika Anda ingin menambah endpoint
 
-Jika Anda lebih suka proxy di server Laravel agar Swagger UI yang di-serve dari `http://localhost:8000` bisa langsung memanggil API, saya menambahkan rute proxy di `routes/api.php`.
-
-- Endpoint yang dibuat:
-	- `POST /api/authenticate` — meneruskan ke `{SDMS_API_BASE}/authenticate`
-	- `ANY /api/docs-proxy/{path}` — meneruskan ke `{SDMS_API_BASE}/{path}`
-
-Langkah untuk menggunakan:
-
-1. Pastikan `.env` memiliki `SDMS_API_BASE` jika Anda ingin mengganti target (default: `https://sdmsdealer-h23.mpm-motor.com:22000`).
-2. Jalankan Laravel dev server:
-
-```bash
-php artisan serve --port=8000
-```
-
-3. Buka `http://localhost:8000/api-docs/index.html`, pilih server `http://localhost:8000/` di Swagger UI, lalu gunakan "Try it out".
-
-Catatan: rute proxy berada di `routes/api.php` dan menggunakan HTTP client Laravel. Proxy ini hanya untuk development.
+Tambahkan definisi schema dan path baru ke `openapi.yaml`, lalu tulis contoh request di `EXAMPLES.md`.
 

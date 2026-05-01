@@ -66,8 +66,8 @@ export default function Print({ sale, businessProfile }) {
         discount: discountAmount,
         rounding_adjustment: roundingAdjustment,
         grand_total: grandTotal,
-        cash: Number(sale?.paid_amount || 0),
-        change: Math.max(0, Number(sale?.paid_amount || 0) - grandTotal),
+        cash: Number(sale?.payment_meta?.cash_received_total || sale?.paid_amount || 0),
+        change: Number(sale?.payment_meta?.cash_change_amount || 0),
         payment_method: 'cash',
     }), [sale, subtotal, discountAmount, roundingAdjustment, grandTotal]);
 

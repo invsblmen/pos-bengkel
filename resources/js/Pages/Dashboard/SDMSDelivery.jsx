@@ -1,14 +1,46 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
+import { IconFileDescription, IconRefresh, IconSearch, IconTruck } from '@tabler/icons-react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/Card';
 import axios from 'axios';
 import Modal from '@/Components/Dashboard/Modal';
+import { toDisplayDateTime } from '@/Utils/datetime';
+
+const normalizeText = (value) => (value ?? '').toString().toLowerCase();
+
+const extractInvoiceNumber = (item) => item.billingNumber ?? item.BillingNumber ?? item.billingNo ?? item.billing_number ?? item.billNo ?? item.billing ?? '';
+
+const extractDocumentNumber = (item) => item.documentNumber ?? item.DocumentNumber ?? item.documentNo ?? item.document_number ?? item.document ?? '';
+
+const extractDeliveryDate = (item) => item.dtCreate ?? item.dtcreate ?? item.dt_create ?? item.createdAt ?? item.date ?? item.deliveryDate ?? '';
+
+const extractDeliveryStatus = (item) => item.statusDO ?? item.StatusDO ?? item.status ?? item.descStatus ?? item.DeliveryStatus ?? '';
+
+const extractDeliveryCustomer = (item) => item.customerName ?? (item.customer && item.customer.name) ?? item.customer ?? '';
+
+const extractDeliveryVehicle = (item) => item.vehicleNumber ?? item.vehicle_number ?? item.vehicle ?? item.kendaraan ?? item.vehicleNo ?? '';
+
+const getStatusTone = (status) => {
+    const text = normalizeText(status);
+    if (text.includes('open') || text.includes('waiting') || text.includes('new')) {
+        return 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900/60';
+    }
+    if (text.includes('close') || text.includes('done') || text.includes('finish') || text.includes('complete')) {
+        return 'bg-slate-100 text-slate-700 ring-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700';
+    }
+    if (text.includes('hold') || text.includes('cancel') || text.includes('reject')) {
+        return 'bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-900/60';
+    }
+
+    return 'bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:ring-blue-900/60';
+};
 
 export default function SDMSDelivery({ sdms }) {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [query, setQuery] = useState('');
 
     const [showDetail, setShowDetail] = useState(false);
     const [selected, setSelected] = useState(null);
@@ -64,6 +96,37 @@ export default function SDMSDelivery({ sdms }) {
             mounted = false;
         };
     }, []);
+
+    const filteredItems = useMemo(() => {
+        const keyword = query.trim().toLowerCase();
+        if (!keyword) return items;
+
+        return items.filter((item) => {
+            const searchable = [
+                extractInvoiceNumber(item),
+                extractDocumentNumber(item),
+                extractDeliveryDate(item),
+                extractDeliveryStatus(item),
+                extractDeliveryCustomer(item),
+                extractDeliveryVehicle(item),
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+
+            return searchable.includes(keyword);
+        });
+    }, [items, query]);
+
+    const openCount = useMemo(
+        () => items.filter((item) => normalizeText(extractDeliveryStatus(item)).includes('open')).length,
+        [items]
+    );
+
+    const completeCount = useMemo(
+        () => items.filter((item) => normalizeText(extractDeliveryStatus(item)).includes('close') || normalizeText(extractDeliveryStatus(item)).includes('done')).length,
+        [items]
+    );
 
     // Recursively try to find an idBilling-like value inside an object
     const locateFillValue = (obj) => {
@@ -214,84 +277,153 @@ export default function SDMSDelivery({ sdms }) {
             <Head title="List Pemesanan" />
 
             <div className="space-y-6">
-                <div>
-                    <h1 className="text-3xl font-bold">List Pemesanan</h1>
-                    <p className="text-gray-600">Daftar pemesanan (Delivery Orders) dari SDMS Dealer API.</p>
+                <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-cyan-50 p-6 shadow-sm dark:border-slate-800 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900/70">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                        <div className="max-w-2xl space-y-2">
+                            <div className="inline-flex items-center gap-2 rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300">
+                                <IconTruck size={14} /> SDMS Part
+                            </div>
+                            <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">List Pemesanan</h1>
+                            <p className="text-sm leading-6 text-slate-600 dark:text-slate-400">
+                                Delivery Order ditampilkan dengan pencarian cepat, status badge, dan detail item yang menampilkan harga, diskon, serta subtotal.
+                            </p>
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[420px]">
+                            <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/60">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total DO</p>
+                                <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{items.length}</p>
+                            </div>
+                            <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/60">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Open</p>
+                                <p className="mt-2 text-2xl font-bold text-emerald-600 dark:text-emerald-400">{openCount}</p>
+                            </div>
+                            <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/60">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Closed</p>
+                                <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{completeCount}</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Pemesanan (DeliveryOrder)</CardTitle>
-                    </CardHeader>
-                    <CardBody>
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                                <button onClick={fetchDelivery} disabled={loading} className="px-3 py-1 bg-blue-600 text-white rounded">
-                                    {loading ? 'Loading...' : 'Refresh'}
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <CardTitle>Pemesanan (DeliveryOrder)</CardTitle>
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                                <div className="relative min-w-0 sm:w-[340px]">
+                                    <IconSearch size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                    <input
+                                        value={query}
+                                        onChange={(e) => setQuery(e.target.value)}
+                                        placeholder="Cari nomor, customer, kendaraan, status..."
+                                        className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-900/40"
+                                    />
+                                </div>
+                                <button
+                                    onClick={fetchDelivery}
+                                    disabled={loading}
+                                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-70"
+                                >
+                                    <IconRefresh size={16} className={loading ? 'animate-spin' : ''} />
+                                    {loading ? 'Memuat...' : 'Refresh'}
                                 </button>
                             </div>
                         </div>
-
+                    </CardHeader>
+                    <CardBody>
                         {loading ? (
-                            <p className="text-sm text-gray-600">Memuat...</p>
+                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                {[...Array(6)].map((_, index) => (
+                                    <div key={index} className="h-20 animate-pulse rounded-2xl border border-slate-200 bg-slate-100/80 dark:border-slate-800 dark:bg-slate-900" />
+                                ))}
+                            </div>
                         ) : error ? (
-                            <div className="text-sm text-red-600">{error}</div>
-                        ) : items.length === 0 ? (
-                            <p className="text-sm text-gray-600">Tidak ada pemesanan ditemukan.</p>
+                            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+                                {error}
+                            </div>
+                        ) : filteredItems.length === 0 ? (
+                            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-400">
+                                <p className="font-semibold text-slate-900 dark:text-white">Tidak ada pemesanan ditemukan.</p>
+                                <p className="mt-1">Coba ubah kata kunci pencarian atau refresh data dari SDMS.</p>
+                            </div>
                         ) : (
-                            <div className="overflow-auto">
-                                <table className="w-full text-sm text-left">
-                                    <thead>
-                                        <tr className="bg-gray-50">
-                                            <th className="px-3 py-2">Nomor INV</th>
-                                            <th className="px-3 py-2">Nomor PS</th>
-                                            <th className="px-3 py-2">Tanggal</th>
-                                            <th className="px-3 py-2">Status</th>
-                                            <th className="px-3 py-2">Aksi</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {items.map((it, idx) => {
-                                            const inv = it.billingNumber ?? it.BillingNumber ?? it.billingNo ?? it.billing_number ?? it.billNo ?? it.billing ?? '';
-                                            const ps = it.documentNumber ?? it.DocumentNumber ?? it.documentNo ?? it.document_number ?? it.document ?? '';
-                                            const date = it.dtCreate ?? it.dtcreate ?? it.dt_create ?? it.createdAt ?? it.date ?? '';
-                                            const status = it.statusDO ?? it.StatusDO ?? it.status ?? it.descStatus ?? it.DeliveryStatus ?? '';
+                            <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-sm">
+                                        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+                                            <tr>
+                                                <th className="px-4 py-3">Nomor INV</th>
+                                                <th className="px-4 py-3">Nomor PS</th>
+                                                <th className="px-4 py-3">Tanggal</th>
+                                                <th className="px-4 py-3">Status</th>
+                                                <th className="px-4 py-3 text-right">Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-950">
+                                            {filteredItems.map((it, idx) => {
+                                                const inv = extractInvoiceNumber(it);
+                                                const ps = extractDocumentNumber(it);
+                                                const date = extractDeliveryDate(it);
+                                                const status = extractDeliveryStatus(it);
+                                                const customer = extractDeliveryCustomer(it);
+                                                const vehicle = extractDeliveryVehicle(it);
 
-                                            return (
-                                                <tr key={idx} className="border-t">
-                                                    <td className="px-3 py-2 align-top break-words">{inv}</td>
-                                                    <td className="px-3 py-2 align-top">{ps}</td>
-                                                    <td className="px-3 py-2 align-top">{date}</td>
-                                                    <td className="px-3 py-2 align-top">{status}</td>
-                                                    <td className="px-3 py-2 align-top">
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelected(it);
-                                                                setShowDetail(true);
-                                                                fetchOrderItems(it);
-                                                            }}
-                                                            className="px-2 py-1 text-sm bg-gray-200 rounded"
-                                                        >
-                                                            Detail
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
+                                                return (
+                                                    <tr key={idx} className="transition hover:bg-cyan-50/60 dark:hover:bg-cyan-950/20">
+                                                        <td className="px-4 py-3 align-top">
+                                                            <div className="font-semibold text-slate-900 dark:text-white">{inv || '-'}</div>
+                                                            <div className="mt-1 text-xs text-slate-500">{customer || '-'}</div>
+                                                        </td>
+                                                        <td className="px-4 py-3 align-top">
+                                                            <div className="font-medium text-slate-900 dark:text-slate-100">{ps || '-'}</div>
+                                                            <div className="mt-1 text-xs text-slate-500">{vehicle || '-'}</div>
+                                                        </td>
+                                                        <td className="px-4 py-3 align-top text-slate-600 dark:text-slate-300">{date ? toDisplayDateTime(date) : '-'}</td>
+                                                        <td className="px-4 py-3 align-top">
+                                                            <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${getStatusTone(status)}`}>
+                                                                {status || 'N/A'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 align-top text-right">
+                                                            <div className="inline-flex flex-wrap justify-end gap-2">
+                                                                <Link
+                                                                    href={route('sdms.spg.index', { idbilling: locateFillValue(it) })}
+                                                                    className="inline-flex items-center gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm font-semibold text-cyan-700 transition hover:border-cyan-300 hover:bg-cyan-100 dark:border-cyan-900/40 dark:bg-cyan-950/30 dark:text-cyan-200"
+                                                                >
+                                                                    SPG
+                                                                </Link>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setSelected(it);
+                                                                        setShowDetail(true);
+                                                                        fetchOrderItems(it);
+                                                                    }}
+                                                                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-cyan-300 hover:text-cyan-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200"
+                                                                >
+                                                                    Detail
+                                                                    <IconFileDescription size={16} />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         )}
 
-                        <div className="mt-4">
-                            <Link href={route('sdms.dashboard')} className="px-4 py-2 bg-gray-200 rounded-lg">
+                        <div className="mt-4 flex flex-wrap gap-3">
+                            <Link href={route('sdms.dashboard')} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
                                 Kembali
                             </Link>
                         </div>
 
                         {showDetail && (
                             <Modal
-                                title={`Pemesanan Detail`}
+                                title="Pemesanan Detail"
                                 show={showDetail}
                                 onClose={() => {
                                     setShowDetail(false);
@@ -303,127 +435,165 @@ export default function SDMSDelivery({ sdms }) {
                                 }}
                                 maxWidth="3xl"
                             >
-                                <div className="space-y-4">
-                                    <div className="text-sm text-gray-700">
-                                        <strong>Nomor INV:</strong> {selected?.billingNumber ?? selected?.BillingNumber ?? selected?.billingNo ?? selected?.billNo ?? ''}
-                                    </div>
-                                    <div className="text-sm text-gray-700">
-                                        <strong>Nomor PS:</strong> {selected?.documentNumber ?? selected?.DocumentNumber ?? selected?.documentNo ?? selected?.document ?? ''}
-                                    </div>
-                                    <div className="text-sm text-gray-700">
-                                        <strong>Penerima:</strong> {selected?.customerName ?? (selected?.customer && selected.customer.name) ?? ''}
-                                    </div>
-                                    <div className="text-sm text-gray-700">
-                                        <strong>Tanggal:</strong> {selected?.dtCreate ?? selected?.deliveryDate ?? selected?.createdAt ?? ''}
+                                <div className="space-y-5">
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/70">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Nomor INV</p>
+                                            <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{extractInvoiceNumber(selected) || '-'}</p>
+                                        </div>
+                                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/70">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Nomor PS</p>
+                                            <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{extractDocumentNumber(selected) || '-'}</p>
+                                        </div>
+                                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/70">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Penerima</p>
+                                            <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{extractDeliveryCustomer(selected) || '-'}</p>
+                                        </div>
+                                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/70">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tanggal</p>
+                                            <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{extractDeliveryDate(selected) ? toDisplayDateTime(extractDeliveryDate(selected)) : '-'}</p>
+                                        </div>
                                     </div>
 
-                                    <div className="pt-3">
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="font-semibold">Item DO</h3>
-                                            <div className="flex items-center gap-2">
-                                                {lastFill && <span className="text-xs text-gray-500">fill: {lastFill}</span>}
-                                                <button onClick={() => fetchOrderItems(selected)} className="px-2 py-1 bg-blue-100 text-sm rounded">Reload</button>
+                                    <div className="rounded-2xl border border-cyan-200 bg-cyan-50/70 p-4 text-sm text-cyan-900 dark:border-cyan-900/40 dark:bg-cyan-950/20 dark:text-cyan-200">
+                                        <div className="flex items-center gap-2 font-semibold">
+                                            <IconTruck size={16} />
+                                            Ringkasan Delivery Order
+                                        </div>
+                                        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                                            <div>
+                                                <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-700/80 dark:text-cyan-300/80">Status</p>
+                                                <p className="mt-1 font-semibold">{extractDeliveryStatus(selected) || '-'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-700/80 dark:text-cyan-300/80">fill / idBilling</p>
+                                                <p className="mt-1 font-semibold">{lastFill || '-'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-700/80 dark:text-cyan-300/80">Item</p>
+                                                <p className="mt-1 font-semibold">{orderItems.length}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-2">
+                                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                                            <h3 className="text-base font-semibold text-slate-900 dark:text-white">Item DO</h3>
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                {lastFill && <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">fill: {lastFill}</span>}
+                                                <button
+                                                    onClick={() => fetchOrderItems(selected)}
+                                                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-cyan-300 hover:text-cyan-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200"
+                                                >
+                                                    <IconRefresh size={16} /> Reload
+                                                </button>
                                                 <button
                                                     onClick={() => fetchOrderItemsDebug(selected)}
                                                     disabled={debugLoading}
-                                                    className="px-2 py-1 text-sm bg-yellow-100 rounded"
+                                                    className="inline-flex items-center gap-2 rounded-xl bg-amber-100 px-3 py-2 text-sm font-semibold text-amber-800 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-amber-950/40 dark:text-amber-200"
                                                 >
+                                                    <IconSearch size={16} />
                                                     {debugLoading ? 'Debugging...' : 'Debug (_proxy_debug)'}
                                                 </button>
                                             </div>
                                         </div>
 
                                         {orderItemsLoading ? (
-                                            <p className="text-sm text-gray-600">Memuat item...</p>
+                                            <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">Memuat item...</p>
                                         ) : orderItemsError ? (
-                                            <div className="text-sm text-red-600">{orderItemsError}</div>
-                                        ) : orderItems.length === 0 ? (
-                                            <p className="text-sm text-gray-600">Tidak ada item DO.</p>
-                                        ) : (
-                                            <>
-                                            <div className="overflow-auto mt-2">
-                                                <table className="w-full text-sm text-left">
-                                                    <thead>
-                                                        <tr className="bg-gray-50">
-                                                            <th className="px-3 py-2">Part No</th>
-                                                            <th className="px-3 py-2">Nama</th>
-                                                            <th className="px-3 py-2">Qty</th>
-                                                            <th className="px-3 py-2">Harga</th>
-                                                            <th className="px-3 py-2">Disc Satuan</th>
-                                                            <th className="px-3 py-2">Subtotal</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {orderItems.map((it, i) => {
-                                                            const partNo = it.numberPart ?? it.number_part ?? it.partNo ?? it.partNumber ?? it.part_code ?? it.code ?? it.codePart ?? it.PartNo ?? '';
-                                                            const name = it.DescPart ?? it.descPart ?? it.partName ?? it.namaPart ?? it.name ?? it.part_desc ?? it.Description ?? '';
-                                                            const qty = it.qty ?? it.quantity ?? it.Qty ?? it.qtyOrdered ?? it.orderQty ?? it.jumlah ?? '';
-                                                            const unitAmount = it.amount ?? it.Amount ?? it.unitPrice ?? it.price ?? it.priceUnit ?? it.harga ?? null;
-                                                            const discUnit = it.discdtlitemamount ?? it.discDtlItemAmount ?? it.discDtlItemAmount ?? it.disc ?? it.discount ?? null;
-                                                            const qn = qty ? Number(qty) : NaN;
-                                                            const unitNum = unitAmount != null ? Number(unitAmount) : NaN;
-                                                            const discUnitNum = discUnit != null ? Number(discUnit) : NaN;
-
-                                                            // Subtotal = (harga - discSatuan) * qty
-                                                            let subtotalNum = NaN;
-                                                            if (!Number.isNaN(qn) && !Number.isNaN(unitNum)) {
-                                                                const priceMinusDisc = !Number.isNaN(discUnitNum) ? (unitNum - discUnitNum) : unitNum;
-                                                                subtotalNum = priceMinusDisc * qn;
-                                                            }
-
-                                                            const priceDisplay = !Number.isNaN(unitNum) ? unitNum : (unitAmount ?? '');
-                                                            const discDisplay = discUnit ?? '';
-                                                            const subtotalDisplay = !Number.isNaN(subtotalNum) ? subtotalNum : (it.total ?? it.totalAmount ?? it.subtotal ?? it.jumlahHarga ?? '');
-
-                                                            return (
-                                                                <tr key={i} className="border-t">
-                                                                    <td className="px-3 py-2 align-top break-words">{partNo}</td>
-                                                                    <td className="px-3 py-2 align-top">{name}</td>
-                                                                    <td className="px-3 py-2 align-top">{qty}</td>
-                                                                    <td className="px-3 py-2 align-top">{formatMoney(priceDisplay)}</td>
-                                                                    <td className="px-3 py-2 align-top">{formatMoney(discDisplay)}</td>
-                                                                    <td className="px-3 py-2 align-top">{formatMoney(subtotalDisplay)}</td>
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                    </tbody>
-                                                </table>
+                                            <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+                                                {orderItemsError}
                                             </div>
-                                            { (totals?.totalamount || totals?.discount || totals?.grandTotal) && (
-                                                <div className="mt-4 flex justify-end text-sm">
-                                                    <div className="w-64 space-y-1">
-                                                        <div className="flex justify-between">
-                                                            <span className="text-gray-600">Total:</span>
-                                                            <span className="font-medium">{formatMoney(totals.totalamount)}</span>
-                                                        </div>
-                                                        <div className="flex justify-between">
-                                                            <span className="text-gray-600">Diskon:</span>
-                                                            <span className="font-medium">{formatMoney(totals.discount)}</span>
-                                                        </div>
-                                                        <div className="flex justify-between">
-                                                            <span className="text-gray-700">Grand Total:</span>
-                                                            <span className="font-semibold">{formatMoney(totals.grandTotal)}</span>
-                                                        </div>
+                                        ) : orderItems.length === 0 ? (
+                                            <div className="mt-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-400">
+                                                Tidak ada item DO.
+                                            </div>
+                                        ) : (
+                                            <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-left text-sm">
+                                                        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+                                                            <tr>
+                                                                <th className="px-4 py-3">Part No</th>
+                                                                <th className="px-4 py-3">Nama</th>
+                                                                <th className="px-4 py-3 text-right">Qty</th>
+                                                                <th className="px-4 py-3 text-right">Harga</th>
+                                                                <th className="px-4 py-3 text-right">Disc Satuan</th>
+                                                                <th className="px-4 py-3 text-right">Subtotal</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-950">
+                                                            {orderItems.map((it, i) => {
+                                                                const partNo = it.numberPart ?? it.number_part ?? it.partNo ?? it.partNumber ?? it.part_code ?? it.code ?? it.codePart ?? it.PartNo ?? '';
+                                                                const name = it.DescPart ?? it.descPart ?? it.partName ?? it.namaPart ?? it.name ?? it.part_desc ?? it.Description ?? '';
+                                                                const qty = it.qty ?? it.quantity ?? it.Qty ?? it.qtyOrdered ?? it.orderQty ?? it.jumlah ?? '';
+                                                                const unitAmount = it.amount ?? it.Amount ?? it.unitPrice ?? it.price ?? it.priceUnit ?? it.harga ?? null;
+                                                                const discUnit = it.discdtlitemamount ?? it.discDtlItemAmount ?? it.discDtlItemAmount ?? it.disc ?? it.discount ?? null;
+                                                                const qn = qty ? Number(qty) : NaN;
+                                                                const unitNum = unitAmount != null ? Number(unitAmount) : NaN;
+                                                                const discUnitNum = discUnit != null ? Number(discUnit) : NaN;
+
+                                                                let subtotalNum = NaN;
+                                                                if (!Number.isNaN(qn) && !Number.isNaN(unitNum)) {
+                                                                    const priceMinusDisc = !Number.isNaN(discUnitNum) ? unitNum - discUnitNum : unitNum;
+                                                                    subtotalNum = priceMinusDisc * qn;
+                                                                }
+
+                                                                const priceDisplay = !Number.isNaN(unitNum) ? unitNum : unitAmount ?? '';
+                                                                const discDisplay = discUnit ?? '';
+                                                                const subtotalDisplay = !Number.isNaN(subtotalNum) ? subtotalNum : it.total ?? it.totalAmount ?? it.subtotal ?? it.jumlahHarga ?? '';
+
+                                                                return (
+                                                                    <tr key={i} className="transition hover:bg-cyan-50/60 dark:hover:bg-cyan-950/20">
+                                                                        <td className="px-4 py-3 align-top font-medium text-slate-900 dark:text-white">{partNo || '-'}</td>
+                                                                        <td className="px-4 py-3 align-top text-slate-600 dark:text-slate-300">{name || '-'}</td>
+                                                                        <td className="px-4 py-3 align-top text-right text-slate-600 dark:text-slate-300">{qty || '-'}</td>
+                                                                        <td className="px-4 py-3 align-top text-right font-medium text-slate-900 dark:text-white">{formatMoney(priceDisplay)}</td>
+                                                                        <td className="px-4 py-3 align-top text-right text-slate-600 dark:text-slate-300">{formatMoney(discDisplay)}</td>
+                                                                        <td className="px-4 py-3 align-top text-right font-semibold text-slate-900 dark:text-white">{formatMoney(subtotalDisplay)}</td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {(totals?.totalamount || totals?.discount || totals?.grandTotal) && (
+                                            <div className="mt-4 flex justify-end">
+                                                <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-900/70">
+                                                    <div className="flex justify-between gap-3">
+                                                        <span className="text-slate-600 dark:text-slate-400">Total</span>
+                                                        <span className="font-medium text-slate-900 dark:text-white">{formatMoney(totals.totalamount)}</span>
+                                                    </div>
+                                                    <div className="mt-2 flex justify-between gap-3">
+                                                        <span className="text-slate-600 dark:text-slate-400">Diskon</span>
+                                                        <span className="font-medium text-slate-900 dark:text-white">{formatMoney(totals.discount)}</span>
+                                                    </div>
+                                                    <div className="mt-2 flex justify-between gap-3 border-t border-slate-200 pt-2 text-base dark:border-slate-800">
+                                                        <span className="font-semibold text-slate-700 dark:text-slate-200">Grand Total</span>
+                                                        <span className="font-bold text-slate-900 dark:text-white">{formatMoney(totals.grandTotal)}</span>
                                                     </div>
                                                 </div>
-                                            )}
-                                        </>) }
+                                            </div>
+                                        )}
 
-                                        {debugError && <div className="text-sm text-red-600 mt-2">{debugError}</div>}
+                                        {debugError && <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">{debugError}</div>}
                                         {debugData && (
-                                            <div className="mt-3">
-                                                <h4 className="font-semibold">Proxy Debug</h4>
-                                                <details className="mt-2 p-2 bg-gray-50 rounded">
-                                                    <summary className="cursor-pointer">Show proxy debug JSON</summary>
-                                                    <pre className="text-xs mt-2 overflow-auto">{JSON.stringify(debugData, null, 2)}</pre>
+                                            <div className="mt-4">
+                                                <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Proxy Debug</h4>
+                                                <details className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                                                    <summary className="cursor-pointer text-sm font-semibold text-slate-700 dark:text-slate-200">Show proxy debug JSON</summary>
+                                                    <pre className="mt-3 overflow-auto text-xs leading-6 text-slate-700 dark:text-slate-300">{JSON.stringify(debugData, null, 2)}</pre>
                                                 </details>
                                             </div>
                                         )}
                                     </div>
 
-                                    <details className="mt-2 p-2 bg-gray-50 rounded">
-                                        <summary className="cursor-pointer">Raw JSON</summary>
-                                        <pre className="text-xs mt-2 overflow-auto">{JSON.stringify(selected, null, 2)}</pre>
+                                    <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                                        <summary className="cursor-pointer text-sm font-semibold text-slate-700 dark:text-slate-200">Raw JSON</summary>
+                                        <pre className="mt-3 overflow-auto text-xs leading-6 text-slate-700 dark:text-slate-300">{JSON.stringify(selected, null, 2)}</pre>
                                     </details>
                                 </div>
                             </Modal>

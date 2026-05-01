@@ -1,17 +1,30 @@
 openapi: "3.0.3"
 info:
-  title: "SDMS Dealer API — Autentikasi"
-  version: "1.0.0"
+  title: "SDMS Dealer API"
+  version: "1.1.0"
   description: |
-    Dokumentasi endpoint autentikasi untuk mendapatkan token Bearer.
-    Gunakan endpoint ini untuk login dengan idInternal, username, dan password.
+    Dokumentasi endpoint SDMS yang dipakai aplikasi Laravel ini.
+
+    Cakupan:
+    - autentikasi
+    - list PKB
+    - list DeliveryOrder
+    - detail item DeliveryOrder
+
+    Catatan:
+    - Endpoint proxy lokal Laravel bisa dipakai agar Swagger UI berjalan tanpa CORS.
+    - Beberapa endpoint upstream mengembalikan XML; contoh di bawah menampilkan struktur data yang dipakai UI.
 servers:
   - url: "https://sdmsdealer-h23.mpm-motor.com:22000/"
     description: "Base URL produksi"
-  - url: "http://localhost:3000/"
-    description: "Local proxy (run scripts/node/proxy/server.js and set TARGET_URL to production)"
   - url: "http://localhost:8000/"
-    description: "Local Laravel server (use with Laravel proxy route /api/authenticate)"
+    description: "Laravel local proxy"
+  - url: "http://localhost:3000/"
+    description: "Node proxy lokal"
+tags:
+  - name: Auth
+  - name: Reception
+  - name: Part
 components:
   securitySchemes:
     bearerAuth:
@@ -60,29 +73,141 @@ components:
     PkbItem:
       type: object
       properties:
+        idPkb:
+          type: string
+          example: "223923"
         noPkb:
           type: string
           description: "Nomor PKB"
+          example: "C1002-PKB-2026-DMS0000005035"
+        pkbDate:
+          type: string
+          format: date
+          example: "2026-05-01"
+        descStatusPkb:
+          type: string
+          example: "Open"
+        descStatusPkbCust:
+          type: string
+          example: "Waiting Mechanic"
         customerName:
           type: string
-        vehicle:
+          example: "Riani maslikah"
+        vehicleNumber:
           type: string
-        status:
+          example: "AG 6037 AAI"
+        marketName:
           type: string
-      example:
-        noPkb: "PKB-2026-0001"
-        customerName: "Budi Santoso"
-        vehicle: "Honda Vario 150"
-        status: "OPEN"
+          example: "BEAT NEW"
+        idVehicleType:
+          type: string
+          example: "CXV"
+        idActPro:
+          type: string
+          example: "AE02"
     PkbResponse:
-      type: array
-      items:
-        $ref: '#/components/schemas/PkbItem'
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PkbItem'
+        total:
+          type: integer
+          example: 1
+    DeliveryOrderItem:
+      type: object
+      properties:
+        billingNumber:
+          type: string
+          example: "DO-2026-0001"
+        documentNumber:
+          type: string
+          example: "DO-2026-0001"
+        dtCreate:
+          type: string
+          format: date-time
+          example: "2026-05-01T08:30:00Z"
+        statusDO:
+          type: string
+          example: "OPEN"
+        customerName:
+          type: string
+          example: "Riani maslikah"
+        vehicleNumber:
+          type: string
+          example: "AG 6037 AAI"
+        totalamount:
+          type: number
+          format: float
+          example: 250000
+        discount:
+          type: number
+          format: float
+          example: 15000
+        grandTotal:
+          type: number
+          format: float
+          example: 235000
+    DeliveryOrderResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliveryOrderItem'
+        total:
+          type: integer
+          example: 1
+    DeliveryOrderDetailItem:
+      type: object
+      properties:
+        partNumber:
+          type: string
+          example: "A001"
+        partName:
+          type: string
+          example: "OIL FILTER"
+        amount:
+          type: number
+          format: float
+          example: 85000
+        discdtlitemamount:
+          type: number
+          format: float
+          example: 5000
+        qty:
+          type: number
+          format: float
+          example: 2
+        subtotal:
+          type: number
+          format: float
+          example: 160000
+    DeliveryOrderDetailResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliveryOrderDetailItem'
+        totalamount:
+          type: number
+          format: float
+          example: 170000
+        discount:
+          type: number
+          format: float
+          example: 10000
+        grandTotal:
+          type: number
+          format: float
+          example: 160000
   parameters:
     UsernameHeader:
       name: username
       in: header
-      description: "Username pemanggil (jika diperlukan oleh endpoint)"
+      description: "Username pemanggil"
       required: true
       schema:
         type: string
@@ -93,11 +218,18 @@ components:
       required: true
       schema:
         type: string
+    FillQuery:
+      name: fill
+      in: query
+      description: "Nilai idBilling / fill untuk detail item DeliveryOrder"
+      required: true
+      schema:
+        type: string
 paths:
   /api/authenticate:
     post:
       tags: ["Auth"]
-      summary: "Autentikasi — dapatkan Bearer token"
+      summary: "Autentikasi dan dapatkan Bearer token"
       description: "Endpoint untuk menerima kredensial dan mengembalikan token akses."
       requestBody:
         required: true
@@ -165,14 +297,100 @@ paths:
               examples:
                 example:
                   value:
-                    - noPkb: "PKB-2026-0001"
-                      customerName: "Budi Santoso"
-                      vehicle: "Honda Vario 150"
-                      status: "OPEN"
-                    - noPkb: "PKB-2026-0002"
-                      customerName: "Siti Aminah"
-                      vehicle: "Yamaha NMax"
-                      status: "CLOSED"
+                    items:
+                      - idPkb: "223923"
+                        noPkb: "C1002-PKB-2026-DMS0000005035"
+                        pkbDate: "2026-05-01"
+                        descStatusPkb: "Open"
+                        descStatusPkbCust: "Waiting Mechanic"
+                        customerName: "Riani maslikah"
+                        vehicleNumber: "AG 6037 AAI"
+                        marketName: "BEAT NEW"
+                        idVehicleType: "CXV"
+                        idActPro: "AE02"
+                    total: 1
+        '401':
+          description: "Unauthorized — token invalid atau header tidak lengkap"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                unauthorized:
+                  value:
+                    message: "Unauthorized or missing headers"
+  /api/part/DeliveryOrder:
+    get:
+      tags: ["Part"]
+      summary: "List DeliveryOrder"
+      description: "Ambil daftar DeliveryOrder yang akan ditampilkan di halaman pemesanan."
+      parameters:
+        - $ref: "#/components/parameters/UsernameHeader"
+        - $ref: "#/components/parameters/IdInternalHeader"
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: "Daftar DeliveryOrder berhasil diambil"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryOrderResponse"
+              examples:
+                example:
+                  value:
+                    items:
+                      - billingNumber: "DO-2026-0001"
+                        documentNumber: "DO-2026-0001"
+                        dtCreate: "2026-05-01T08:30:00Z"
+                        statusDO: "OPEN"
+                        customerName: "Riani maslikah"
+                        vehicleNumber: "AG 6037 AAI"
+                        totalamount: 250000
+                        discount: 15000
+                        grandTotal: 235000
+                    total: 1
+        '401':
+          description: "Unauthorized — token invalid atau header tidak lengkap"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                unauthorized:
+                  value:
+                    message: "Unauthorized or missing headers"
+  /api/part/orderitemdo:
+    get:
+      tags: ["Part"]
+      summary: "Detail item DeliveryOrder"
+      description: "Ambil detail item DeliveryOrder berdasarkan nilai `fill` / idBilling."
+      parameters:
+        - $ref: "#/components/parameters/UsernameHeader"
+        - $ref: "#/components/parameters/IdInternalHeader"
+        - $ref: "#/components/parameters/FillQuery"
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: "Detail item DeliveryOrder berhasil diambil"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryOrderDetailResponse"
+              examples:
+                example:
+                  value:
+                    items:
+                      - partNumber: "A001"
+                        partName: "OIL FILTER"
+                        amount: 85000
+                        discdtlitemamount: 5000
+                        qty: 2
+                        subtotal: 160000
+                    totalamount: 170000
+                    discount: 10000
+                    grandTotal: 160000
         '401':
           description: "Unauthorized — token invalid atau header tidak lengkap"
           content:

@@ -120,4 +120,14 @@ class SDMSAuthController extends Controller
             'sdms' => $sdms,
         ]);
     }
+
+    public function spg(Request $request)
+    {
+        $sdms = session('sdms', null);
+
+        return Inertia::render('Dashboard/SDMSSpg', [
+            'sdms' => $sdms,
+            'initialIdBilling' => $request->query('idbilling') ?? $request->query('idBilling') ?? null,
+        ]);
+    }
 }

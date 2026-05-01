@@ -124,15 +124,18 @@ export default function PaymentReceiptModal({
 
     const totalPaidAmount = useMemo(() => {
         if (paymentMethod === 'cash') {
-            return cashReceivedTotal;
+            return Math.min(cashReceivedTotal, Number(roundedPayableAmount || 0));
         }
 
         if (paymentMethod === 'credit') {
-            return Number(nonCashAmount || totalAmount || 0);
+            return Math.min(Number(nonCashAmount || totalAmount || 0), Number(roundedPayableAmount || 0));
         }
 
-        return cashReceivedTotal + Number(nonCashAmount || 0);
-    }, [cashReceivedTotal, nonCashAmount, paymentMethod, totalAmount]);
+        return Math.min(
+            Number(nonCashAmount || 0) + Math.min(cashReceivedTotal, cashDueAmount),
+            Number(roundedPayableAmount || 0)
+        );
+    }, [cashDueAmount, cashReceivedTotal, nonCashAmount, paymentMethod, roundedPayableAmount, totalAmount]);
 
     const cashChangeAmount = Math.max(0, cashReceivedTotal - cashDueAmount);
     const remainingAmount = Math.max(0, Number(roundedPayableAmount || 0) - totalPaidAmount);
@@ -257,9 +260,9 @@ export default function PaymentReceiptModal({
     };
 
     return (
-        <Modal show={show} onClose={onClose} maxWidth="5xl">
-            <div className="max-h-[90vh] overflow-y-auto bg-slate-50 dark:bg-slate-950">
-                <div className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4 dark:border-slate-800 dark:bg-slate-900">
+        <Modal show={show} onClose={onClose} maxWidth="5xl" scrollable={false}>
+            <div className="flex max-h-[calc(100vh-5rem)] flex-col overflow-hidden bg-slate-50 dark:bg-slate-950">
+                <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-5 py-4 dark:border-slate-800 dark:bg-slate-900">
                     <div>
                         <div className="flex items-center gap-2">
                             <IconReceipt size={18} className="text-emerald-600" />
@@ -272,7 +275,8 @@ export default function PaymentReceiptModal({
                     </button>
                 </div>
 
-                <div className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.85fr)]">
+                <div className="min-h-0 flex-1 overflow-y-auto p-5">
+                    <div className="grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.85fr)]">
                     <div className="space-y-5">
                         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                             <div className="mb-3 flex items-center justify-between gap-3">
@@ -568,9 +572,10 @@ export default function PaymentReceiptModal({
                             </ul>
                         </div>
                     </div>
+                    </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-3 border-t border-slate-200 bg-white px-5 py-4 dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200 bg-white px-5 py-4 dark:border-slate-800 dark:bg-slate-900">
                     <button
                         type="button"
                         onClick={onClose}

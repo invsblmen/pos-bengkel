@@ -582,6 +582,8 @@ class PartSaleController extends Controller
             // Recalculate totals
             $sale->recalculateTotals()->save();
 
+            $this->recordCashPaymentFromMeta($sale, (int) (Auth::id() ?? 0));
+
             if ($voucher) {
                 $this->voucherService->markUsed(
                     $voucher,
@@ -893,7 +895,9 @@ class PartSaleController extends Controller
         ]);
 
         $paymentAmount = (int) $validated['payment_amount'];
-        $remainingBeforePayment = max(0, (int) $partSale->grand_total - (int) $partSale->paid_amount);
+        $settlementTotal = $partSale->getPaymentSettlementTotal();
+        $remainingBeforePayment = max(0, $settlementTotal - (int) $partSale->paid_amount);
+        $netPaymentAmount = min($paymentAmount, $remainingBeforePayment);
         $changeFromThisPayment = max(0, $paymentAmount - $remainingBeforePayment);
 
         $receivedRows = collect($validated['received_denominations'] ?? [])
@@ -933,13 +937,10 @@ class PartSaleController extends Controller
                 );
             }
 
-            $newPaidAmount = (int) $partSale->paid_amount + $paymentAmount;
+            $newPaidAmount = (int) $partSale->paid_amount + $netPaymentAmount;
 
-            $partSale->update([
-                'paid_amount' => $newPaidAmount,
-                'remaining_amount' => max(0, (int) $partSale->grand_total - $newPaidAmount),
-                'payment_status' => $newPaidAmount >= (int) $partSale->grand_total ? 'paid' : ($newPaidAmount > 0 ? 'partial' : 'unpaid'),
-            ]);
+            $partSale->paid_amount = $newPaidAmount;
+            $partSale->applyPaymentSettlementStatus()->save();
         });
 
         return $this->jsonOrRedirect(null, [], 'Pembayaran berhasil dicatat');
@@ -959,6 +960,13 @@ class PartSaleController extends Controller
             ->pluck('value', 'id')
             ->map(fn ($value) => (int) $value)
             ->toArray();
+
+        $receivedTotal = (int) $receivedRows->sum(function ($row) use ($denominationValues) {
+            $denominationId = (int) $row['denomination_id'];
+            $value = (int) ($denominationValues[$denominationId] ?? 0);
+
+            return $value * (int) $row['quantity'];
+        });
 
         $availableByValue = CashDrawerDenomination::query()
             ->join('cash_denominations', 'cash_drawer_denominations.denomination_id', '=', 'cash_denominations.id')
@@ -989,12 +997,15 @@ class PartSaleController extends Controller
 
         $receivedTransaction = CashTransaction::create([
             'transaction_type' => 'income',
-            'amount' => $paymentAmount,
+            'amount' => $receivedTotal,
             'source' => 'part-sale-payment',
             'description' => "Pembayaran cash penjualan {$partSale->sale_number}",
             'meta' => [
                 'part_sale_id' => $partSale->id,
                 'sale_number' => $partSale->sale_number,
+                'net_payment_amount' => $paymentAmount,
+                'received_total' => $receivedTotal,
+                'change_amount' => $changeAmount,
             ],
             'happened_at' => now(),
             'created_by' => $userId,
