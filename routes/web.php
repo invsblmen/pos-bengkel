@@ -175,6 +175,30 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
         ->middleware('permission:reports-access')
         ->name('sync.index');
 
+    // SDMS API authentication page (Inertia)
+    Route::get('/sdms-auth', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'index'])
+        ->middleware('permission:reports-access')
+        ->name('sdms.auth.index');
+
+    Route::post('/sdms-auth', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'login'])
+        ->middleware('permission:reports-access')
+        ->name('sdms.auth.login');
+
+    // SDMS dashboard (shows token & quick links)
+    Route::get('/sdms', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'dashboard'])
+        ->middleware('permission:reports-access')
+        ->name('sdms.dashboard');
+
+    // SDMS PKB list (Inertia page)
+    Route::get('/sdms/pkb', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'pkb'])
+        ->middleware('permission:reports-access')
+        ->name('sdms.pkb.index');
+
+    // SDMS Delivery Orders (List Pemesanan) - Inertia page
+    Route::get('/sdms/delivery-orders', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'deliveryOrders'])
+        ->middleware('permission:reports-access')
+        ->name('sdms.delivery.index');
+
     Route::post('services/bulk-status', [ServiceController::class, 'bulkStatus'])
         ->middleware('permission:services-edit')
         ->name('services.bulk-status');

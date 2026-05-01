@@ -302,6 +302,32 @@ export default function Menu() {
             ],
         },
         {
+            title: "Integrations",
+            details: [
+                {
+                    title: "Autentikasi SDMS",
+                    href: route("sdms.dashboard"),
+                    active: url.startsWith("/dashboard/sdms"),
+                    icon: <IconExternalLink size={20} strokeWidth={1.5} />,
+                    permissions: hasAnyPermission(["reports-access"]),
+                },
+                {
+                    title: "List PKB",
+                    href: route("sdms.pkb.index"),
+                    active: url.startsWith("/dashboard/sdms/pkb"),
+                    icon: <IconFileDescription size={20} strokeWidth={1.5} />,
+                    permissions: hasAnyPermission(["reports-access"]),
+                },
+                {
+                    title: "List Pemesanan",
+                    href: route("sdms.delivery.index"),
+                    active: url.startsWith("/dashboard/sdms/delivery-orders"),
+                    icon: <IconFileDescription size={20} strokeWidth={1.5} />,
+                    permissions: hasAnyPermission(["reports-access"]),
+                },
+            ],
+        },
+        {
             title: "Administrasi",
             details: [
                 {

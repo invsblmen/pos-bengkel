@@ -166,12 +166,12 @@ class ServiceReportController extends Controller
 
             $rowsWithBalance = DB::query()
                 ->fromSub($filteredRows, 'filtered_rows')
-                ->selectRaw('event_at, source, reference, description, flow, amount, status')
+                ->selectRaw('event_at, source, source_id, reference, description, flow, amount, status')
                 ->selectRaw("SUM(CASE WHEN flow = 'in' THEN amount WHEN flow = 'out' THEN -amount ELSE 0 END) OVER (ORDER BY event_at ASC, reference ASC) as running_balance");
 
             $paginatedTransactions = DB::query()
                 ->fromSub($rowsWithBalance, 'rows_with_balance')
-                ->selectRaw('event_at, source, reference, description, flow, amount, status, running_balance')
+                ->selectRaw('event_at, source, source_id, reference, description, flow, amount, status, running_balance')
                 ->orderByDesc('event_at')
                 ->orderByDesc('reference')
                 ->paginate($perPage, ['*'], 'page', $currentPage)
@@ -180,12 +180,14 @@ class ServiceReportController extends Controller
             $transactionItems = $paginatedTransactions->getCollection()->map(function ($row) use ($formatStatusLabel) {
                 $reference = (string) ($row->reference ?? '');
                 $source = (string) ($row->source ?? '');
+                $sourceId = (int) ($row->source_id ?? 0);
 
                 return [
-                    'id' => $source . '-' . $reference,
+                    'id' => $source . '-' . ($sourceId ?: $reference),
                     'date' => $row->event_at,
                     'date_unix' => $row->event_at ? Carbon::parse($row->event_at)->timestamp : 0,
                     'source' => $source,
+                    'source_id' => $sourceId,
                     'reference' => $reference,
                     'description' => $row->description,
                     'flow' => $row->flow,
@@ -193,6 +195,7 @@ class ServiceReportController extends Controller
                     'status' => $row->status,
                     'status_label' => $formatStatusLabel($row->status),
                     'running_balance' => (int) ($row->running_balance ?? 0),
+                    'detail_url' => $this->resolveOverallTransactionUrl($source, $sourceId, $reference),
                 ];
             })->values();
 
@@ -262,21 +265,21 @@ class ServiceReportController extends Controller
             ->where('service_orders.status', '!=', 'cancelled')
             ->where('service_orders.paid_amount', '>', 0)
             ->whereBetween('service_orders.created_at', [$startDate, $endDate])
-            ->selectRaw("service_orders.created_at as event_at, 'service_order' as source, service_orders.order_number as reference, TRIM(CONCAT_WS(' | ', customers.name, vehicles.plate_number)) as description, 'in' as flow, COALESCE(service_orders.paid_amount, 0) as amount, COALESCE(service_orders.payment_status, 'unpaid') as status");
+            ->selectRaw("service_orders.created_at as event_at, 'service_order' as source, service_orders.id as source_id, service_orders.order_number as reference, TRIM(CONCAT_WS(' | ', customers.name, vehicles.plate_number)) as description, 'in' as flow, COALESCE(service_orders.paid_amount, 0) as amount, COALESCE(service_orders.payment_status, 'unpaid') as status");
 
         $partRows = DB::table('part_sales')
             ->leftJoin('customers', 'part_sales.customer_id', '=', 'customers.id')
             ->where('part_sales.status', '!=', 'cancelled')
             ->where('part_sales.paid_amount', '>', 0)
             ->whereBetween('part_sales.created_at', [$startDate, $endDate])
-            ->selectRaw("part_sales.created_at as event_at, 'part_sale' as source, part_sales.sale_number as reference, customers.name as description, 'in' as flow, COALESCE(part_sales.paid_amount, 0) as amount, COALESCE(part_sales.payment_status, 'unpaid') as status");
+            ->selectRaw("part_sales.created_at as event_at, 'part_sale' as source, part_sales.id as source_id, part_sales.sale_number as reference, customers.name as description, 'in' as flow, COALESCE(part_sales.paid_amount, 0) as amount, COALESCE(part_sales.payment_status, 'unpaid') as status");
 
         $partPurchaseRows = DB::table('part_purchases')
             ->leftJoin('suppliers', 'part_purchases.supplier_id', '=', 'suppliers.id')
             ->where('part_purchases.status', '!=', 'cancelled')
             ->where('part_purchases.paid_amount', '>', 0)
             ->whereBetween('part_purchases.created_at', [$startDate, $endDate])
-            ->selectRaw("part_purchases.created_at as event_at, 'part_purchase' as source, part_purchases.purchase_number as reference, suppliers.name as description, 'out' as flow, COALESCE(part_purchases.paid_amount, 0) as amount, COALESCE(part_purchases.payment_status, 'unpaid') as status");
+            ->selectRaw("part_purchases.created_at as event_at, 'part_purchase' as source, part_purchases.id as source_id, part_purchases.purchase_number as reference, suppliers.name as description, 'out' as flow, COALESCE(part_purchases.paid_amount, 0) as amount, COALESCE(part_purchases.payment_status, 'unpaid') as status");
 
         $cashRows = DB::table('cash_transactions')
             ->where(function ($query) use ($startDate, $endDate) {
@@ -286,9 +289,27 @@ class ServiceReportController extends Controller
                             ->whereBetween('created_at', [$startDate, $endDate]);
                     });
             })
-            ->selectRaw("COALESCE(cash_transactions.happened_at, cash_transactions.created_at) as event_at, 'cash_transaction' as source, CONCAT('CASH-', LPAD(cash_transactions.id, 6, '0')) as reference, cash_transactions.description as description, CASE WHEN cash_transactions.transaction_type = 'income' THEN 'in' WHEN cash_transactions.transaction_type IN ('expense','change_given') THEN 'out' ELSE 'neutral' END as flow, cash_transactions.amount as amount, cash_transactions.transaction_type as status");
+            ->selectRaw("COALESCE(cash_transactions.happened_at, cash_transactions.created_at) as event_at, 'cash_transaction' as source, cash_transactions.id as source_id, CONCAT('CASH-', LPAD(cash_transactions.id, 6, '0')) as reference, cash_transactions.description as description, CASE WHEN cash_transactions.transaction_type = 'income' THEN 'in' WHEN cash_transactions.transaction_type IN ('expense','change_given') THEN 'out' ELSE 'neutral' END as flow, cash_transactions.amount as amount, cash_transactions.transaction_type as status");
 
         return $serviceRows->unionAll($partRows)->unionAll($partPurchaseRows)->unionAll($cashRows);
+    }
+
+    private function resolveOverallTransactionUrl(string $source, int $sourceId, string $reference): ?string
+    {
+        if ($sourceId <= 0) {
+            return null;
+        }
+
+        return match ($source) {
+            'service_order' => route('service-orders.show', $sourceId),
+            'part_sale' => route('part-sales.show', $sourceId),
+            'part_purchase' => route('part-purchases.show', $sourceId),
+            'cash_transaction' => route('cash-management.index', [
+                'transaction_id' => $sourceId,
+                'reference' => $reference,
+            ]),
+            default => null,
+        };
     }
 
     /**
