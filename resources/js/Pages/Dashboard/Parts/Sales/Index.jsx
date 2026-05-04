@@ -63,7 +63,7 @@ const PaymentBadge = ({ status }) => {
         partial: <IconCircleFilled {...iconProps} />,
         unpaid: <IconAlertCircle {...iconProps} />,
     };
-    
+
     const paymentLabels = {
         paid: 'Lunas',
         partial: 'Sebagian',
