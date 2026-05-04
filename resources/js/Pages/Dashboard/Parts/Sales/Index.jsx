@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import Pagination from '@/Components/Dashboard/Pagination';
-import { IconFilter, IconSearch, IconX, IconCirclePlus, IconDatabaseOff, IconLayoutGrid, IconList, IconPencil, IconShoppingCart, IconReceipt } from '@tabler/icons-react';
+import { IconFilter, IconSearch, IconX, IconCirclePlus, IconDatabaseOff, IconLayoutGrid, IconList, IconPencil, IconShoppingCart, IconReceipt, IconCheck, IconAlertCircle, IconPackage, IconBookmark, IconTarget, IconFileText, IconCircleFilled } from '@tabler/icons-react';
 
 const defaultFilters = { search: '', status: '', payment_status: '', customer_id: '' };
 
@@ -23,13 +23,61 @@ const paymentColors = {
 };
 
 const statusLabel = {
-    draft: 'ðŸ“ Draft',
-    confirmed: 'âœ… Dikonfirmasi',
-    waiting_stock: 'ðŸ“¦ Pemesanan',
-    ready_to_notify: 'ðŸ”” Siap Diberitahu',
-    waiting_pickup: 'ðŸ›µ Menunggu Diambil',
-    completed: 'ðŸŽ¯ Selesai',
-    cancelled: 'âŒ Dibatalkan',
+    draft: 'Draft',
+    confirmed: 'Dikonfirmasi',
+    waiting_stock: 'Pemesanan',
+    ready_to_notify: 'Siap Diberitahu',
+    waiting_pickup: 'Menunggu Diambil',
+    completed: 'Selesai',
+    cancelled: 'Dibatalkan',
+};
+
+// Status badge component with icons
+const StatusBadge = ({ status }) => {
+    const iconProps = { size: 14, strokeWidth: 2 };
+    const statusIcons = {
+        draft: <IconFileText {...iconProps} />,
+        confirmed: <IconCheck {...iconProps} />,
+        waiting_stock: <IconPackage {...iconProps} />,
+        ready_to_notify: <IconBookmark {...iconProps} />,
+        waiting_pickup: <IconAlertCircle {...iconProps} />,
+        completed: <IconCheck {...iconProps} />,
+        cancelled: <IconX {...iconProps} />,
+    };
+
+    return (
+        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border-2 shadow-sm ${
+            statusColors[status] || 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-slate-800 dark:text-gray-200'
+        }`}>
+            {statusIcons[status]}
+            {statusLabel[status] || status}
+        </span>
+    );
+};
+
+// Payment status badge component with icons
+const PaymentBadge = ({ status }) => {
+    const iconProps = { size: 14, strokeWidth: 2 };
+    const paymentIcons = {
+        paid: <IconCheck {...iconProps} />,
+        partial: <IconCircleFilled {...iconProps} />,
+        unpaid: <IconAlertCircle {...iconProps} />,
+    };
+    
+    const paymentLabels = {
+        paid: 'Lunas',
+        partial: 'Sebagian',
+        unpaid: 'Belum Bayar',
+    };
+
+    return (
+        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border-2 shadow-sm ${
+            paymentColors[status] || paymentColors.unpaid
+        }`}>
+            {paymentIcons[status]}
+            {paymentLabels[status] || status}
+        </span>
+    );
 };
 
 export default function Index({ sales, filters, customers = [] }) {
@@ -235,9 +283,9 @@ export default function Index({ sales, filters, customers = [] }) {
                                             className="w-full h-11 px-4 rounded-xl border-2 border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all font-medium"
                                         >
                                             <option value="">Semua Pembayaran</option>
-                                            <option value="unpaid">â—‹ Belum Bayar</option>
-                                            <option value="partial">â— Sebagian</option>
-                                            <option value="paid">âœ“ Lunas</option>
+                                            <option value="unpaid">Belum Bayar</option>
+                                            <option value="partial">Sebagian</option>
+                                            <option value="paid">Lunas</option>
                                         </select>
                                     </div>
                                 </div>
@@ -274,11 +322,7 @@ export default function Index({ sales, filters, customers = [] }) {
                                                 <Link href={route('part-sales.show', sale.id)} className="text-lg font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 transition-colors">
                                                     {sale.sale_number}
                                                 </Link>
-                                                <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold border-2 shadow-sm ${
-                                                    statusColors[sale.status] || 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-slate-800 dark:text-gray-200'
-                                                }`}>
-                                                    {statusLabel[sale.status] || sale.status}
-                                                </span>
+                                                <StatusBadge status={sale.status} />
                                             </div>
                                             <div className="mt-3 space-y-2 text-sm">
                                                 <div className="flex items-center justify-between">
@@ -299,11 +343,7 @@ export default function Index({ sales, filters, customers = [] }) {
                                                 </div>
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">Status Bayar</span>
-                                                    <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold border-2 shadow-sm ${
-                                                        paymentColors[sale.payment_status] || paymentColors.unpaid
-                                                    }`}>
-                                                        {sale.payment_status === 'paid' ? 'âœ“ Lunas' : sale.payment_status === 'partial' ? 'â— Sebagian' : 'â—‹ Belum Bayar'}
-                                                    </span>
+                                                    <PaymentBadge status={sale.payment_status} />
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2 pt-2">
@@ -358,18 +398,10 @@ export default function Index({ sales, filters, customers = [] }) {
                                                     {formatCurrency(sale.grand_total)}
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
-                                                    <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold border-2 shadow-sm ${
-                                                        statusColors[sale.status] || 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-slate-800 dark:text-gray-200'
-                                                    }`}>
-                                                        {statusLabel[sale.status] || sale.status}
-                                                    </span>
+                                                    <StatusBadge status={sale.status} />
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
-                                                    <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold border-2 shadow-sm ${
-                                                        paymentColors[sale.payment_status] || paymentColors.unpaid
-                                                    }`}>
-                                                        {sale.payment_status === 'paid' ? 'âœ“ Lunas' : sale.payment_status === 'partial' ? 'â— Sebagian' : 'â—‹ Belum Bayar'}
-                                                    </span>
+                                                    <PaymentBadge status={sale.payment_status} />
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
                                                     <div className="inline-flex items-center gap-2">

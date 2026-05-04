@@ -25,6 +25,7 @@ export default function Create({ suppliers: initialSuppliers, categories: initia
         part_number: '',
         barcode: '',
         part_category_id: '',
+        category_ids: [],
         supplier_id: '',
         stock: 0,
         minimal_stock: 0,
@@ -70,8 +71,17 @@ export default function Create({ suppliers: initialSuppliers, categories: initia
     // Handle successful category creation
     const handleCategoryAdded = (newCategory) => {
         setCategories([...categories, newCategory]);
-        setData('part_category_id', newCategory.id);
+        setData('category_ids', [...(data.category_ids || []), newCategory.id]);
         toast.success(`Kategori "${newCategory.name}" berhasil ditambahkan dan dipilih!`);
+    };
+
+    // Handle category checkbox change
+    const handleCategoryToggle = (categoryId) => {
+        const currentIds = data.category_ids || [];
+        const updated = currentIds.includes(categoryId)
+            ? currentIds.filter(id => id !== categoryId)
+            : [...currentIds, categoryId];
+        setData('category_ids', updated);
     };
 
     // Handle successful supplier creation
@@ -144,10 +154,10 @@ export default function Create({ suppliers: initialSuppliers, categories: initia
                                 <p className="text-xs text-slate-500 dark:text-slate-400">Atur kategori dan sumber part untuk laporan.</p>
                             </div>
                             <div className="grid gap-4 md:grid-cols-2">
-                                <div>
+                                <div className="md:col-span-2">
                                     <div className="flex items-center justify-between mb-2">
                                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                                            Kategori Part
+                                            Kategori Part (Pilih satu atau lebih)
                                         </label>
                                         <button
                                             type="button"
@@ -159,14 +169,24 @@ export default function Create({ suppliers: initialSuppliers, categories: initia
                                             <span>Baru</span>
                                         </button>
                                     </div>
-                                    <select
-                                        value={data.part_category_id}
-                                        onChange={(e) => setData('part_category_id', e.target.value)}
-                                        className="w-full h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-4 focus:ring-primary-500/20 focus:border-primary-500 transition-all px-4"
-                                    >
-                                        <option value="">Pilih Kategori (opsional)</option>
-                                        {categories?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    </select>
+                                    <div className="space-y-2 p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900/50 max-h-48 overflow-y-auto">
+                                        {categories && categories.length > 0 ? (
+                                            categories.map(c => (
+                                                <label key={c.id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-2 rounded-lg transition">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={(data.category_ids || []).includes(c.id)}
+                                                        onChange={() => handleCategoryToggle(c.id)}
+                                                        className="w-4 h-4 rounded border-slate-300 dark:border-slate-600"
+                                                    />
+                                                    <span className="text-sm text-slate-700 dark:text-slate-300">{c.name}</span>
+                                                </label>
+                                            ))
+                                        ) : (
+                                            <p className="text-sm text-slate-500 dark:text-slate-400">Tidak ada kategori. Klik "Baru" untuk menambah.</p>
+                                        )}
+                                    </div>
+                                    {errors.category_ids && <p className="text-xs text-red-500 dark:text-red-400 mt-1">{errors.category_ids}</p>}
                                 </div>
                                 <div>
                                     <div className="flex items-center justify-between mb-2">

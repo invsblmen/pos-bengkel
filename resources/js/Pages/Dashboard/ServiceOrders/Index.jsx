@@ -102,6 +102,7 @@ export default function Index({ orders, stats, mechanics, filters }) {
     const [dateFrom, setDateFrom] = useState(filters.date_from || '');
     const [dateTo, setDateTo] = useState(filters.date_to || '');
     const [mechanicId, setMechanicId] = useState(filters.mechanic_id || 'all');
+    const [paymentStatus, setPaymentStatus] = useState(filters.payment_status || 'all');
     const [showFilters, setShowFilters] = useState(false);
     const [viewMode, setViewMode] = useState('table');
     const [liveServiceOrders, setLiveServiceOrders] = useState(orders?.data || []);
@@ -109,6 +110,8 @@ export default function Index({ orders, stats, mechanics, filters }) {
     useEffect(() => {
         setLiveServiceOrders(orders?.data || []);
     }, [orders?.data]);
+
+    const normalizeMoney = (value) => Math.max(0, Number(value || 0));
 
 
     const handleFilter = (e) => {
@@ -121,6 +124,7 @@ export default function Index({ orders, stats, mechanics, filters }) {
                 date_from: dateFrom || undefined,
                 date_to: dateTo || undefined,
                 mechanic_id: mechanicId !== 'all' ? mechanicId : undefined,
+                payment_status: paymentStatus !== 'all' ? paymentStatus : undefined,
             },
             {
                 preserveState: true,
@@ -135,6 +139,7 @@ export default function Index({ orders, stats, mechanics, filters }) {
         setDateFrom('');
         setDateTo('');
         setMechanicId('all');
+        setPaymentStatus('all');
         router.get(route('service-orders.index'));
     };
 
@@ -148,6 +153,7 @@ export default function Index({ orders, stats, mechanics, filters }) {
                 date_from: dateFrom || undefined,
                 date_to: dateTo || undefined,
                 mechanic_id: mechanicId !== 'all' ? mechanicId : undefined,
+                payment_status: paymentStatus !== 'all' ? paymentStatus : undefined,
             },
             {
                 preserveState: true,
@@ -211,6 +217,7 @@ export default function Index({ orders, stats, mechanics, filters }) {
         dateFrom,
         dateTo,
         mechanicId !== 'all',
+        paymentStatus !== 'all',
     ].filter(Boolean).length;
 
     const statusChips = ['all', 'pending', 'in_progress', 'completed', 'cancelled'];
@@ -328,7 +335,7 @@ export default function Index({ orders, stats, mechanics, filters }) {
                     </div>
 
                     {showFilters && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 pt-3 border-t border-slate-200 dark:border-slate-700">
                             <div>
                                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Status</label>
                                 <select
@@ -374,8 +381,21 @@ export default function Index({ orders, stats, mechanics, filters }) {
                                     ))}
                                 </select>
                             </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Status Pembayaran</label>
+                                <select
+                                    value={paymentStatus}
+                                    onChange={(e) => setPaymentStatus(e.target.value)}
+                                    className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white"
+                                >
+                                    <option value="all">Semua Status</option>
+                                    <option value="paid">Lunas</option>
+                                    <option value="partial">Sebagian</option>
+                                    <option value="unpaid">Belum Bayar</option>
+                                </select>
+                            </div>
 
-                            <div className="md:col-span-2 lg:col-span-4 flex flex-wrap justify-end gap-2 mt-1">
+                            <div className="md:col-span-2 lg:col-span-5 flex flex-wrap justify-end gap-2 mt-1">
                                 <button
                                     type="button"
                                     onClick={handleReset}
@@ -416,7 +436,13 @@ export default function Index({ orders, stats, mechanics, filters }) {
                                                                 const displayStatus = order.status;
                                                                 const badge = statusMeta[displayStatus] || statusMeta.pending;
                                                 const alert = getMaintenanceAlertStatus(order);
-                                                const totalCost = Number(order.total || 0);
+                                                const details = order.details || [];
+                                                const subtotalCost = details.reduce(
+                                                    (sum, detail) => sum + normalizeMoney(detail.final_amount ?? detail.amount ?? 0),
+                                                    0
+                                                );
+                                                const storedGrandTotal = Number(order.grand_total ?? 0);
+                                                const totalCost = storedGrandTotal > 0 ? storedGrandTotal : subtotalCost;
 
                                                 return (
                                                     <tr
@@ -435,7 +461,9 @@ export default function Index({ orders, stats, mechanics, filters }) {
                                                         <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">{order.mechanic?.name || '-'}</td>
                                                         <td className="px-4 py-3 text-center">
                                                             <div className="text-sm font-bold tabular-nums text-slate-900 dark:text-slate-100">{formatPrice(totalCost)}</div>
-                                                            <div className="text-[11px] tabular-nums text-slate-500 dark:text-slate-400">Jasa {formatPrice(order.labor_cost || 0)}</div>
+                                                            <div className="text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
+                                                                Subtotal {formatPrice(subtotalCost)} · Jasa {formatPrice(order.labor_cost || 0)}
+                                                            </div>
                                                         </td>
                                                         <td className="px-4 py-3 text-center">
                                                             <div className="relative inline-block">
@@ -500,7 +528,10 @@ export default function Index({ orders, stats, mechanics, filters }) {
                                                 {alert && <span className={`inline-flex mt-3 px-2 py-0.5 rounded text-[10px] font-semibold ${alert.color}`}>{alert.label}</span>}
 
                                                 <div className="mt-3 flex items-center justify-between">
-                                                    <p className="text-sm font-black tabular-nums text-primary-700 dark:text-primary-300">{formatPrice(order.total || 0)}</p>
+                                                    <div className="text-right">
+                                                        <p className="text-sm font-black tabular-nums text-primary-700 dark:text-primary-300">{formatPrice(Number(order.grand_total ?? order.total ?? 0))}</p>
+                                                        <p className="text-[11px] tabular-nums text-slate-500 dark:text-slate-400">Subtotal {formatPrice(order.total || 0)}</p>
+                                                    </div>
                                                         <div className="relative inline-block">
                                                         <select
                                                             value={order.status}

@@ -89,11 +89,11 @@ class ServiceOrder extends Model
      */
     public function recalculateTotals()
     {
-        $amountSum = $this->details()->sum('amount') ?? 0;
-        $finalSum = $this->details()->sum('final_amount') ?? 0;
+        $amountSum = max(0, (int) ($this->details()->sum('amount') ?? 0));
+        $finalSum = max(0, (int) ($this->details()->sum('final_amount') ?? 0));
 
         // Subtotal uses amounts after item-level discount
-        $subtotal = $finalSum;
+        $subtotal = max(0, $finalSum);
         $itemDiscount = max(0, $amountSum - $finalSum);
 
         $transactionDiscount = DiscountTaxService::calculateDiscount(
@@ -111,9 +111,9 @@ class ServiceOrder extends Model
         );
 
         $this->total = $subtotal;
-        $this->discount_amount = $itemDiscount + $transactionDiscount;
+        $this->discount_amount = min($subtotal, $itemDiscount + $transactionDiscount);
         $this->tax_amount = $taxAmount;
-        $rounding = CashRoundingService::roundToCashDenomination($taxBase + $taxAmount);
+        $rounding = CashRoundingService::roundToCashDenomination(max(0, $taxBase + $taxAmount));
         $this->rounding_adjustment = $rounding['rounding_adjustment'];
         $this->grand_total = $rounding['grand_total'];
 

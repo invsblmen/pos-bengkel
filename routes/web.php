@@ -71,6 +71,10 @@ Route::get('/test-permissions', function () {
 
 Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    // Placeholder sync route to satisfy frontend Ziggy references
+    Route::get('/sync', function () {
+        abort(404);
+    })->name('sync.index');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
     Route::post('/notifications/mark-read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::post('/notifications/delete', [NotificationController::class, 'destroy'])->name('notifications.destroy');

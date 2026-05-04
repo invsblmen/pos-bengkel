@@ -28,6 +28,11 @@ class PartCategory extends Model
         return $this->hasMany(Part::class);
     }
 
+    public function partsByMany()
+    {
+        return $this->belongsToMany(Part::class, 'part_part_category')->withTimestamps();
+    }
+
     public function getDepth(): int
     {
         $depth = 0;

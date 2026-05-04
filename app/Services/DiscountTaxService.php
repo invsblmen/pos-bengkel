@@ -72,7 +72,8 @@ class DiscountTaxService
     {
         $subtotal = (int) $subtotal;
         $discount = self::calculateDiscount($subtotal, $discountType, $discountValue);
-        return $subtotal - $discount;
+        // Ensure result is never negative
+        return max(0, $subtotal - $discount);
     }
 
     /**

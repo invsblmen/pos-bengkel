@@ -5,6 +5,8 @@ import {
     IconCash,
     IconCalculator,
     IconDeviceFloppy,
+    IconArrowUp,
+    IconArrowDown,
     IconMinus,
     IconPlus,
     IconRefresh,
@@ -52,6 +54,71 @@ const modeOptions = [
 ];
 
 const quickNominals = [50000, 100000, 250000, 500000, 1000000];
+
+const transactionToneMeta = {
+    income: {
+        card: "border-emerald-200 bg-emerald-50/80 dark:border-emerald-900/40 dark:bg-emerald-950/20",
+        header: "from-emerald-50 via-white to-emerald-50 dark:from-emerald-950/30 dark:via-slate-900 dark:to-emerald-950/20",
+        chip: "bg-emerald-600 text-white shadow-emerald-600/20",
+        chipInactive: "border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900/40 dark:bg-slate-900 dark:text-emerald-300 dark:hover:bg-emerald-950/30",
+        input: "focus:border-emerald-500 focus:ring-emerald-500/15",
+        helper: "text-emerald-700 dark:text-emerald-300",
+        panel: "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/50 dark:bg-emerald-950/20",
+        title: "text-emerald-800 dark:text-emerald-200",
+        accent: "bg-emerald-600",
+        icon: IconArrowUp,
+        label: "Pemasukan",
+    },
+    expense: {
+        card: "border-rose-200 bg-rose-50/80 dark:border-rose-900/40 dark:bg-rose-950/20",
+        header: "from-rose-50 via-white to-rose-50 dark:from-rose-950/30 dark:via-slate-900 dark:to-rose-950/20",
+        chip: "bg-rose-600 text-white shadow-rose-600/20",
+        chipInactive: "border-rose-200 bg-white text-rose-700 hover:bg-rose-50 dark:border-rose-900/40 dark:bg-slate-900 dark:text-rose-300 dark:hover:bg-rose-950/30",
+        input: "focus:border-rose-500 focus:ring-rose-500/15",
+        helper: "text-rose-700 dark:text-rose-300",
+        panel: "border-rose-200 bg-rose-50/70 dark:border-rose-900/50 dark:bg-rose-950/20",
+        title: "text-rose-800 dark:text-rose-200",
+        accent: "bg-rose-600",
+        icon: IconArrowDown,
+        label: "Pengeluaran",
+    },
+};
+
+const transactionHistoryTone = {
+    income: {
+        card: "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/40 dark:bg-emerald-950/20",
+        title: "text-emerald-800 dark:text-emerald-200",
+        subtitle: "text-emerald-700/80 dark:text-emerald-200/70",
+        amount: "text-emerald-700 dark:text-emerald-300",
+        badge: "bg-emerald-600 text-white",
+    },
+    expense: {
+        card: "border-rose-200 bg-rose-50/70 dark:border-rose-900/40 dark:bg-rose-950/20",
+        title: "text-rose-800 dark:text-rose-200",
+        subtitle: "text-rose-700/80 dark:text-rose-200/70",
+        amount: "text-rose-700 dark:text-rose-300",
+        badge: "bg-rose-600 text-white",
+    },
+    adjustment: {
+        card: "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950",
+        title: "text-slate-900 dark:text-slate-50",
+        subtitle: "text-slate-500 dark:text-slate-400",
+        amount: "text-slate-900 dark:text-slate-50",
+        badge: "bg-slate-700 text-white",
+    },
+    change_given: {
+        card: "border-blue-200 bg-blue-50/70 dark:border-blue-900/40 dark:bg-blue-950/20",
+        title: "text-blue-800 dark:text-blue-200",
+        subtitle: "text-blue-700/80 dark:text-blue-200/70",
+        amount: "text-blue-700 dark:text-blue-300",
+        badge: "bg-blue-600 text-white",
+    },
+};
+
+const transactionFocus = {
+    income: "focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-1",
+    expense: "focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-1",
+};
 
 export default function CashDrawer({ denominations = [], summary = {}, recentTransactions = [] }) {
     const createDenominationMap = (valueFactory) => {
@@ -120,6 +187,8 @@ export default function CashDrawer({ denominations = [], summary = {}, recentTra
     const receivedTotal = calculateTotalFromInput(receivedDenoms);
     const stockTotal = calculateTotalFromInput(stockInputs);
     const expectedChange = Math.max(0, receivedTotal - Number(dueAmount || 0));
+    const transactionTone = transactionToneMeta[transactionType] || transactionToneMeta.income;
+    const TransactionToneIcon = transactionTone.icon;
 
     const recentTotals = useMemo(() => {
         return recentTransactions.reduce(
@@ -515,7 +584,7 @@ export default function CashDrawer({ denominations = [], summary = {}, recentTra
 
                                     <form onSubmit={submitStockUpdate} className="space-y-5">
                                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                                            {denominations.map((denomination) => {
+                                            {denominationsDesc.map((denomination) => {
                                                 const quantity = Number(stockInputs[denomination.id] || 0);
                                                 const subtotal = denomination.value * quantity;
 
@@ -585,35 +654,59 @@ export default function CashDrawer({ denominations = [], summary = {}, recentTra
                             )}
 
                             {activeMode === "transaction" && (
-                                <div className="space-y-5">
-                                    <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-                                        <div>
-                                            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Catat Transaksi Kas</h2>
-                                            <p className="text-sm text-slate-500 dark:text-slate-400">
-                                                Masukkan nominal total terlebih dahulu, lalu pecah otomatis supaya input tidak berulang.
-                                            </p>
+                                <div className={`space-y-5 rounded-3xl border p-5 shadow-sm transition-colors duration-300 ${transactionTone.card}`}>
+                                    <div className={`flex flex-col gap-2 rounded-2xl bg-gradient-to-r px-4 py-4 lg:flex-row lg:items-end lg:justify-between ${transactionTone.header}`}>
+                                        <div className="space-y-2">
+                                            <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white shadow-sm" style={{ backgroundColor: transactionType === "income" ? "#059669" : "#e11d48" }}>
+                                                <TransactionToneIcon size={14} />
+                                                {transactionTone.label}
+                                            </div>
+                                            <div>
+                                                <h2 className={`text-lg font-semibold ${transactionTone.title}`}>Catat Transaksi Kas</h2>
+                                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                                    Pilih jenis transaksi lewat toggle, lalu isi nominal agar warna formulir langsung menegaskan arah transaksi.
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:bg-slate-950 dark:text-slate-300">
-                                            Pecahan terisi: <span className="font-semibold text-slate-900 dark:text-slate-50">{formatCurrency(transactionTotal)}</span>
+                                        <div className={`rounded-2xl px-4 py-3 text-sm ${transactionTone.helper} bg-white/80 dark:bg-slate-950/70`}>
+                                            Pecahan terisi: <span className={`font-semibold ${transactionTone.title}`}>{formatCurrency(transactionTotal)}</span>
                                         </div>
                                     </div>
 
                                     <form onSubmit={submitTransaction} className="space-y-5">
-                                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[180px_minmax(0,1fr)_180px]">
-                                            <select
-                                                value={transactionType}
-                                                onChange={(event) => setTransactionType(event.target.value)}
-                                                className="h-12 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                                            >
-                                                <option value="income">Pemasukan</option>
-                                                <option value="expense">Pengeluaran</option>
-                                            </select>
+                                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_minmax(0,1fr)_180px]">
+                                            <div className="grid grid-cols-2 gap-2 rounded-2xl p-1">
+                                                <button
+                                                    type="button"
+                                                    aria-label="Pemasukan"
+                                                    title="Pemasukan"
+                                                    aria-pressed={transactionType === "income"}
+                                                    onClick={() => setTransactionType("income")}
+                                                    className={`inline-flex items-center justify-center rounded-xl p-2 transition transform hover:scale-105 active:scale-95 ${
+                                                        transactionType === "income" ? transactionTone.chip : transactionTone.chipInactive
+                                                    } ${transactionFocus.income}`}
+                                                >
+                                                    <IconArrowUp size={18} />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    aria-label="Pengeluaran"
+                                                    title="Pengeluaran"
+                                                    aria-pressed={transactionType === "expense"}
+                                                    onClick={() => setTransactionType("expense")}
+                                                    className={`inline-flex items-center justify-center rounded-xl p-2 transition transform hover:scale-105 active:scale-95 ${
+                                                        transactionType === "expense" ? transactionTone.chip : transactionTone.chipInactive
+                                                    } ${transactionFocus.expense}`}
+                                                >
+                                                    <IconArrowDown size={18} />
+                                                </button>
+                                            </div>
                                             <input
                                                 type="text"
                                                 value={transactionDescription}
                                                 onChange={(event) => setTransactionDescription(event.target.value)}
                                                 placeholder="Contoh: setoran harian, biaya operasional, uang masuk non-penjualan"
-                                                className="h-12 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50"
+                                                className={`h-12 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 ${transactionTone.input}`}
                                             />
                                             <input
                                                 type="number"
@@ -621,24 +714,24 @@ export default function CashDrawer({ denominations = [], summary = {}, recentTra
                                                 value={transactionAmount}
                                                 onChange={(event) => setTransactionAmount(Number(event.target.value || 0))}
                                                 placeholder="Nominal total"
-                                                className="h-12 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50"
+                                                className={`h-12 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 ${transactionTone.input}`}
                                             />
                                         </div>
 
                                         {renderAmountChips(setQuickAmount(setTransactionAmount), transactionAmount, autoFillTransaction)}
 
                                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                                            {denominations.map((denomination) => (
+                                            {denominationsDesc.map((denomination) => (
                                                 <div
                                                     key={`tx-${denomination.id}`}
-                                                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950"
+                                                    className={`rounded-2xl border p-4 transition-colors duration-300 ${transactionTone.panel}`}
                                                 >
                                                     <div className="flex items-center justify-between gap-3">
                                                         <div>
-                                                            <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{formatCurrency(denomination.value)}</p>
-                                                            <p className="text-xs text-slate-500">Pecahan transaksi</p>
+                                                            <p className={`text-sm font-semibold ${transactionTone.title}`}>{formatCurrency(denomination.value)}</p>
+                                                            <p className="text-xs text-slate-500 dark:text-slate-400">Pecahan transaksi</p>
                                                         </div>
-                                                        <p className="text-xs text-slate-500">Input manual tetap tersedia</p>
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400">Input manual tetap tersedia</p>
                                                     </div>
                                                     <input
                                                         type="number"
@@ -650,19 +743,19 @@ export default function CashDrawer({ denominations = [], summary = {}, recentTra
                                                                 [denomination.id]: Number(event.target.value || 0),
                                                             }))
                                                         }
-                                                        className="mt-4 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-center text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50"
+                                                        className={`mt-4 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-center text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 ${transactionTone.input}`}
                                                     />
                                                 </div>
                                             ))}
                                         </div>
 
-                                        <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 dark:border-slate-700 dark:bg-slate-950 lg:flex-row lg:items-center lg:justify-between">
+                                        <div className={`flex flex-col gap-3 rounded-2xl border border-dashed px-4 py-4 lg:flex-row lg:items-center lg:justify-between ${transactionTone.panel}`}>
                                             <div className="space-y-1 text-sm text-slate-600 dark:text-slate-300">
                                                 <p>
-                                                    Nominal target: <span className="font-semibold text-slate-900 dark:text-slate-50">{formatCurrency(transactionAmount)}</span>
+                                                    Nominal target: <span className={`font-semibold ${transactionTone.title}`}>{formatCurrency(transactionAmount)}</span>
                                                 </p>
                                                 <p>
-                                                    Hasil pecahan: <span className="font-semibold text-slate-900 dark:text-slate-50">{formatCurrency(transactionTotal)}</span>
+                                                    Hasil pecahan: <span className={`font-semibold ${transactionTone.title}`}>{formatCurrency(transactionTotal)}</span>
                                                 </p>
                                                 {transactionAmount > 0 && transactionAmount !== transactionTotal && (
                                                     <p className="text-rose-600 dark:text-rose-300">
@@ -672,7 +765,7 @@ export default function CashDrawer({ denominations = [], summary = {}, recentTra
                                             </div>
                                             <button
                                                 type="submit"
-                                                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                                                className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95 ${transactionTone.accent}`}
                                             >
                                                 <IconPlus size={16} />
                                                 Simpan Transaksi Kas
@@ -720,7 +813,7 @@ export default function CashDrawer({ denominations = [], summary = {}, recentTra
                                                 </div>
 
                                                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                                    {denominations.map((denomination) => (
+                                                    {denominationsDesc.map((denomination) => (
                                                         <div key={`exchange-out-${denomination.id}`} className="rounded-xl border border-rose-100 bg-white p-3 dark:border-rose-900/40 dark:bg-slate-900">
                                                             <div className="flex items-center justify-between gap-2">
                                                                 <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{formatCurrency(denomination.value)}</p>
@@ -756,7 +849,7 @@ export default function CashDrawer({ denominations = [], summary = {}, recentTra
                                                 </div>
 
                                                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                                    {denominations.map((denomination) => (
+                                                    {denominationsDesc.map((denomination) => (
                                                         <div key={`exchange-in-${denomination.id}`} className="rounded-xl border border-emerald-100 bg-white p-3 dark:border-emerald-900/40 dark:bg-slate-900">
                                                             <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{formatCurrency(denomination.value)}</p>
                                                             <p className="text-[11px] text-slate-500">Jumlah masuk</p>
@@ -846,21 +939,24 @@ export default function CashDrawer({ denominations = [], summary = {}, recentTra
                                         Belum ada transaksi kas.
                                     </p>
                                 ) : (
-                                    recentTransactions.map((transaction) => (
-                                        <div key={transaction.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
+                                    recentTransactions.map((transaction) => {
+                                        const historyTone = transactionHistoryTone[transaction.transaction_type] || transactionHistoryTone.adjustment;
+
+                                        return (
+                                        <div key={transaction.id} className={`rounded-2xl border p-4 transition-colors duration-300 ${historyTone.card}`}>
                                             <div className="flex items-start justify-between gap-3">
                                                 <div>
-                                                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                                                    <p className={`text-sm font-semibold ${historyTone.title}`}>
                                                         {getTransactionLabel(transaction)}
                                                     </p>
-                                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                                    <p className={`mt-1 text-xs ${historyTone.subtitle}`}>
                                                         {transaction.happened_at || "-"}
                                                         {transaction.created_by ? ` | ${transaction.created_by}` : ""}
                                                     </p>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{formatCurrency(transaction.amount)}</p>
-                                                    <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                                                    <p className={`text-sm font-semibold ${historyTone.amount}`}>{formatCurrency(transaction.amount)}</p>
+                                                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${historyTone.badge}`}>
                                                         {transaction.transaction_type}
                                                     </span>
                                                 </div>
@@ -883,7 +979,8 @@ export default function CashDrawer({ denominations = [], summary = {}, recentTra
                                                 </div>
                                             )}
                                         </div>
-                                    ))
+                                        );
+                                    })
                                 )}
                             </div>
                         </div>

@@ -35,6 +35,7 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
         }).format(Number(price || 0));
 
     const formatDate = (dateString) => (dateString ? toDisplayDateTime(dateString) : '-');
+    const normalizeMoney = (value) => Math.max(0, Number(value || 0));
 
     const getStatusBadge = (status) => {
         const badges = {
@@ -128,11 +129,32 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
     const paymentBadge = getPaymentBadge(currentOrder.payment_status);
     const details = currentOrder.details || [];
     const totalItems = details.reduce((sum, detail) => sum + Number(detail.qty || 0), 0);
-    const subtotal = Number(currentOrder.total || 0);
-    const discountAmount = Number(currentOrder.discount_amount || 0);
-    const voucherAmount = Number(currentOrder.voucher_discount_amount || 0);
-    const taxAmount = Number(currentOrder.tax_amount || 0);
-    const grandTotal = Number(currentOrder.grand_total || currentOrder.total || 0);
+    const grossSubtotal = details.reduce(
+        (sum, detail) => sum + normalizeMoney(detail.amount ?? detail.price * (detail.qty || 0) ?? 0),
+        0
+    );
+    const itemDiscountTotal = details.reduce(
+        (sum, detail) => sum + Math.max(0, normalizeMoney(detail.amount ?? 0) - normalizeMoney(detail.final_amount ?? detail.amount ?? 0)),
+        0
+    );
+    const itemNetSubtotal = Math.max(0, grossSubtotal - itemDiscountTotal);
+    const serviceCost = details.reduce(
+        (sum, detail) => sum + (detail.service_id ? normalizeMoney(detail.final_amount ?? detail.amount ?? 0) : 0),
+        0
+    );
+    const partCost = details.reduce(
+        (sum, detail) => sum + (detail.part_id ? normalizeMoney(detail.final_amount ?? detail.amount ?? 0) : 0),
+        0
+    );
+    const subtotal = details.reduce((sum, detail) => sum + normalizeMoney(detail.final_amount ?? detail.amount ?? 0), 0);
+    const storedDiscountAmount = normalizeMoney(currentOrder.discount_amount || 0);
+    const orderDiscountAmount = Math.max(0, storedDiscountAmount - itemDiscountTotal);
+    const voucherAmount = Math.min(normalizeMoney(currentOrder.voucher_discount_amount || 0), Math.max(0, itemNetSubtotal - orderDiscountAmount));
+    const taxAmount = normalizeMoney(currentOrder.tax_amount || 0);
+    const roundingAdjustment = Number(currentOrder.rounding_adjustment || 0);
+    const calculatedGrandTotal = Math.max(0, itemNetSubtotal - orderDiscountAmount - voucherAmount + taxAmount + roundingAdjustment);
+    const storedGrandTotal = Number(currentOrder.grand_total || currentOrder.total || 0);
+    const grandTotal = storedGrandTotal > 0 ? storedGrandTotal : calculatedGrandTotal;
 
     const warrantyActiveCount = details.reduce((sum, detail) => {
         const meta = getWarrantyMeta(detail);
@@ -248,13 +270,13 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                         <p className="mb-1 inline-flex items-center gap-1 text-xs text-gray-500">
                             <IconCurrencyDollar size={14} /> Biaya Jasa
                         </p>
-                        <p className="mt-1 text-xl font-bold">{formatPrice(currentOrder.labor_cost || 0)}</p>
+                        <p className="mt-1 text-xl font-bold">{formatPrice(serviceCost)}</p>
                     </div>
                     <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
                         <p className="mb-1 inline-flex items-center gap-1 text-xs text-gray-500">
                             <IconCar size={14} /> Biaya Part
                         </p>
-                        <p className="mt-1 text-xl font-bold">{formatPrice(currentOrder.material_cost || 0)}</p>
+                        <p className="mt-1 text-xl font-bold">{formatPrice(partCost)}</p>
                     </div>
                     <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
                         <p className="mb-1 inline-flex items-center gap-1 text-xs text-gray-500">
@@ -264,8 +286,8 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                         <p className="text-xs text-emerald-600">{warrantyActiveCount} item garansi aktif</p>
                     </div>
                     <div className="rounded-xl border border-primary-200 bg-primary-50 p-4 dark:border-primary-800 dark:bg-primary-900/20">
-                        <p className="text-xs text-primary-700">Total Akhir</p>
-                        <p className="mt-1 text-xl font-bold text-primary-800 dark:text-primary-200">{formatPrice(grandTotal)}</p>
+                            <p className="text-xs text-primary-700">Grand Total</p>
+                            <p className="mt-1 text-xl font-bold text-primary-800 dark:text-primary-200">{formatPrice(grandTotal)}</p>
                     </div>
                 </div>
 
@@ -336,6 +358,7 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Item</th>
                                     <th className="px-4 py-3 text-center text-xs font-semibold uppercase">Qty</th>
                                     <th className="px-4 py-3 text-right text-xs font-semibold uppercase">Harga</th>
+                                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase">Diskon</th>
                                     <th className="px-4 py-3 text-center text-xs font-semibold uppercase">Garansi</th>
                                     <th className="px-4 py-3 text-right text-xs font-semibold uppercase">Subtotal</th>
                                 </tr>
@@ -343,14 +366,40 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                                 {details.map((detail) => {
                                     const warranty = getWarrantyMeta(detail);
+                                    const itemBaseAmount = normalizeMoney(detail.amount ?? detail.price * (detail.qty || 0) ?? 0);
+                                    const itemFinalAmount = normalizeMoney(detail.final_amount ?? itemBaseAmount);
+                                    const detailDiscount = Math.max(0, itemBaseAmount - itemFinalAmount);
+                                    const autoDiscount = normalizeMoney(detail.auto_discount_amount || 0);
+                                    const manualDiscount = Math.max(0, normalizeMoney(detail.discount_amount || 0) - autoDiscount);
                                     return (
                                         <tr key={detail.id}>
                                             <td className="px-4 py-3 text-sm">
                                                 <div className="font-medium text-gray-900 dark:text-gray-100">{detail.service?.title || detail.part?.name || '-'}</div>
                                                 <div className="text-xs text-gray-500">{detail.service ? 'Layanan' : detail.part ? 'Sparepart' : '-'}</div>
+                                                {detailDiscount > 0 && (
+                                                    <div className="mt-1 flex flex-wrap gap-1 text-[11px] font-medium">
+                                                        {autoDiscount > 0 && (
+                                                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                                                Diskon otomatis {formatPrice(autoDiscount)}
+                                                            </span>
+                                                        )}
+                                                        {manualDiscount > 0 && (
+                                                            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">
+                                                                Diskon item {formatPrice(manualDiscount)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="px-4 py-3 text-center text-sm">{detail.qty}</td>
-                                            <td className="px-4 py-3 text-right text-sm">{formatPrice(detail.price)}</td>
+                                            <td className="px-4 py-3 text-right text-sm">{formatPrice(itemBaseAmount)}</td>
+                                            <td className="px-4 py-3 text-right text-sm">
+                                                {detailDiscount > 0 ? (
+                                                    <span className="font-semibold text-rose-600">-{formatPrice(detailDiscount)}</span>
+                                                ) : (
+                                                    <span className="text-gray-400">-</span>
+                                                )}
+                                            </td>
                                             <td className="px-4 py-3 text-center">
                                                 <div className="flex flex-col items-center gap-1">
                                                     <span className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold ${warranty.badgeClass}`}>
@@ -373,38 +422,54 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                                                     {warranty.isNearExpiry && <span className="text-[10px] font-semibold text-amber-600">Mendekati expired</span>}
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3 text-right text-sm font-semibold">{formatPrice((detail.price || 0) * (detail.qty || 0))}</td>
+                                            <td className="px-4 py-3 text-right text-sm font-semibold">{formatPrice(itemFinalAmount)}</td>
                                         </tr>
                                     );
                                 })}
                             </tbody>
                             <tfoot className="bg-gray-50 dark:bg-gray-800">
                                 <tr>
-                                    <td colSpan="4" className="px-4 py-2 text-right text-xs text-gray-500">Subtotal</td>
-                                    <td className="px-4 py-2 text-right text-sm font-semibold">{formatPrice(subtotal)}</td>
+                                    <td colSpan="5" className="px-4 py-2 text-right text-xs text-gray-500">Subtotal bruto</td>
+                                    <td className="px-4 py-2 text-right text-sm font-semibold">{formatPrice(grossSubtotal)}</td>
                                 </tr>
-                                {discountAmount > 0 && (
+                                {itemDiscountTotal > 0 && (
                                     <tr>
-                                        <td colSpan="4" className="px-4 py-2 text-right text-xs text-gray-500">
-                                            Diskon {currentOrder.discount_type === 'percent' ? `(${currentOrder.discount_value || 0}%)` : '(Fixed)'}
+                                        <td colSpan="5" className="px-4 py-2 text-right text-xs text-gray-500">
+                                            Diskon item
                                         </td>
-                                        <td className="px-4 py-2 text-right text-sm font-semibold text-red-600">-{formatPrice(discountAmount)}</td>
+                                        <td className="px-4 py-2 text-right text-sm font-semibold text-red-600">-{formatPrice(itemDiscountTotal)}</td>
+                                    </tr>
+                                )}
+                                {orderDiscountAmount > 0 && (
+                                    <tr>
+                                        <td colSpan="5" className="px-4 py-2 text-right text-xs text-gray-500">
+                                            Diskon order {currentOrder.discount_type === 'percent' ? `(${currentOrder.discount_value || 0}%)` : '(Fixed)'}
+                                        </td>
+                                        <td className="px-4 py-2 text-right text-sm font-semibold text-red-600">-{formatPrice(orderDiscountAmount)}</td>
                                     </tr>
                                 )}
                                 {voucherAmount > 0 && (
                                     <tr>
-                                        <td colSpan="4" className="px-4 py-2 text-right text-xs text-gray-500">Voucher {currentOrder.voucher_code ? `(${currentOrder.voucher_code})` : ''}</td>
+                                        <td colSpan="5" className="px-4 py-2 text-right text-xs text-gray-500">Voucher {currentOrder.voucher_code ? `(${currentOrder.voucher_code})` : ''}</td>
                                         <td className="px-4 py-2 text-right text-sm font-semibold text-violet-600">-{formatPrice(voucherAmount)}</td>
                                     </tr>
                                 )}
                                 {taxAmount > 0 && (
                                     <tr>
-                                        <td colSpan="4" className="px-4 py-2 text-right text-xs text-gray-500">Pajak</td>
+                                        <td colSpan="5" className="px-4 py-2 text-right text-xs text-gray-500">Pajak</td>
                                         <td className="px-4 py-2 text-right text-sm font-semibold text-emerald-600">+{formatPrice(taxAmount)}</td>
                                     </tr>
                                 )}
+                                {roundingAdjustment !== 0 && (
+                                    <tr>
+                                        <td colSpan="5" className="px-4 py-2 text-right text-xs text-gray-500">Pembulatan</td>
+                                        <td className={`px-4 py-2 text-right text-sm font-semibold ${roundingAdjustment > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                            {roundingAdjustment > 0 ? '+' : '-'}{formatPrice(Math.abs(roundingAdjustment))}
+                                        </td>
+                                    </tr>
+                                )}
                                 <tr className="border-t border-gray-300 dark:border-gray-600">
-                                    <td colSpan="4" className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">Grand Total</td>
+                                    <td colSpan="5" className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">Grand Total</td>
                                     <td className="px-4 py-3 text-right text-base font-bold text-primary-700 dark:text-primary-300">{formatPrice(grandTotal)}</td>
                                 </tr>
                             </tfoot>

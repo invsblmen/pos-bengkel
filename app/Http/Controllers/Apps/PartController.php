@@ -29,7 +29,7 @@ class PartController extends Controller
         $sortDirection = $request->query('sort_direction', 'asc');
         $perPage = $request->query('per_page', 10);
 
-        $query = Part::with(['supplier', 'category']);
+        $query = Part::with(['supplier', 'category', 'categories']);
 
         // Search
         if ($q) {
@@ -114,7 +114,7 @@ class PartController extends Controller
 
     public function edit($id)
     {
-        $part = Part::findOrFail($id);
+        $part = Part::with('categories')->findOrFail($id);
         return Inertia::render('Dashboard/Parts/Edit', [
             'part' => $part,
             'suppliers' => Supplier::orderBy('name')->get(),
@@ -129,6 +129,8 @@ class PartController extends Controller
             'part_number' => 'nullable|string|max:100|unique:parts,part_number',
             'barcode' => 'nullable|string|max:150|unique:parts,barcode',
             'part_category_id' => 'nullable|exists:part_categories,id',
+            'category_ids' => 'nullable|array',
+            'category_ids.*' => 'exists:part_categories,id',
             'supplier_id' => 'nullable|exists:suppliers,id',
             'buy_price' => 'nullable|numeric|min:0',
             'sell_price' => 'nullable|numeric|min:0',
@@ -140,6 +142,9 @@ class PartController extends Controller
             'warranty_duration_days' => 'nullable|integer|min:0',
             'warranty_terms' => 'nullable|string',
         ]);
+
+        $categoryIds = $data['category_ids'] ?? [];
+        unset($data['category_ids']);
 
         $data['has_warranty'] = (bool) ($data['has_warranty'] ?? false);
         $data['warranty_duration_days'] = isset($data['warranty_duration_days']) ? (int) $data['warranty_duration_days'] : null;
@@ -160,7 +165,10 @@ class PartController extends Controller
         }
 
         $part = Part::create($data);
-        $part->load('supplier', 'category');
+        if (!empty($categoryIds)) {
+            $part->categories()->sync($categoryIds);
+        }
+        $part->load('supplier', 'category', 'categories');
 
         $this->dispatchBroadcastSafely(
             fn () => event(new PartCreated([
@@ -193,9 +201,11 @@ class PartController extends Controller
             'name' => 'required|string|max:255',
             'part_number' => "nullable|string|max:100|unique:parts,part_number,{$id}",
             'barcode' => "nullable|string|max:150|unique:parts,barcode,{$id}",
-                        'minimal_stock' => 'nullable|integer|min:0',
-                        'rack_location' => 'nullable|string|max:50',
+            'minimal_stock' => 'nullable|integer|min:0',
+            'rack_location' => 'nullable|string|max:50',
             'part_category_id' => 'nullable|exists:part_categories,id',
+            'category_ids' => 'nullable|array',
+            'category_ids.*' => 'exists:part_categories,id',
             'supplier_id' => 'nullable|exists:suppliers,id',
             'buy_price' => 'nullable|numeric|min:0',
             'sell_price' => 'nullable|numeric|min:0',
@@ -205,6 +215,9 @@ class PartController extends Controller
             'warranty_duration_days' => 'nullable|integer|min:0',
             'warranty_terms' => 'nullable|string',
         ]);
+
+        $categoryIds = $data['category_ids'] ?? [];
+        unset($data['category_ids']);
 
         $data['has_warranty'] = (bool) ($data['has_warranty'] ?? false);
         $data['warranty_duration_days'] = isset($data['warranty_duration_days']) ? (int) $data['warranty_duration_days'] : null;
@@ -220,6 +233,11 @@ class PartController extends Controller
         }
 
         $part->update($data);
+        if (!empty($categoryIds)) {
+            $part->categories()->sync($categoryIds);
+        } else {
+            $part->categories()->detach();
+        }
 
         $this->dispatchBroadcastSafely(
             fn () => event(new PartUpdated([
@@ -246,7 +264,7 @@ class PartController extends Controller
 
     public function show($id)
     {
-        $part = Part::with(['supplier', 'category'])->findOrFail($id);
+        $part = Part::with(['supplier', 'category', 'categories'])->findOrFail($id);
 
         // Get stock movements/history for this part
         $stockHistory = \App\Models\PartStockMovement::where('part_id', $id)

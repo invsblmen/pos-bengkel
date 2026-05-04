@@ -48,6 +48,11 @@ class Part extends Model
         return $this->belongsTo(PartCategory::class, 'part_category_id');
     }
 
+    public function categories()
+    {
+        return $this->belongsToMany(PartCategory::class, 'part_part_category')->withTimestamps();
+    }
+
     public function serviceOrderDetails()
     {
         return $this->hasMany(ServiceOrderDetail::class);

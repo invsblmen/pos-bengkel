@@ -83,6 +83,11 @@ class ServiceOrderController extends Controller
             $query->where('mechanic_id', $request->mechanic_id);
         }
 
+        // Payment status filter
+        if ($request->payment_status && $request->payment_status !== 'all') {
+            $query->where('payment_status', $request->payment_status);
+        }
+
         $orders = $query->orderByDesc('created_at')->paginate(15)->withQueryString();
 
         // Stats for dashboard cards
@@ -98,7 +103,7 @@ class ServiceOrderController extends Controller
             'orders' => $orders,
             'stats' => $stats,
             'mechanics' => \App\Models\Mechanic::all(['id', 'name']),
-            'filters' => $request->only(['search', 'status', 'date_from', 'date_to', 'mechanic_id']),
+            'filters' => $request->only(['search', 'status', 'date_from', 'date_to', 'mechanic_id', 'payment_status']),
         ];
 
         return inertia('Dashboard/ServiceOrders/Index', $payload);
@@ -288,6 +293,8 @@ class ServiceOrderController extends Controller
             'tax_value' => 'nullable|numeric|min:0',
             'voucher_code' => 'nullable|string|max:50',
         ]);
+
+        $this->validateDiscountBounds($request);
 
         $submissionToken = (string) $request->input('submission_token');
         $userId = Auth::id() ?? 0;
@@ -505,6 +512,8 @@ class ServiceOrderController extends Controller
             'tax_value' => 'nullable|numeric|min:0',
             'voucher_code' => 'nullable|string|max:50',
         ]);
+
+        $this->validateDiscountBounds($request);
 
         $order = ServiceOrder::findOrFail($id);
         $this->voucherService->clearUsageBySource(ServiceOrder::class, (int) $order->id);
@@ -1038,6 +1047,43 @@ class ServiceOrderController extends Controller
         $order->labor_cost = $laborCost;
         $order->material_cost = $materialCost;
         $order->recalculateTotals()->save();
+    }
+
+    private function validateDiscountBounds(Request $request): void
+    {
+        $errors = [];
+
+        $topLevelDiscountType = $request->input('discount_type', 'none');
+        $topLevelDiscountValue = (float) $request->input('discount_value', 0);
+        if ($topLevelDiscountType === 'percent' && $topLevelDiscountValue > 100) {
+            $errors['discount_value'] = 'The discount percentage must not be greater than 100.';
+        }
+
+        $topLevelTaxType = $request->input('tax_type', 'none');
+        $topLevelTaxValue = (float) $request->input('tax_value', 0);
+        if ($topLevelTaxType === 'percent' && $topLevelTaxValue > 100) {
+            $errors['tax_value'] = 'The tax percentage must not be greater than 100.';
+        }
+
+        foreach ((array) $request->input('items', []) as $itemIndex => $item) {
+            $serviceDiscountType = $item['service_discount_type'] ?? 'none';
+            $serviceDiscountValue = (float) ($item['service_discount_value'] ?? 0);
+            if ($serviceDiscountType === 'percent' && $serviceDiscountValue > 100) {
+                $errors["items.$itemIndex.service_discount_value"] = 'The service discount percentage must not be greater than 100.';
+            }
+
+            foreach ((array) ($item['parts'] ?? []) as $partIndex => $part) {
+                $partDiscountType = $part['discount_type'] ?? 'none';
+                $partDiscountValue = (float) ($part['discount_value'] ?? 0);
+                if ($partDiscountType === 'percent' && $partDiscountValue > 100) {
+                    $errors["items.$itemIndex.parts.$partIndex.discount_value"] = 'The items.' . $itemIndex . '.parts.' . $partIndex . '.discount_value field must not be greater than 100.';
+                }
+            }
+        }
+
+        if (!empty($errors)) {
+            throw ValidationException::withMessages($errors);
+        }
     }
 
     /**
