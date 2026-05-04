@@ -30,13 +30,14 @@ const statusMeta = {
     pending: { label: 'Menunggu', chip: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' },
     in_progress: { label: 'Dikerjakan', chip: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
     completed: { label: 'Selesai', chip: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
+    paid: { label: 'Lunas', chip: 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300' },
     cancelled: { label: 'Batal', chip: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
 };
 
-const paymentMeta = {
-    unpaid: { label: 'Belum Dibayar', chip: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
-    partial: { label: 'Sebagian', chip: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
-    paid: { label: 'Lunas', chip: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
+const paymentColors = {
+    paid: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-100',
+    partial: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-100',
+    unpaid: 'bg-gray-100 text-gray-700 dark:bg-slate-800/60 dark:text-gray-100',
 };
 
 function StatCard({ title, value, subtitle, icon, tone }) {
@@ -97,7 +98,7 @@ function EmptyState({ hasFilters, onReset }) {
 
 export default function Index({ orders, stats, mechanics, filters }) {
     const [search, setSearch] = useState(filters.search || '');
-    const [status, setStatus] = useState(['all', 'pending', 'in_progress', 'completed', 'cancelled'].includes(filters.status || 'all') ? (filters.status || 'all') : 'all');
+    const [status, setStatus] = useState(filters.status || 'all');
     const [dateFrom, setDateFrom] = useState(filters.date_from || '');
     const [dateTo, setDateTo] = useState(filters.date_to || '');
     const [mechanicId, setMechanicId] = useState(filters.mechanic_id || 'all');
@@ -108,14 +109,6 @@ export default function Index({ orders, stats, mechanics, filters }) {
     useEffect(() => {
         setLiveServiceOrders(orders?.data || []);
     }, [orders?.data]);
-
-    useEffect(() => {
-        setSearch(filters.search || '');
-        setStatus(['all', 'pending', 'in_progress', 'completed', 'cancelled'].includes(filters.status || 'all') ? (filters.status || 'all') : 'all');
-        setDateFrom(filters.date_from || '');
-        setDateTo(filters.date_to || '');
-        setMechanicId(filters.mechanic_id || 'all');
-    }, [filters.search, filters.status, filters.date_from, filters.date_to, filters.mechanic_id]);
 
 
     const handleFilter = (e) => {
@@ -169,10 +162,7 @@ export default function Index({ orders, stats, mechanics, filters }) {
             { status: newStatus },
             {
                 preserveScroll: true,
-                onSuccess: () => {
-                    toast.success('Status berhasil diperbarui!');
-                    router.reload();
-                },
+                onSuccess: () => toast.success('Status berhasil diperbarui!'),
                 onError: () => toast.error('Gagal memperbarui status!'),
             }
         );
@@ -275,8 +265,8 @@ export default function Index({ orders, stats, mechanics, filters }) {
                         <StatCard title="Menunggu" value={stats.pending} subtitle="Belum dikerjakan" icon={<IconFileDescription size={20} />} tone="yellow" />
                         <StatCard title="Dikerjakan" value={stats.in_progress} subtitle="Dalam proses" icon={<IconClockHour4 size={20} />} tone="blue" />
                         <StatCard title="Selesai" value={stats.completed} subtitle="Order selesai" icon={<IconCircleCheck size={20} />} tone="green" />
-                        <StatCard title="Lunas" value={stats.paid} subtitle="Pembayaran diterima" icon={<IconWallet size={20} />} tone="indigo" />
-                        <StatCard title="Revenue" value={compactRevenue} subtitle="Order selesai" icon={<IconCurrencyDollar size={20} />} tone="primary" />
+                        <StatCard title="Lunas" value={stats.paid} subtitle="Sudah dibayar" icon={<IconWallet size={20} />} tone="indigo" />
+                        <StatCard title="Revenue" value={compactRevenue} subtitle="Completed + Paid" icon={<IconCurrencyDollar size={20} />} tone="primary" />
                     </div>
                 </div>
 
@@ -423,7 +413,8 @@ export default function Index({ orders, stats, mechanics, filters }) {
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                             {liveServiceOrders.map((order) => {
-                                                const badge = statusMeta[order.status] || statusMeta.pending;
+                                                                const displayStatus = order.status;
+                                                                const badge = statusMeta[displayStatus] || statusMeta.pending;
                                                 const alert = getMaintenanceAlertStatus(order);
                                                 const totalCost = Number(order.total || 0);
 
@@ -447,9 +438,9 @@ export default function Index({ orders, stats, mechanics, filters }) {
                                                             <div className="text-[11px] tabular-nums text-slate-500 dark:text-slate-400">Jasa {formatPrice(order.labor_cost || 0)}</div>
                                                         </td>
                                                         <td className="px-4 py-3 text-center">
-                                                        <div className="relative inline-block">
-                                                            <select
-                                                                value={order.status}
+                                                            <div className="relative inline-block">
+                                                                <select
+                                                                    value={order.status}
                                                                     onChange={(e) => handleStatusChange(order.id, e.target.value)}
                                                                     className={`appearance-none cursor-pointer rounded-xl px-3 py-1.5 pr-8 text-xs font-semibold border-0 focus:ring-2 focus:ring-primary-500 ${badge.chip}`}
                                                                 >
@@ -461,8 +452,8 @@ export default function Index({ orders, stats, mechanics, filters }) {
                                                                 <IconChevronDown size={14} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
                                                             </div>
                                                             <div className="mt-2">
-                                                                <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-semibold ${paymentMeta[order.payment_status || 'unpaid'].chip}`}>
-                                                                    {paymentMeta[order.payment_status || 'unpaid'].label}
+                                                                <span className={`inline-flex px-2 py-1 rounded text-xs font-semibold ${paymentColors[order.payment_status] || paymentColors.unpaid}`}>
+                                                                    {order.payment_status === 'paid' ? '✓ Lunas' : order.payment_status === 'partial' ? '◐ Sebagian' : '○ Belum Bayar'}
                                                                 </span>
                                                             </div>
                                                         </td>
@@ -497,12 +488,7 @@ export default function Index({ orders, stats, mechanics, filters }) {
                                                         <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{order.order_number}</p>
                                                         <p className="text-xs text-slate-500 dark:text-slate-400">{formatDate(order.created_at)}</p>
                                                     </div>
-                                                    <div className="flex flex-wrap items-center justify-end gap-2">
-                                                        <span className={`px-2 py-1 rounded-full text-[11px] font-semibold ${badge.chip}`}>{badge.label}</span>
-                                                        <span className={`px-2 py-1 rounded-full text-[11px] font-semibold ${paymentMeta[order.payment_status || 'unpaid'].chip}`}>
-                                                            {paymentMeta[order.payment_status || 'unpaid'].label}
-                                                        </span>
-                                                    </div>
+                                                    <span className={`px-2 py-1 rounded-full text-[11px] font-semibold ${badge.chip}`}>{badge.label}</span>
                                                 </div>
 
                                                 <div className="mt-3 space-y-1.5 text-sm">
@@ -515,7 +501,7 @@ export default function Index({ orders, stats, mechanics, filters }) {
 
                                                 <div className="mt-3 flex items-center justify-between">
                                                     <p className="text-sm font-black tabular-nums text-primary-700 dark:text-primary-300">{formatPrice(order.total || 0)}</p>
-                                                    <div className="relative inline-block">
+                                                        <div className="relative inline-block">
                                                         <select
                                                             value={order.status}
                                                             onChange={(e) => handleStatusChange(order.id, e.target.value)}
@@ -558,3 +544,5 @@ export default function Index({ orders, stats, mechanics, filters }) {
 }
 
 Index.layout = (page) => <DashboardLayout children={page} />;
+
+

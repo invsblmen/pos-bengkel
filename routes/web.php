@@ -27,7 +27,6 @@ use App\Http\Controllers\Apps\LowStockAlertController;
 use App\Http\Controllers\Apps\CashManagementController;
 use App\Http\Controllers\Apps\VoucherController;
 use App\Http\Controllers\Apps\DataImportController;
-use App\Http\Controllers\Apps\SyncController;
 use App\Http\Controllers\Apps\WhatsAppLogController;
 use App\Http\Controllers\Apps\WhatsAppGoController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
@@ -171,10 +170,6 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
         ->middleware('permission:reports-access')
         ->name('imports.template');
 
-    Route::get('/sync', [SyncController::class, 'index'])
-        ->middleware('permission:reports-access')
-        ->name('sync.index');
-
     // SDMS API authentication page (Inertia)
     Route::get('/sdms-auth', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'index'])
         ->middleware('permission:reports-access')
@@ -313,6 +308,7 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::post('/service-orders', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'store'])->middleware('permission:service-orders-create')->name('service-orders.store');
     Route::put('/service-orders/{id}', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'update'])->middleware('permission:service-orders-update')->name('service-orders.update');
     Route::post('/service-orders/{id}/status', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'updateStatus'])->middleware('permission:service-orders-update')->name('service-orders.update-status');
+    Route::post('/service-orders/{id}/payment', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'updatePayment'])->middleware('permission:service-orders-update')->name('service-orders.update-payment');
     Route::post('/service-orders/{id}/details/{detailId}/claim-warranty', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'claimWarranty'])->middleware('permission:service-orders-update')->name('service-orders.details.claim-warranty');
     Route::delete('/service-orders/{id}', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'destroy'])->middleware('permission:service-orders-delete')->name('service-orders.destroy');
 

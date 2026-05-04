@@ -45,6 +45,9 @@ function CategoryCard({ category }) {
             <div className="p-3">
                 <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1 line-clamp-1">{category.name}</h3>
                 {category.description && <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mb-2">{category.description}</p>}
+                <div className="mb-2 text-[11px] text-slate-500 dark:text-slate-400">
+                    Induk: <span className="font-semibold">{category.parent?.name || '-'}</span>
+                </div>
                 <div className="flex gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
                     <Link href={route('part-categories.edit', category.id)} className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md bg-warning-100 text-warning-600 hover:bg-warning-200 dark:bg-warning-900/50 dark:text-warning-400 text-xs font-medium transition-colors">
                         <IconPencilCog size={14} /> <span>Edit</span>
@@ -114,6 +117,7 @@ function Index({ categories }) {
                                                 <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">No</th>
                                                 <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Icon</th>
                                                 <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Nama Kategori</th>
+                                                <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kategori Induk</th>
                                                 <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Deskripsi</th>
                                                 <th className="px-4 py-4 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Aksi</th>
                                             </tr>
@@ -129,6 +133,9 @@ function Index({ categories }) {
                                                         </td>
                                                         <td className="px-4 py-4">
                                                             <div className="text-sm font-semibold text-slate-900 dark:text-white">{category.name}</div>
+                                                        </td>
+                                                        <td className="px-4 py-4">
+                                                            <div className="text-sm text-slate-600 dark:text-slate-400">{category.parent?.name || '-'}</div>
                                                         </td>
                                                         <td className="px-4 py-4">
                                                             <div className="text-sm text-slate-600 dark:text-slate-400 line-clamp-1">{category.description || '-'}</div>

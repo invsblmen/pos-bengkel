@@ -51,5 +51,15 @@ Route::put('/part/ComparePartReceive', function (Request $request) {
     return $controller->proxy($request, 'api/part/ComparePartReceive');
 })->middleware('web');
 
+// Proxy ShipmentReceipt endpoint (submit SPG)
+Route::post('/part/ShipmentReceipt', function (Request $request) {
+    $controller = app(\App\Http\Controllers\ApiProxyController::class);
+    return $controller->proxy($request, 'api/part/ShipmentReceipt');
+})->middleware('web');
+
+// SPG local endpoints (no proxy, direct local processing)
+Route::post('/spg/sparepart', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'storeSparepartFromSPG'])->middleware(['web', 'auth']);
+Route::post('/spg/part-purchase', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'storePartPurchaseFromSPG'])->middleware(['web', 'auth']);
+
 // Generic proxy: /api/docs-proxy/{path} -> forwards to {SDMS_API_BASE}/{path}
 Route::any('/docs-proxy/{path}', [ApiProxyController::class, 'proxy'])->where('path', '.*');

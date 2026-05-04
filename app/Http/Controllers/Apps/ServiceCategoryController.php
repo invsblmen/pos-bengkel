@@ -22,7 +22,7 @@ class ServiceCategoryController extends Controller
     {
         $q = $request->query('q', '');
 
-        $query = ServiceCategory::orderBy('sort_order')->orderBy('name');
+        $query = ServiceCategory::with('parent:id,name')->orderBy('sort_order', 'asc')->orderBy('name', 'asc');
         if ($q) {
             $query->where('name', 'like', "%{$q}%")
                   ->orWhere('description', 'like', "%{$q}%");
@@ -38,12 +38,26 @@ class ServiceCategoryController extends Controller
 
     public function create()
     {
-        return Inertia::render('Dashboard/ServiceCategories/Create');
+        $categories = ServiceCategory::query()
+            ->with('parent')
+            ->orderBy('sort_order', 'asc')
+            ->orderBy('name', 'asc')
+            ->get()
+            ->map(fn ($cat) => [
+                'id' => $cat->id,
+                'name' => $cat->name,
+                'depth' => $cat->getDepth(),
+            ]);
+
+        return Inertia::render('Dashboard/ServiceCategories/Create', [
+            'parentCategories' => $categories,
+        ]);
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
+            'parent_id' => 'nullable|exists:service_categories,id',
             'name' => 'required|string|unique:service_categories,name',
             'description' => 'nullable|string',
             'icon' => 'nullable|string',
@@ -62,14 +76,28 @@ class ServiceCategoryController extends Controller
 
     public function edit(ServiceCategory $serviceCategory)
     {
+        $categories = ServiceCategory::query()
+            ->whereKeyNot($serviceCategory->id)
+            ->with('parent')
+            ->orderBy('sort_order', 'asc')
+            ->orderBy('name', 'asc')
+            ->get()
+            ->map(fn ($cat) => [
+                'id' => $cat->id,
+                'name' => $cat->name,
+                'depth' => $cat->getDepth(),
+            ]);
+
         return Inertia::render('Dashboard/ServiceCategories/Edit', [
             'category' => $serviceCategory,
+            'parentCategories' => $categories,
         ]);
     }
 
     public function update(Request $request, ServiceCategory $serviceCategory)
     {
         $data = $request->validate([
+            'parent_id' => 'nullable|exists:service_categories,id|not_in:' . $serviceCategory->id,
             'name' => 'required|string|unique:service_categories,name,' . $serviceCategory->id,
             'description' => 'nullable|string',
             'icon' => 'nullable|string',
@@ -93,8 +121,13 @@ class ServiceCategoryController extends Controller
             throw ValidationException::withMessages(['error' => 'Cannot delete category that has services']);
         }
 
+        // Cek apakah ada subkategori yang masih terkait
+        if ($serviceCategory->children()->count() > 0) {
+            throw ValidationException::withMessages(['error' => 'Cannot delete category that has subcategories']);
+        }
+
         $categoryId = $serviceCategory->id;
-        $serviceCategory->delete();
+        ServiceCategory::destroy($categoryId);
 
         $this->dispatchBroadcastSafely(
             fn () => ServiceCategoryDeleted::dispatch($categoryId),

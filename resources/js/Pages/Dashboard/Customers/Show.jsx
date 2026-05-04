@@ -28,6 +28,7 @@ export default function Show({ customer }) {
             pending: "Menunggu",
             in_progress: "Dikerjakan",
             completed: "Selesai",
+            paid: "Dibayar",
             cancelled: "Dibatalkan",
         };
 
@@ -212,3 +213,4 @@ export default function Show({ customer }) {
 }
 
 Show.layout = (page) => <DashboardLayout children={page} />;
+

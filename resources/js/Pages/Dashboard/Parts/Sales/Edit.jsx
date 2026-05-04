@@ -72,10 +72,14 @@ export default function Edit({ sale, customers = [], parts = [], availableVouche
         new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
 
     const handlePaymentConfirm = (paymentData) => {
+        const paymentReceivedAt = new Date().toISOString();
         setData('payment_method', paymentData.payment_method || 'cash');
         setData('paid_amount', Number(paymentData.paid_amount || 0));
         setData('transfer_destination', paymentData.transfer_destination || '');
-        setData('payment_meta', paymentData.payment_meta || {});
+        setData('payment_meta', {
+            ...(paymentData.payment_meta || {}),
+            payment_received_at: paymentReceivedAt,
+        });
         setShowPaymentModal(false);
         toast.success('Data pembayaran tersimpan');
     };

@@ -130,4 +130,120 @@ class SDMSAuthController extends Controller
             'initialIdBilling' => $request->query('idbilling') ?? $request->query('idBilling') ?? null,
         ]);
     }
+
+    /**
+     * Create a new Part (Sparepart) from SPG received item
+     * POST /api/spg/sparepart
+     */
+    public function storeSparepartFromSPG(Request $request)
+    {
+        $validated = $request->validate([
+            'part_number' => 'required|string|unique:parts,part_number',
+            'name' => 'required|string',
+            'supplier_id' => 'nullable|exists:suppliers,id',
+            'buy_price' => 'nullable|integer|min:0',
+            'sell_price' => 'nullable|integer|min:0',
+            'part_category_id' => 'nullable|exists:part_categories,id',
+            'unit_measure' => 'nullable|string',
+        ]);
+
+        try {
+            $part = \App\Models\Part::create([
+                'part_number' => $validated['part_number'],
+                'name' => $validated['name'],
+                'supplier_id' => $validated['supplier_id'] ?? null,
+                'buy_price' => $validated['buy_price'] ?? 0,
+                'sell_price' => $validated['sell_price'] ?? 0,
+                'part_category_id' => $validated['part_category_id'] ?? null,
+                'unit_measure' => $validated['unit_measure'] ?? 'PCS',
+                'stock' => 0,
+                'minimal_stock' => 0,
+                'status' => 'active',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Sparepart berhasil ditambahkan',
+                'part' => $part,
+            ], 201);
+        } catch (\Exception $e) {
+            \Log::error('Error creating sparepart:', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menambah sparepart: ' . $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
+     * Create a PartPurchase from SPG received items
+     * POST /api/spg/part-purchase
+     */
+    public function storePartPurchaseFromSPG(Request $request)
+    {
+        $validated = $request->validate([
+            'supplier_id' => 'required|exists:suppliers,id',
+            'items' => 'required|array|min:1',
+            'items.*.part_id' => 'required|exists:parts,id',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.unit_price' => 'required|integer|min:0',
+            'notes' => 'nullable|string',
+        ]);
+
+        try {
+            \Illuminate\Support\Facades\DB::beginTransaction();
+
+            // Calculate total amount
+            $totalAmount = 0;
+            foreach ($validated['items'] as $item) {
+                $totalAmount += $item['quantity'] * $item['unit_price'];
+            }
+
+            // Create purchase
+            $purchase = \App\Models\PartPurchase::create([
+                'supplier_id' => $validated['supplier_id'],
+                'purchase_date' => now()->toDateString(),
+                'status' => 'pending',
+                'total_amount' => $totalAmount,
+                'notes' => $validated['notes'] ?? 'From SPG Received Items',
+            ]);
+
+            // Create purchase details
+            foreach ($validated['items'] as $item) {
+                $subtotal = $item['quantity'] * $item['unit_price'];
+                \App\Models\PartPurchaseDetail::create([
+                    'part_purchase_id' => $purchase->id,
+                    'part_id' => $item['part_id'],
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $item['unit_price'],
+                    'subtotal' => $subtotal,
+                    'final_amount' => $subtotal,
+                    'discount_type' => 'none',
+                    'discount_value' => 0,
+                    'discount_amount' => 0,
+                    'margin_type' => 'percent',
+                    'margin_value' => 0,
+                ]);
+            }
+
+            // Calculate totals
+            $purchase->recalculateTotals()->save();
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Purchase Order berhasil dibuat',
+                'purchase' => $purchase->load(['supplier', 'details.part']),
+                'purchase_number' => $purchase->purchase_number,
+            ], 201);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            \Log::error('Error creating purchase from SPG:', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal membuat purchase order: ' . $e->getMessage(),
+            ], 422);
+        }
+    }
 }

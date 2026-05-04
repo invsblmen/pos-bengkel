@@ -230,6 +230,7 @@ export default function PaymentReceiptModal({
             payment_method: paymentMethod,
             transfer_destination: paymentMethod === 'cash' ? '' : transferDestination,
             paid_amount: totalPaidAmount,
+            applied_amount: totalPaidAmount,
             payment_meta: {
                 payment_method: paymentMethod,
                 cash_breakdown: cashBreakdown,

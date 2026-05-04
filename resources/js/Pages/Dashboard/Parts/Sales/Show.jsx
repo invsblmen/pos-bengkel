@@ -1,6 +1,8 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
+import TransactionPaymentSection from '@/Components/TransactionPaymentSection';
+import PaymentReceiptModal from '@/Components/PaymentReceiptModal';
 import { IconArrowLeft, IconPrinter, IconPencil, IconEdit, IconCheck, IconX, IconCash, IconShoppingCart, IconReceipt, IconUser, IconDiscount, IconShieldCheck } from '@tabler/icons-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -39,6 +41,7 @@ export default function Show({ sale, businessProfile, cashDenominations = [] }) 
     const [showPrintModal, setShowPrintModal] = useState(false);
     const [printMode, setPrintMode] = useState('invoice');
     const [paperSize, setPaperSize] = useState('a4');
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentAmount, setPaymentAmount] = useState('');
     const [updatingPayment, setUpdatingPayment] = useState(false);
     const [suggestingChange, setSuggestingChange] = useState(false);
@@ -198,36 +201,51 @@ export default function Show({ sale, businessProfile, cashDenominations = [] }) 
         );
     };
 
-    const handleUpdatePayment = () => {
-        const amount = Number(paymentAmount || 0);
+    const handleUpdatePayment = (paymentData = null) => {
+        const paymentMeta = paymentData?.payment_meta || {};
+        const amount = Number((paymentMeta.cash_received_total ?? paymentData?.paid_amount ?? paymentAmount) || 0);
         if (amount <= 0) {
             toast.error('Masukkan jumlah pembayaran');
             return;
         }
 
-        const denominationPayload = Object.entries(receivedDenominations)
+        const denominationSource = paymentMeta.cash_breakdown || Object.entries(receivedDenominations)
             .map(([denominationId, quantity]) => ({
                 denomination_id: Number(denominationId),
                 quantity: Number(quantity || 0),
             }))
             .filter((row) => row.quantity > 0);
 
-        if (denominationPayload.length > 0 && receivedTotal !== amount) {
+        const denominationTotal = paymentMeta.cash_received_total !== undefined
+            ? Number(paymentMeta.cash_received_total || 0)
+            : receivedTotal;
+
+        if (denominationSource.length > 0 && denominationTotal !== amount) {
             toast.error('Total pecahan harus sama dengan jumlah pembayaran');
             return;
         }
 
+        const payload = {
+            payment_amount: amount,
+            applied_amount: Number((paymentData?.paid_amount ?? paymentMeta.total_paid ?? amount) || 0),
+            payment_method: paymentData?.payment_method || paymentMeta.payment_method || 'cash',
+            transfer_destination: paymentData?.transfer_destination || paymentMeta.non_cash_method || '',
+            payment_meta: paymentMeta,
+            received_denominations: denominationSource.map((item) => ({
+                denomination_id: Number(item.denomination_id),
+                quantity: Number(item.quantity || 0),
+            })),
+        };
+
         setUpdatingPayment(true);
         router.post(
             route('part-sales.update-payment', sale.id),
-            {
-                payment_amount: amount,
-                received_denominations: denominationPayload,
-            },
+            payload,
             {
                 preserveScroll: true,
                 onSuccess: () => {
                     toast.success('Pembayaran berhasil dicatat');
+                    setShowPaymentModal(false);
                     setPaymentAmount('');
                     setChangeSuggestion(null);
                     setReceivedDenominations((prev) => {
@@ -240,11 +258,16 @@ export default function Show({ sale, businessProfile, cashDenominations = [] }) 
                     router.reload();
                 },
                 onError: (errors) => {
-                    toast.error(errors?.error || 'Gagal mencatat pembayaran');
+                    const errorMessage = errors?.payment_amount?.[0] || errors?.received_denominations?.[0] || errors?.error || 'Gagal mencatat pembayaran';
+                    toast.error(errorMessage);
                 },
                 onFinish: () => setUpdatingPayment(false),
             }
         );
+    };
+
+    const handlePaymentConfirm = (paymentData) => {
+        handleUpdatePayment(paymentData);
     };
 
     const handleSuggestChange = async () => {
@@ -536,13 +559,19 @@ export default function Show({ sale, businessProfile, cashDenominations = [] }) 
 
                                     <div className="space-y-3 text-sm">
                                         <div className="flex items-center justify-between">
-                                            <span className="text-slate-600 dark:text-slate-400 font-medium">Sudah Bayar</span>
+                                            <span className="text-slate-600 dark:text-slate-400 font-medium">Nominal Dibayar</span>
                                             <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(paidAmount)}</span>
                                         </div>
                                         {cashReceivedTotal > 0 && (
                                             <div className="flex items-center justify-between">
                                                 <span className="text-slate-600 dark:text-slate-400 font-medium">Cash Diterima</span>
                                                 <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(cashReceivedTotal)}</span>
+                                            </div>
+                                        )}
+                                        {paymentMeta.cash_due_amount !== undefined && (
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-slate-600 dark:text-slate-400 font-medium">Cash Wajib Diterima</span>
+                                                <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(Number(paymentMeta.cash_due_amount || 0))}</span>
                                             </div>
                                         )}
                                         {cashChangeAmount > 0 && (
@@ -554,7 +583,7 @@ export default function Show({ sale, businessProfile, cashDenominations = [] }) 
                                             </div>
                                         )}
                                         <div className="flex items-center justify-between">
-                                            <span className="text-slate-600 dark:text-slate-400 font-medium">Sisa Pembayaran</span>
+                                            <span className="text-slate-600 dark:text-slate-400 font-medium">Sisa Setelah Dibayar</span>
                                             <span className={`font-bold ${
                                                 remainingAmount <= 0
                                                     ? 'text-green-600 dark:text-green-400'
@@ -569,138 +598,35 @@ export default function Show({ sale, businessProfile, cashDenominations = [] }) 
 
                             {/* Payment Section */}
                             {remainingAmount > 0 && sale.status !== 'draft' && (
-                                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                                    <div className="bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 px-6 py-4 border-b border-orange-200 dark:border-orange-700/30">
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-orange-500 text-white shadow-lg shadow-orange-500/30">
-                                                <IconCash size={20} />
-                                            </div>
-                                            <h3 className="font-bold text-slate-900 dark:text-white">Catat Pembayaran</h3>
-                                        </div>
-                                    </div>
-                                    <div className="p-6 space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                                                Jumlah Pembayaran
-                                            </label>
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                value={paymentAmount}
-                                                onChange={(e) => setPaymentAmount(e.target.value)}
-                                                placeholder="Masukkan jumlah pembayaran..."
-                                                className="w-full h-12 px-4 rounded-xl border-2 border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white font-bold text-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
-                                            />
-                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                                                Sisa yang harus dibayar: <span className="font-bold text-orange-600">{formatCurrency(remainingAmount)}</span>
-                                            </p>
-                                        </div>
-
-                                        {cashDenominations.length > 0 && (
-                                            <div className="space-y-3 border-t border-slate-200 dark:border-slate-700 pt-4">
-                                                <div className="flex items-center justify-between">
-                                                    <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">Input Pecahan Uang Diterima</h4>
-                                                    <span className="text-xs text-slate-500 dark:text-slate-400">Total: <span className="font-bold text-orange-600">{formatCurrency(receivedTotal)}</span></span>
-                                                </div>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                    {cashDenominations
-                                                        .slice()
-                                                        .sort((a, b) => Number(b.value) - Number(a.value))
-                                                        .map((denom) => (
-                                                            <label
-                                                                key={denom.id}
-                                                                className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 p-2"
-                                                            >
-                                                                <span className="flex-1 text-xs font-bold text-slate-700 dark:text-slate-300">{formatCurrency(denom.value)}</span>
-                                                                <input
-                                                                    type="number"
-                                                                    min="0"
-                                                                    value={receivedDenominations[denom.id] ?? ''}
-                                                                    onChange={(e) => {
-                                                                        const quantity = e.target.value;
-                                                                        setReceivedDenominations((prev) => ({
-                                                                            ...prev,
-                                                                            [denom.id]: quantity,
-                                                                        }));
-                                                                        setChangeSuggestion(null);
-                                                                        const nextTotal = Object.entries({
-                                                                            ...receivedDenominations,
-                                                                            [denom.id]: quantity,
-                                                                        }).reduce((sum, [id, qty]) => {
-                                                                            const q = Number(qty || 0);
-                                                                            if (q <= 0) {
-                                                                                return sum;
-                                                                            }
-                                                                            return sum + (Number(denominationValueMap[id] || 0) * q);
-                                                                        }, 0);
-                                                                        setPaymentAmount(nextTotal > 0 ? String(nextTotal) : '');
-                                                                    }}
-                                                                    className="w-20 h-9 px-2 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white text-sm font-bold"
-                                                                    placeholder="Qty"
-                                                                />
-                                                            </label>
-                                                        ))}
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={handleSuggestChange}
-                                                    disabled={suggestingChange || !hasDenominationInput}
-                                                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl border-2 border-orange-300 text-orange-700 dark:text-orange-300 py-2.5 text-sm font-bold hover:bg-orange-50 dark:hover:bg-orange-900/20 disabled:opacity-60 transition-all"
-                                                >
-                                                    {suggestingChange ? 'Menghitung saran kembalian...' : 'Hitung Saran Kembalian'}
-                                                </button>
-                                                {changeSuggestion && (
-                                                    <div className={`rounded-xl p-3 border text-sm ${
-                                                        changeSuggestion.exact
-                                                            ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-700/30 dark:text-emerald-300'
-                                                            : 'bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-900/20 dark:border-rose-700/30 dark:text-rose-300'
-                                                    }`}>
-                                                        <div className="font-bold mb-1">
-                                                            {changeSuggestion.exact ? 'Kembalian pas tersedia' : 'Kembalian pas tidak tersedia'}
-                                                        </div>
-                                                        <div>
-                                                            Total kembalian: {formatCurrency(changeSuggestion.change_amount || 0)}
-                                                        </div>
-                                                        {Array.isArray(changeSuggestion.items) && changeSuggestion.items.length > 0 && (
-                                                            <div className="mt-2 text-xs">
-                                                                {changeSuggestion.items.map((item, idx) => (
-                                                                    <div key={`${item.value}-${idx}`}>
-                                                                        {formatCurrency(item.value)} x {item.quantity}
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        <button
-                                            type="button"
-                                            onClick={handleUpdatePayment}
-                                            disabled={updatingPayment}
-                                            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 to-orange-700 text-white py-3 text-sm font-bold hover:from-orange-700 hover:to-orange-800 shadow-lg shadow-orange-500/30 disabled:opacity-70 transition-all hover:scale-105"
-                                        >
-                                            {updatingPayment ? (
-                                                <>
-                                                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                    </svg>
-                                                    Menyimpan...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <IconCash size={18} /> Simpan Pembayaran
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
-                                </div>
+                                <TransactionPaymentSection
+                                    title="Pembayaran"
+                                    paymentMethod={sale.payment_method || 'cash'}
+                                    paidAmount={paidAmount}
+                                    totalAmount={grandTotal}
+                                    transferDestination={sale.transfer_destination || ''}
+                                    formatCurrency={formatCurrency}
+                                    onOpenPaymentModal={() => setShowPaymentModal(true)}
+                                    note="Tekan tombol terima pembayaran untuk mencatat pembayaran penjualan part ini."
+                                />
                             )}
                         </div>
                     </div>
                 </div>
+
+                <PaymentReceiptModal
+                    show={showPaymentModal}
+                    onClose={() => setShowPaymentModal(false)}
+                    onConfirm={handlePaymentConfirm}
+                    totalAmount={remainingAmount}
+                    cashDenominations={cashDenominations}
+                    initialPayment={{
+                        payment_method: sale.payment_method || 'cash',
+                        transfer_destination: sale.transfer_destination || '',
+                        paid_amount: remainingAmount,
+                        payment_meta: paymentMeta,
+                    }}
+                    formatCurrency={formatCurrency}
+                />
 
                 {/* Print View - Invoice */}
                 {printMode === 'invoice' && (

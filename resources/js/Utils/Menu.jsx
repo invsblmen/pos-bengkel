@@ -26,7 +26,6 @@ import {
     IconShieldCheck,
     IconTicket,
     IconFileImport,
-    IconRefresh,
     IconBrandWhatsapp,
     IconExternalLink,
 } from "@tabler/icons-react";
@@ -204,13 +203,6 @@ export default function Menu() {
                     active: url.startsWith("/dashboard/cash-management"),
                     icon: <IconCash size={20} strokeWidth={1.5} />,
                     permissions: hasAnyPermission(["cash-management-access"]),
-                },
-                {
-                    title: "Sinkronisasi",
-                    href: route("sync.index"),
-                    active: url.startsWith("/dashboard/sync"),
-                    icon: <IconRefresh size={20} strokeWidth={1.5} />,
-                    permissions: hasAnyPermission(["reports-access"]),
                 },
             ],
         },

@@ -79,16 +79,6 @@ export default function Index({ vehicles, filters, stats }) {
 
     useEffect(() => { setLiveItems(vehicles?.data || []); }, [vehicles?.data]);
 
-    useEffect(() => {
-        setSearch(filters?.search || '');
-        setActiveFilters({
-            brand: filters?.brand || '',
-            year: filters?.year || '',
-            transmission: filters?.transmission || '',
-            service_status: filters?.service_status || '',
-        });
-    }, [filters?.search, filters?.brand, filters?.year, filters?.transmission, filters?.service_status]);
-
     const handleSort = (col) => {
         const dir = filters?.sort_by === col && filters?.sort_direction === 'asc' ? 'desc' : 'asc';
         router.get(route('vehicles.index'), { ...filters, sort_by: col, sort_direction: dir }, { preserveState: true, preserveScroll: true });

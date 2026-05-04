@@ -8,12 +8,16 @@ use App\Events\ServiceOrderDeleted;
 use App\Http\Controllers\Controller;
 use App\Models\BusinessProfile;
 use App\Models\CashDenomination;
+use App\Models\CashDrawerDenomination;
+use App\Models\CashTransaction;
+use App\Models\CashTransactionItem;
 use App\Models\Mechanic;
 use App\Models\WarrantyRegistration;
 use App\Models\ServiceOrder;
 use App\Models\ServiceOrderDetail;
 use App\Models\ServiceOrderStatusHistory;
 use App\Models\Voucher;
+use App\Services\CashChangeSuggestionService;
 use App\Services\DiscountTaxService;
 use App\Services\VoucherService;
 use App\Services\WarrantyRegistrationService;
@@ -24,6 +28,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -36,7 +41,8 @@ class ServiceOrderController extends Controller
 
     public function __construct(
         private WarrantyRegistrationService $warrantyRegistrationService,
-        private VoucherService $voucherService
+        private VoucherService $voucherService,
+        private CashChangeSuggestionService $cashChangeSuggestionService
     ) {
     }
 
@@ -132,6 +138,49 @@ class ServiceOrderController extends Controller
         $order = ServiceOrder::with('customer', 'vehicle', 'mechanic', 'details.service', 'details.part', 'tags')
             ->findOrFail($id);
 
+        // Transform details to items format expected by Edit component
+        // Group details: each service creates an item, and subsequent parts are added to that item
+        $items = [];
+        $currentItem = null;
+
+        foreach ($order->details as $detail) {
+            if ($detail->service_id) {
+                // Start a new item if we encounter a service
+                if ($currentItem) {
+                    $items[] = $currentItem;
+                }
+                $currentItem = [
+                    'service_id' => $detail->service_id,
+                    'service_discount_type' => $detail->discount_type,
+                    'service_discount_value' => $detail->discount_value,
+                    'parts' => [],
+                ];
+            }
+
+            // Add part if this detail has one
+            if ($detail->part_id && $currentItem) {
+                $currentItem['parts'][] = [
+                    'part_id' => $detail->part_id,
+                    'qty' => $detail->qty,
+                    'price' => $detail->price,
+                ];
+            }
+        }
+
+        // Don't forget the last item
+        if ($currentItem) {
+            $items[] = $currentItem;
+        }
+
+        $order->items = $items;
+
+        // Get active service orders for vehicle-in-service check
+        $activeServiceOrders = ServiceOrder::query()
+            ->where('id', '!=', $id)
+            ->whereIn('status', ['pending', 'in_progress'])
+            ->select('id', 'vehicle_id', 'order_number', 'status')
+            ->get();
+
         return inertia('Dashboard/ServiceOrders/Edit', [
             'order' => $order,
             'customers' => \App\Models\Customer::with('vehicles')->get(),
@@ -140,6 +189,7 @@ class ServiceOrderController extends Controller
             'services' => \App\Models\Service::all(),
             'parts' => \App\Models\Part::with('category')->get(),
             'tags' => \App\Models\Tag::all(),
+            'activeServiceOrders' => $activeServiceOrders,
             'cashDenominations' => $this->getCashDenominations(),
             'availableVouchers' => Voucher::query()
                 ->where('is_active', true)
@@ -183,6 +233,7 @@ class ServiceOrderController extends Controller
             'order' => $order,
             'warrantyRegistrations' => $warrantyMap,
             'permissions' => $permissions,
+            'cashDenominations' => $this->getCashDenominations(),
         ]);
     }
 
@@ -215,6 +266,7 @@ class ServiceOrderController extends Controller
             'next_service_km' => 'nullable|integer|min:0',
             'next_service_date' => 'nullable|date',
             'payment_method' => 'nullable|in:cash,credit,mixed',
+            'applied_amount' => 'nullable|integer|min:0',
             'paid_amount' => 'nullable|integer|min:0',
             'payment_meta' => 'nullable|array',
             'transfer_destination' => 'nullable|in:qris,bni,bca,bri,edc_bri,transfer_bni,transfer_bca,transfer_bri',
@@ -254,6 +306,8 @@ class ServiceOrderController extends Controller
         try {
 
             $orderNumber = 'SO-' . strtoupper(Str::random(8));
+            $appliedAmount = (int) ($request->input('applied_amount') ?? $request->paid_amount ?? 0);
+            $paymentMeta = $this->normalizePaymentMeta($request->payment_meta, $appliedAmount);
 
             $order = ServiceOrder::create([
                 'order_number' => $orderNumber,
@@ -270,9 +324,9 @@ class ServiceOrderController extends Controller
                 'next_service_km' => $request->next_service_km,
                 'next_service_date' => $request->next_service_date,
                 'payment_method' => $request->payment_method ?? 'cash',
-                'paid_amount' => $request->paid_amount ?? 0,
+                'paid_amount' => $appliedAmount,
                 'transfer_destination' => $request->transfer_destination ?? null,
-                'payment_meta' => $request->payment_meta ?? null,
+                'payment_meta' => $paymentMeta,
                 'total' => 0,
                 'discount_type' => $request->discount_type ?? 'none',
                 'discount_value' => $request->discount_value ?? 0,
@@ -429,6 +483,7 @@ class ServiceOrderController extends Controller
             'next_service_km' => 'nullable|integer|min:0',
             'next_service_date' => 'nullable|date',
             'payment_method' => 'nullable|in:cash,credit,mixed',
+            'applied_amount' => 'nullable|integer|min:0',
             'paid_amount' => 'nullable|integer|min:0',
             'payment_meta' => 'nullable|array',
             'transfer_destination' => 'nullable|in:qris,bni,bca,bri,edc_bri,transfer_bni,transfer_bca,transfer_bri',
@@ -453,6 +508,13 @@ class ServiceOrderController extends Controller
 
         $order = ServiceOrder::findOrFail($id);
         $this->voucherService->clearUsageBySource(ServiceOrder::class, (int) $order->id);
+        $appliedAmount = (int) ($request->input('applied_amount') ?? $request->paid_amount ?? $order->paid_amount ?? 0);
+
+        $paymentMeta = $this->normalizePaymentMeta(
+            $request->payment_meta ?? null,
+            $appliedAmount,
+            $order->payment_meta ?? null
+        );
 
         $order->update([
             'customer_id' => $request->customer_id,
@@ -467,9 +529,9 @@ class ServiceOrderController extends Controller
             'next_service_km' => $request->next_service_km,
             'next_service_date' => $request->next_service_date,
             'payment_method' => $request->payment_method ?? $order->payment_method ?? 'cash',
-            'paid_amount' => $request->paid_amount ?? $order->paid_amount ?? 0,
+            'paid_amount' => $appliedAmount,
             'transfer_destination' => $request->transfer_destination ?? $order->transfer_destination ?? null,
-            'payment_meta' => $request->payment_meta ?? $order->payment_meta ?? null,
+            'payment_meta' => $paymentMeta,
             'discount_type' => $request->discount_type ?? 'none',
             'discount_value' => $request->discount_value ?? 0,
             'voucher_id' => null,
@@ -509,6 +571,17 @@ class ServiceOrderController extends Controller
         );
 
         return $this->jsonOrRedirect('service-orders.show', [$order->id], 'Service order updated.', $order->load(['customer', 'vehicle', 'mechanic', 'details.service', 'details.part'])->toArray());
+    }
+
+    private function normalizePaymentMeta(?array $paymentMeta, int $paidAmount, ?array $fallbackMeta = null): ?array
+    {
+        $meta = array_merge($fallbackMeta ?? [], $paymentMeta ?? []);
+
+        if ($paidAmount > 0 && empty($meta['payment_received_at'])) {
+            $meta['payment_received_at'] = now()->toISOString();
+        }
+
+        return empty($meta) ? null : $meta;
     }
 
     public function updateStatus(Request $request, $id)
@@ -569,6 +642,218 @@ class ServiceOrderController extends Controller
         }
 
         return $this->jsonOrRedirect(null, [], 'Status updated.', $order->toArray());
+    }
+
+    public function updatePayment(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'payment_amount' => 'required|integer|min:1',
+            'applied_amount' => 'nullable|integer|min:0',
+            'payment_method' => 'nullable|in:cash,credit,mixed',
+            'transfer_destination' => 'nullable|in:qris,bni,bca,bri,edc_bri,transfer_bni,transfer_bca,transfer_bri',
+            'payment_meta' => 'nullable|array',
+            'received_denominations' => 'nullable|array',
+            'received_denominations.*.denomination_id' => 'required_with:received_denominations|exists:cash_denominations,id',
+            'received_denominations.*.quantity' => 'required_with:received_denominations|integer|min:0',
+        ]);
+
+        $order = ServiceOrder::findOrFail($id);
+        $paymentAmount = (int) $validated['payment_amount'];
+        $paymentMeta = is_array($validated['payment_meta'] ?? null) ? $validated['payment_meta'] : [];
+
+        $paymentState = clone $order;
+        $paymentState->payment_meta = $paymentMeta;
+        $settlementTotal = $paymentState->getPaymentSettlementTotal();
+        $remainingBeforePayment = max(0, $settlementTotal - (int) $order->paid_amount);
+        $appliedAmount = isset($validated['applied_amount'])
+            ? max(0, (int) $validated['applied_amount'])
+            : min($paymentAmount, $remainingBeforePayment);
+        $netPaymentAmount = min($appliedAmount, $remainingBeforePayment);
+        $changeFromThisPayment = max(0, $paymentAmount - $appliedAmount);
+
+        $receivedRows = collect($validated['received_denominations'] ?? [])
+            ->map(function ($row) {
+                return [
+                    'denomination_id' => (int) $row['denomination_id'],
+                    'quantity' => (int) $row['quantity'],
+                ];
+            })
+            ->filter(fn ($row) => $row['quantity'] > 0)
+            ->values();
+
+        if ($receivedRows->isNotEmpty()) {
+            $denominationValues = CashDenomination::query()
+                ->whereIn('id', $receivedRows->pluck('denomination_id'))
+                ->pluck('value', 'id');
+
+            $receivedTotal = (int) $receivedRows->sum(function ($row) use ($denominationValues) {
+                return ((int) ($denominationValues[$row['denomination_id']] ?? 0)) * (int) $row['quantity'];
+            });
+
+            if ($receivedTotal !== $paymentAmount) {
+                throw ValidationException::withMessages([
+                    'payment_amount' => ['Total pecahan uang diterima harus sama dengan jumlah pembayaran.'],
+                ]);
+            }
+        }
+
+        DB::transaction(function () use ($order, $paymentAmount, $paymentMeta, $netPaymentAmount, $changeFromThisPayment, $receivedRows, $request, $validated) {
+            if ($receivedRows->isNotEmpty()) {
+                $this->recordCashPaymentWithDenominations(
+                    $order,
+                    $paymentAmount,
+                    $changeFromThisPayment,
+                    $receivedRows,
+                    (int) $request->user()->id
+                );
+            }
+
+            $newPaidAmount = (int) $order->paid_amount + $netPaymentAmount;
+
+            $order->paid_amount = $newPaidAmount;
+            $order->payment_method = $validated['payment_method'] ?? $order->payment_method;
+            $order->transfer_destination = $validated['transfer_destination'] ?? $order->transfer_destination;
+            $order->payment_meta = $paymentMeta ?: $order->payment_meta;
+            $order->applyPaymentSettlementStatus()->save();
+        });
+
+        return $this->jsonOrRedirect(null, [], 'Pembayaran berhasil dicatat');
+    }
+
+    private function recordCashPaymentWithDenominations(
+        ServiceOrder $order,
+        int $paymentAmount,
+        int $changeAmount,
+        $receivedRows,
+        int $userId
+    ): void {
+        $receivedRows = collect($receivedRows)->values();
+
+        $denominationValues = CashDenomination::query()
+            ->whereIn('id', $receivedRows->pluck('denomination_id'))
+            ->pluck('value', 'id')
+            ->map(fn ($value) => (int) $value)
+            ->toArray();
+
+        $receivedTotal = (int) $receivedRows->sum(function ($row) use ($denominationValues) {
+            $denominationId = (int) $row['denomination_id'];
+            $value = (int) ($denominationValues[$denominationId] ?? 0);
+
+            return $value * (int) $row['quantity'];
+        });
+
+        $availableByValue = CashDrawerDenomination::query()
+            ->join('cash_denominations', 'cash_drawer_denominations.denomination_id', '=', 'cash_denominations.id')
+            ->selectRaw('cash_denominations.value as value, cash_drawer_denominations.quantity as quantity')
+            ->get()
+            ->mapWithKeys(fn ($row) => [(int) $row->value => (int) $row->quantity])
+            ->toArray();
+
+        foreach ($receivedRows as $row) {
+            $value = (int) ($denominationValues[(int) $row['denomination_id']] ?? 0);
+            if ($value <= 0) {
+                continue;
+            }
+            $availableByValue[$value] = (int) ($availableByValue[$value] ?? 0) + (int) $row['quantity'];
+        }
+
+        $changeSuggestion = $this->cashChangeSuggestionService->suggest($changeAmount, $availableByValue);
+        $effectiveChangeAmount = (int) $changeSuggestion['allocated_amount'];
+        $changeShortage = max(0, $changeAmount - $effectiveChangeAmount);
+
+        $valueToId = CashDenomination::query()
+            ->pluck('id', 'value')
+            ->map(fn ($id) => (int) $id)
+            ->toArray();
+
+        $receivedTransaction = CashTransaction::create([
+            'transaction_type' => 'income',
+            'amount' => $receivedTotal,
+            'source' => 'service-order-payment',
+            'description' => "Pembayaran cash service order {$order->order_number}",
+            'meta' => [
+                'service_order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'net_payment_amount' => $paymentAmount,
+                'received_total' => $receivedTotal,
+                'change_amount' => $changeAmount,
+                'change_shortage' => $changeShortage,
+            ],
+            'happened_at' => now(),
+            'created_by' => $userId,
+        ]);
+
+        foreach ($receivedRows as $row) {
+            $denominationId = (int) $row['denomination_id'];
+            $quantity = (int) $row['quantity'];
+            $value = (int) ($denominationValues[$denominationId] ?? 0);
+            if ($quantity <= 0 || $value <= 0) {
+                continue;
+            }
+
+            CashTransactionItem::create([
+                'cash_transaction_id' => $receivedTransaction->id,
+                'denomination_id' => $denominationId,
+                'direction' => 'in',
+                'quantity' => $quantity,
+                'line_total' => $value * $quantity,
+            ]);
+
+            $drawer = CashDrawerDenomination::firstOrCreate(
+                ['denomination_id' => $denominationId],
+                ['quantity' => 0]
+            );
+            $drawer->update(['quantity' => (int) $drawer->quantity + $quantity]);
+        }
+
+        if ($effectiveChangeAmount > 0) {
+            $changeTransaction = CashTransaction::create([
+                'transaction_type' => 'change_given',
+                'amount' => $effectiveChangeAmount,
+                'source' => 'service-order-change',
+                'description' => "Kembalian cash service order {$order->order_number}",
+                'meta' => [
+                    'service_order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'requested_change_amount' => $changeAmount,
+                    'allocated_change_amount' => $effectiveChangeAmount,
+                    'change_shortage' => $changeShortage,
+                ],
+                'happened_at' => now(),
+                'created_by' => $userId,
+            ]);
+
+            foreach ($changeSuggestion['items'] as $item) {
+                $value = (int) $item['value'];
+                $quantity = (int) $item['quantity'];
+                $denominationId = (int) ($valueToId[$value] ?? 0);
+                if ($denominationId <= 0 || $quantity <= 0) {
+                    continue;
+                }
+
+                $drawer = CashDrawerDenomination::firstOrCreate(
+                    ['denomination_id' => $denominationId],
+                    ['quantity' => 0]
+                );
+
+                $newQty = (int) $drawer->quantity - $quantity;
+                if ($newQty < 0) {
+                    throw ValidationException::withMessages([
+                        'payment_amount' => ['Stok kas pecahan tidak mencukupi untuk kembalian.'],
+                    ]);
+                }
+
+                CashTransactionItem::create([
+                    'cash_transaction_id' => $changeTransaction->id,
+                    'denomination_id' => $denominationId,
+                    'direction' => 'out',
+                    'quantity' => $quantity,
+                    'line_total' => $value * $quantity,
+                ]);
+
+                $drawer->update(['quantity' => $newQty]);
+            }
+        }
     }
 
     public function claimWarranty(Request $request, $id, $detailId)

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import Button from '@/Components/Dashboard/Button';
@@ -18,13 +18,6 @@ import {
     IconSearch,
     IconArrowsSort,
     IconArrowLeft,
-    IconTool,
-    IconEngine,
-    IconManualGearbox,
-    IconBatteryAutomotive,
-    IconDisc,
-    IconCarFan,
-    IconPaint,
 } from '@tabler/icons-react';
 
 const sortOptions = [
@@ -34,47 +27,6 @@ const sortOptions = [
     { key: 'order-asc', label: 'Urutan Terkecil' },
     { key: 'order-desc', label: 'Urutan Terbesar' },
 ];
-
-const BROKEN_ICON_PATTERN = /[\u00c2\u00c3\u00e2\u00f0]/u;
-
-const categoryIconMap = {
-    'tune up & maintenance': IconTool,
-    'engine service': IconEngine,
-    'transmission & clutch': IconManualGearbox,
-    'electrical & battery': IconBatteryAutomotive,
-    'brake system': IconDisc,
-    'suspension & chassis': IconCarFan,
-    'body & painting': IconPaint,
-    'wheel & tire': IconDisc,
-    diagnostics: IconSettings,
-};
-
-function hasBrokenEncoding(value) {
-    if (!value || typeof value !== 'string') return false;
-    return BROKEN_ICON_PATTERN.test(value);
-}
-
-function isLikelyEmoji(value) {
-    if (!value || typeof value !== 'string') return false;
-    return /\p{Extended_Pictographic}/u.test(value);
-}
-
-function getCategoryIconComponent(category) {
-    const normalizedName = (category?.name || '').trim().toLowerCase();
-    return categoryIconMap[normalizedName] || IconCategory;
-}
-
-function CategoryIcon({ category, className = '', size = 56 }) {
-    const rawIcon = typeof category?.icon === 'string' ? category.icon.trim() : '';
-    const shouldUseRawEmoji = rawIcon && !hasBrokenEncoding(rawIcon) && isLikelyEmoji(rawIcon);
-
-    if (shouldUseRawEmoji) {
-        return <span className={className}>{rawIcon}</span>;
-    }
-
-    const ResolvedIcon = getCategoryIconComponent(category);
-    return <ResolvedIcon size={size} strokeWidth={1.6} className={className} />;
-}
 
 function StatCard({ title, value, icon, tone = 'primary' }) {
     const tones = {
@@ -100,7 +52,7 @@ function CategoryCard({ category, isHighlighted }) {
     return (
         <div className={`group rounded-2xl border overflow-hidden hover:shadow-lg hover:shadow-primary-500/10 transition-all duration-200 ${isHighlighted ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'}`}>
             <div className="p-4 bg-gradient-to-br from-primary-50 to-slate-50 dark:from-primary-900/20 dark:to-slate-800 border-b border-slate-200 dark:border-slate-800 flex items-center justify-center h-32">
-                <CategoryIcon category={category} className="text-slate-900 dark:text-slate-100" />
+                <span className="text-6xl">{category.icon || 'ðŸ”§'}</span>
             </div>
             <div className="p-4">
                 <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-1 line-clamp-2">{category.name}</h3>
@@ -125,7 +77,6 @@ function CategoryCard({ category, isHighlighted }) {
 function Index({ categories }) {
     const [viewMode, setViewMode] = useState('grid');
     const [liveServiceCategories, setLiveServiceCategories] = useState(categories?.data || []);
-    useEffect(() => { setLiveServiceCategories(categories?.data || []); }, [categories?.data]);
     const [quickSearch, setQuickSearch] = useState('');
     const [sortBy, setSortBy] = useState('latest');
 
@@ -295,7 +246,7 @@ function Index({ categories }) {
                                             <tr key={category.id} className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50">
                                                 <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">{idx + 1}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap">
-                                                    <CategoryIcon category={category} size={32} className="text-slate-900 dark:text-slate-100" />
+                                                    <span className="text-3xl">{category.icon || 'ðŸ”§'}</span>
                                                 </td>
                                                 <td className="px-4 py-4">
                                                     <div className="text-sm font-semibold text-slate-900 dark:text-white">{category.name}</div>
@@ -353,3 +304,5 @@ function Index({ categories }) {
 Index.layout = (page) => <DashboardLayout children={page} />;
 
 export default Index;
+
+

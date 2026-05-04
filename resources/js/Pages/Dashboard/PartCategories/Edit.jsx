@@ -24,8 +24,9 @@ const AVAILABLE_ICONS = [
     { name: 'Settings', icon: IconSettings },
 ];
 
-function Edit({ auth, category }) {
+function Edit({ auth, category, parentCategories = [] }) {
     const { data, setData, put, processing, errors } = useForm({
+        parent_id: category.parent_id ? String(category.parent_id) : '',
         name: category.name || '',
         description: category.description || '',
         icon: category.icon || 'Box',
@@ -81,6 +82,36 @@ function Edit({ auth, category }) {
                     {/* Form */}
                     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
                         <form onSubmit={handleSubmit} className="space-y-6">
+                            {/* Parent Category */}
+                            <div>
+                                <label htmlFor="parent_id" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                                    Kategori Induk <span className="text-slate-400 font-normal">(Opsional)</span>
+                                </label>
+                                <select
+                                    id="parent_id"
+                                    value={data.parent_id}
+                                    onChange={(e) => setData('parent_id', e.target.value)}
+                                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all ${
+                                        errors.parent_id
+                                            ? 'border-red-500 focus:ring-red-200'
+                                            : 'border-slate-200 dark:border-slate-700'
+                                    } bg-white dark:bg-slate-900 text-slate-900 dark:text-white`}
+                                >
+                                    <option value="">Tidak ada (kategori utama)</option>
+                                    {parentCategories.map((parent) => {
+                                        const prefix = parent.depth > 0 ? '\u00a0'.repeat(parent.depth * 2) + '├ ' : '';
+                                        return (
+                                            <option key={parent.id} value={parent.id}>
+                                                {prefix}{parent.name}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                                {errors.parent_id && (
+                                    <p className="mt-2 text-sm text-red-500">{errors.parent_id}</p>
+                                )}
+                            </div>
+
                             {/* Nama Kategori */}
                             <div>
                                 <label htmlFor="name" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">

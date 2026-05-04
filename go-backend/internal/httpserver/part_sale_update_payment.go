@@ -12,6 +12,7 @@ import (
 
 type partSaleUpdatePaymentRequest struct {
 	PaymentAmount         int64                      `json:"payment_amount"`
+	AppliedAmount         int64                      `json:"applied_amount"`
 	ReceivedDenominations []cashSuggestReceivedEntry `json:"received_denominations"`
 	ActorUserID           sql.NullInt64              `json:"-"`
 }
@@ -71,6 +72,11 @@ func partSaleUpdatePaymentHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		appliedAmount := payload.AppliedAmount
+		if appliedAmount < 1 {
+			appliedAmount = payload.PaymentAmount
+		}
+
 		partSale, err := queryPartSalePaymentState(db, partSaleIntID)
 		if err == sql.ErrNoRows {
 			writeJSON(w, http.StatusNotFound, response{"message": "Part sale not found."})
@@ -81,8 +87,7 @@ func partSaleUpdatePaymentHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		remainingBeforePayment := maxInt64(0, partSale.GrandTotal-partSale.PaidAmount)
-		changeFromPayment := maxInt64(0, payload.PaymentAmount-remainingBeforePayment)
+		changeFromPayment := maxInt64(0, payload.PaymentAmount-appliedAmount)
 
 		receivedRows := normalizeReceivedRows(payload.ReceivedDenominations)
 		if len(receivedRows) > 0 {
@@ -126,7 +131,7 @@ func partSaleUpdatePaymentHandler(db *sql.DB) http.HandlerFunc {
 			}
 		}
 
-		newPaidAmount := partSale.PaidAmount + payload.PaymentAmount
+		newPaidAmount := partSale.PaidAmount + appliedAmount
 		remainingAmount := maxInt64(0, partSale.GrandTotal-newPaidAmount)
 		paymentStatus := "unpaid"
 		if newPaidAmount >= partSale.GrandTotal {
@@ -159,6 +164,7 @@ func partSaleUpdatePaymentHandler(db *sql.DB) http.HandlerFunc {
 			WithAction("payment_updated").
 			WithData(response{
 				"payment_amount":   payload.PaymentAmount,
+				"applied_amount":   appliedAmount,
 				"new_paid_amount":  newPaidAmount,
 				"remaining_amount": remainingAmount,
 				"payment_status":   paymentStatus,
