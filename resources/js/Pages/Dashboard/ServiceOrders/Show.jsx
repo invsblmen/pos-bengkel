@@ -156,10 +156,10 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
     };
 
     const mechanicHref = getMechanicHref(currentOrder.mechanic?.id);
-    
+
     const paidAmount = Number(currentOrder.paid_amount || 0);
     const remainingAmount = grandTotal - paidAmount;
-    
+
     const handlePaymentConfirm = (paymentData) => {
         try {
             // Extract received_denominations from payment_meta.cash_breakdown
