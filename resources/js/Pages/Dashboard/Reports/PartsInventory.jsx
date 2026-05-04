@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+﻿import React, { useState } from "react";
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import { Head, router } from "@inertiajs/react";
 import { IconAlertTriangle } from "@tabler/icons-react";
@@ -8,10 +8,6 @@ import { useRealtimeReportHistoryReload } from "@/Hooks/useRealtimeReportHistory
 export default function PartsInventoryReport({ parts, filters, summary }) {
     useRealtimeReportHistoryReload();
     const [selectedStatus, setSelectedStatus] = useState(filters.status);
-
-    useEffect(() => {
-        setSelectedStatus(filters.status);
-    }, [filters.status]);
 
     const handleStatusChange = (status) => {
         setSelectedStatus(status);

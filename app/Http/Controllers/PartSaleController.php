@@ -889,16 +889,27 @@ class PartSaleController extends Controller
     {
         $validated = $request->validate([
             'payment_amount' => 'required|integer|min:1',
+            'applied_amount' => 'nullable|integer|min:0',
+            'payment_method' => 'nullable|in:cash,credit,mixed',
+            'transfer_destination' => 'nullable|in:qris,bni,bca,bri,edc_bri,transfer_bni,transfer_bca,transfer_bri',
+            'payment_meta' => 'nullable|array',
             'received_denominations' => 'nullable|array',
             'received_denominations.*.denomination_id' => 'required_with:received_denominations|exists:cash_denominations,id',
             'received_denominations.*.quantity' => 'required_with:received_denominations|integer|min:0',
         ]);
 
         $paymentAmount = (int) $validated['payment_amount'];
-        $settlementTotal = $partSale->getPaymentSettlementTotal();
+        $paymentMeta = is_array($validated['payment_meta'] ?? null) ? $validated['payment_meta'] : [];
+
+        $paymentState = clone $partSale;
+        $paymentState->payment_meta = $paymentMeta;
+        $settlementTotal = $paymentState->getPaymentSettlementTotal();
         $remainingBeforePayment = max(0, $settlementTotal - (int) $partSale->paid_amount);
-        $netPaymentAmount = min($paymentAmount, $remainingBeforePayment);
-        $changeFromThisPayment = max(0, $paymentAmount - $remainingBeforePayment);
+        $appliedAmount = isset($validated['applied_amount'])
+            ? max(0, (int) $validated['applied_amount'])
+            : min($paymentAmount, $remainingBeforePayment);
+        $netPaymentAmount = min($appliedAmount, $remainingBeforePayment);
+        $changeFromThisPayment = max(0, $paymentAmount - $appliedAmount);
 
         $receivedRows = collect($validated['received_denominations'] ?? [])
             ->map(function ($row) {
@@ -926,7 +937,7 @@ class PartSaleController extends Controller
             }
         }
 
-        DB::transaction(function () use ($partSale, $paymentAmount, $changeFromThisPayment, $receivedRows, $request) {
+        DB::transaction(function () use ($partSale, $paymentAmount, $paymentMeta, $netPaymentAmount, $changeFromThisPayment, $receivedRows, $request, $validated) {
             if ($receivedRows->isNotEmpty()) {
                 $this->recordCashPaymentWithDenominations(
                     $partSale,
@@ -940,6 +951,9 @@ class PartSaleController extends Controller
             $newPaidAmount = (int) $partSale->paid_amount + $netPaymentAmount;
 
             $partSale->paid_amount = $newPaidAmount;
+            $partSale->payment_method = $validated['payment_method'] ?? $partSale->payment_method;
+            $partSale->transfer_destination = $validated['transfer_destination'] ?? $partSale->transfer_destination;
+            $partSale->payment_meta = $paymentMeta ?: $partSale->payment_meta;
             $partSale->applyPaymentSettlementStatus()->save();
         });
 
@@ -984,11 +998,8 @@ class PartSaleController extends Controller
         }
 
         $changeSuggestion = $this->cashChangeSuggestionService->suggest($changeAmount, $availableByValue);
-        if ($changeAmount > 0 && !$changeSuggestion['exact']) {
-            throw ValidationException::withMessages([
-                'payment_amount' => ['Stok kas tidak cukup untuk memberikan kembalian pas.'],
-            ]);
-        }
+        $effectiveChangeAmount = (int) $changeSuggestion['allocated_amount'];
+        $changeShortage = max(0, $changeAmount - $effectiveChangeAmount);
 
         $valueToId = CashDenomination::query()
             ->pluck('id', 'value')
@@ -1006,6 +1017,7 @@ class PartSaleController extends Controller
                 'net_payment_amount' => $paymentAmount,
                 'received_total' => $receivedTotal,
                 'change_amount' => $changeAmount,
+                'change_shortage' => $changeShortage,
             ],
             'happened_at' => now(),
             'created_by' => $userId,
@@ -1034,15 +1046,18 @@ class PartSaleController extends Controller
             $drawer->update(['quantity' => (int) $drawer->quantity + $quantity]);
         }
 
-        if ($changeAmount > 0) {
+        if ($effectiveChangeAmount > 0) {
             $changeTransaction = CashTransaction::create([
                 'transaction_type' => 'change_given',
-                'amount' => $changeAmount,
+                'amount' => $effectiveChangeAmount,
                 'source' => 'part-sale-change',
                 'description' => "Kembalian cash penjualan {$partSale->sale_number}",
                 'meta' => [
                     'part_sale_id' => $partSale->id,
                     'sale_number' => $partSale->sale_number,
+                    'requested_change_amount' => $changeAmount,
+                    'allocated_change_amount' => $effectiveChangeAmount,
+                    'change_shortage' => $changeShortage,
                 ],
                 'happened_at' => now(),
                 'created_by' => $userId,

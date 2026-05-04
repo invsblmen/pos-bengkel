@@ -11,8 +11,9 @@ function sanitizeIconValue(value) {
     return BROKEN_ICON_PATTERN.test(value) ? '' : value;
 }
 
-function Edit({ auth, category }) {
+function Edit({ auth, category, parentCategories = [] }) {
     const { data, setData, put, processing, errors } = useForm({
+        parent_id: category?.parent_id ? String(category.parent_id) : '',
         name: category?.name || '',
         description: category?.description || '',
         icon: sanitizeIconValue(category?.icon),
@@ -54,6 +55,36 @@ function Edit({ auth, category }) {
                     {/* Form */}
                     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
                         <form onSubmit={handleSubmit} className="space-y-6">
+                            {/* Parent Category */}
+                            <div>
+                                <label htmlFor="parent_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Kategori Induk
+                                </label>
+                                <select
+                                    id="parent_id"
+                                    value={data.parent_id}
+                                    onChange={(e) => setData('parent_id', e.target.value)}
+                                    className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-primary-500 transition-colors ${
+                                        errors.parent_id
+                                            ? 'border-red-500 focus:border-red-500 focus:ring-red-200'
+                                            : 'border-gray-200 dark:border-gray-700 focus:border-transparent'
+                                    } bg-white dark:bg-gray-900 text-gray-900 dark:text-white`}
+                                >
+                                    <option value="">Tidak ada (kategori utama)</option>
+                                    {parentCategories.map((parent) => {
+                                        const prefix = parent.depth > 0 ? '\u00a0'.repeat(parent.depth * 2) + '├ ' : '';
+                                        return (
+                                            <option key={parent.id} value={parent.id}>
+                                                {prefix}{parent.name}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                                {errors.parent_id && (
+                                    <p className="mt-1 text-sm text-red-500">{errors.parent_id}</p>
+                                )}
+                            </div>
+
                             {/* Name */}
                             <div>
                                 <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

@@ -2,7 +2,7 @@
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import { Head, router } from "@inertiajs/react";
 import { Card, CardBody, CardHeader, CardTitle } from "@/Components/Card";
-import { IconChartInfographic, IconDownload, IconExternalLink, IconFilter } from "@tabler/icons-react";
+import { IconChartInfographic, IconDownload, IconFilter } from "@tabler/icons-react";
 import { useRealtimeReportHistoryReload } from "@/Hooks/useRealtimeReportHistoryReload";
 
 const formatCurrency = (value = 0) =>
@@ -15,14 +15,12 @@ const formatCurrency = (value = 0) =>
 const sourceLabel = {
     service_order: "Service Order",
     part_sale: "Penjualan Part",
-    part_purchase: "Pembelian Part",
     cash_transaction: "Transaksi Kas",
 };
 
 const sourceBadgeClass = {
     service_order: "bg-blue-100 text-blue-700 border-blue-200",
     part_sale: "bg-cyan-100 text-cyan-700 border-cyan-200",
-    part_purchase: "bg-orange-100 text-orange-700 border-orange-200",
     cash_transaction: "bg-violet-100 text-violet-700 border-violet-200",
 };
 
@@ -39,10 +37,8 @@ const flowLabel = {
 };
 
 const statusBadgeClass = {
-    unpaid: "bg-slate-100 text-slate-700 border-slate-200",
-    partial: "bg-amber-100 text-amber-700 border-amber-200",
-    paid: "bg-emerald-100 text-emerald-700 border-emerald-200",
     completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    paid: "bg-green-100 text-green-700 border-green-200",
     draft: "bg-slate-100 text-slate-700 border-slate-200",
     confirmed: "bg-blue-100 text-blue-700 border-blue-200",
     waiting_stock: "bg-amber-100 text-amber-700 border-amber-200",
@@ -318,7 +314,6 @@ export default function OverallReport({ summary, filters, transactions, statusOp
                                     <option value="all">Semua</option>
                                     <option value="service_order">Service Order</option>
                                     <option value="part_sale">Penjualan Part</option>
-                                    <option value="part_purchase">Pembelian Part</option>
                                     <option value="cash_transaction">Transaksi Kas</option>
                                 </select>
                             </div>
@@ -463,7 +458,7 @@ export default function OverallReport({ summary, filters, transactions, statusOp
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Card>
                         <CardBody>
                             <p className="text-sm text-slate-500">Revenue Service</p>
@@ -480,12 +475,6 @@ export default function OverallReport({ summary, filters, transactions, statusOp
                         <CardBody>
                             <p className="text-sm text-slate-500">Total Revenue</p>
                             <p className="text-xl font-bold text-emerald-600">{formatCurrency(summary.total_revenue)}</p>
-                        </CardBody>
-                    </Card>
-                    <Card>
-                        <CardBody>
-                            <p className="text-sm text-slate-500">Pembelian Part Terbayar</p>
-                            <p className="text-xl font-bold text-rose-600">{formatCurrency(summary.part_purchase_expense)}</p>
                         </CardBody>
                     </Card>
                     <Card>
@@ -536,13 +525,12 @@ export default function OverallReport({ summary, filters, transactions, statusOp
                                         <th className="text-right py-3 px-3 font-semibold">Nominal</th>
                                         <th className="text-left py-3 px-3 font-semibold">Status</th>
                                         <th className="text-right py-3 px-3 font-semibold">Saldo Berjalan</th>
-                                        <th className="text-right py-3 px-3 font-semibold">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
                                     {transactionData.length === 0 ? (
                                         <tr>
-                                            <td colSpan={9} className="py-8 text-center text-slate-500">
+                                            <td colSpan={8} className="py-8 text-center text-slate-500">
                                                 Tidak ada data transaksi pada rentang tanggal ini.
                                             </td>
                                         </tr>
@@ -575,19 +563,6 @@ export default function OverallReport({ summary, filters, transactions, statusOp
                                                     </span>
                                                 </td>
                                                 <td className="py-3 px-3 text-right font-semibold">{formatCurrency(item.running_balance || 0)}</td>
-                                                <td className="py-3 px-3 text-right">
-                                                    {item.detail_url ? (
-                                                        <a
-                                                            href={item.detail_url}
-                                                            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-xs font-semibold text-blue-700 hover:bg-blue-100"
-                                                        >
-                                                            <IconExternalLink size={14} />
-                                                            Buka Detail
-                                                        </a>
-                                                    ) : (
-                                                        <span className="text-xs text-slate-400">Tidak tersedia</span>
-                                                    )}
-                                                </td>
                                             </tr>
                                         ))
                                     )}
@@ -626,3 +601,4 @@ export default function OverallReport({ summary, filters, transactions, statusOp
         </DashboardLayout>
     );
 }
+

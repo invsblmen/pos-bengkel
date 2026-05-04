@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
+import TransactionPaymentSection from '@/Components/TransactionPaymentSection';
+import PaymentReceiptModal from '@/Components/PaymentReceiptModal';
 import {
     IconArrowLeft,
     IconPencil,
@@ -15,8 +17,9 @@ import {
 import { toDisplayDateTime } from '@/Utils/datetime';
 import toast from 'react-hot-toast';
 
-export default function Show({ order, warrantyRegistrations = {}, permissions = {} }) {
+export default function Show({ order, warrantyRegistrations = {}, permissions = {}, cashDenominations = [] }) {
     const [liveOrder, setLiveOrder] = useState(order);
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
 
     useEffect(() => {
         setLiveOrder(order);
@@ -38,19 +41,19 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
             pending: { color: 'bg-yellow-100 text-yellow-700', label: 'Menunggu' },
             in_progress: { color: 'bg-blue-100 text-blue-700', label: 'Dikerjakan' },
             completed: { color: 'bg-green-100 text-green-700', label: 'Selesai' },
+            paid: { color: 'bg-purple-100 text-purple-700', label: 'Sudah Dibayar' },
             cancelled: { color: 'bg-red-100 text-red-700', label: 'Dibatalkan' },
         };
         return badges[status] || badges.pending;
     };
 
-    const getPaymentBadge = (paymentStatus) => {
+    const getPaymentBadge = (status) => {
         const badges = {
-            unpaid: { color: 'bg-slate-100 text-slate-700', label: 'Belum Dibayar' },
-            partial: { color: 'bg-amber-100 text-amber-700', label: 'Sebagian' },
-            paid: { color: 'bg-emerald-100 text-emerald-700', label: 'Lunas' },
+            paid: { color: 'bg-green-100 text-green-700', label: '✓ Lunas' },
+            partial: { color: 'bg-blue-100 text-blue-700', label: '◐ Sebagian' },
+            unpaid: { color: 'bg-gray-100 text-gray-700', label: '○ Belum Bayar' },
         };
-
-        return badges[paymentStatus] || badges.unpaid;
+        return badges[status] || badges.unpaid;
     };
 
     const getWarrantyMeta = (detail) => {
@@ -114,10 +117,7 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
             { claim_notes: notes },
             {
                 preserveScroll: true,
-                onSuccess: () => {
-                    toast.success('Klaim garansi berhasil dicatat');
-                    router.reload();
-                },
+                onSuccess: () => toast.success('Klaim garansi berhasil dicatat'),
                 onError: (errors) => toast.error(errors?.error || 'Gagal mencatat klaim garansi'),
             }
         );
@@ -132,7 +132,6 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
     const discountAmount = Number(currentOrder.discount_amount || 0);
     const voucherAmount = Number(currentOrder.voucher_discount_amount || 0);
     const taxAmount = Number(currentOrder.tax_amount || 0);
-    const roundingAdjustment = Number(currentOrder.rounding_adjustment || 0);
     const grandTotal = Number(currentOrder.grand_total || currentOrder.total || 0);
 
     const warrantyActiveCount = details.reduce((sum, detail) => {
@@ -157,6 +156,63 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
     };
 
     const mechanicHref = getMechanicHref(currentOrder.mechanic?.id);
+
+    const paidAmount = Number(currentOrder.paid_amount || 0);
+    const remainingAmount = grandTotal - paidAmount;
+
+    const handlePaymentConfirm = (paymentData) => {
+        try {
+            // Extract received_denominations from payment_meta.cash_breakdown
+            const receivedDenominations = Array.isArray(paymentData.payment_meta?.cash_breakdown)
+                ? paymentData.payment_meta.cash_breakdown.map(item => ({
+                    denomination_id: Number(item.denomination_id || 0),
+                    quantity: Number(item.quantity || 0),
+                  }))
+                : [];
+
+            // IMPORTANT: payment_amount must be the TOTAL CASH RECEIVED, not the amount to apply
+            // The backend will then calculate change: change = receivedTotal - appliedAmount
+            const cashReceivedTotal = Number(paymentData.payment_meta?.cash_received_total || 0);
+            const amountToApply = Number(paymentData.paid_amount || 0);
+
+            // Transform frontend data structure to match backend expectations
+            const transformedData = {
+                payment_amount: Math.max(1, cashReceivedTotal), // Total cash received from customer
+                applied_amount: Math.max(0, amountToApply), // Amount to apply to bill (may differ due to rounding/change)
+                payment_method: paymentData.payment_method || 'cash',
+                transfer_destination: paymentData.transfer_destination || '',
+                payment_meta: paymentData.payment_meta || {},
+                received_denominations: receivedDenominations,
+            };
+
+            console.log('Payment submission data:', {
+                cashReceivedTotal,
+                amountToApply,
+                transformedData
+            });
+
+            router.post(
+                route('service-orders.update-payment', currentOrder.id),
+                transformedData,
+                {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        toast.success('Pembayaran berhasil dicatat');
+                        setShowPaymentModal(false);
+                        router.reload();
+                    },
+                    onError: (errors) => {
+                        console.error('Payment error response:', errors);
+                        const errorMessage = errors?.payment_amount?.[0] || errors?.error || JSON.stringify(errors) || 'Gagal mencatat pembayaran';
+                        toast.error(errorMessage);
+                    },
+                }
+            );
+        } catch (error) {
+            console.error('Payment handler error:', error);
+            toast.error('Terjadi kesalahan saat memproses pembayaran');
+        }
+    };
 
     return (
         <>
@@ -347,14 +403,6 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                                         <td className="px-4 py-2 text-right text-sm font-semibold text-emerald-600">+{formatPrice(taxAmount)}</td>
                                     </tr>
                                 )}
-                                {roundingAdjustment !== 0 && (
-                                    <tr>
-                                        <td colSpan="4" className="px-4 py-2 text-right text-xs text-gray-500">Pembulatan</td>
-                                        <td className={`px-4 py-2 text-right text-sm font-semibold ${roundingAdjustment > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                                            {roundingAdjustment > 0 ? '+' : ''}{formatPrice(roundingAdjustment)}
-                                        </td>
-                                    </tr>
-                                )}
                                 <tr className="border-t border-gray-300 dark:border-gray-600">
                                     <td colSpan="4" className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">Grand Total</td>
                                     <td className="px-4 py-3 text-right text-base font-bold text-primary-700 dark:text-primary-300">{formatPrice(grandTotal)}</td>
@@ -391,9 +439,39 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                         <p className="text-sm font-semibold">{currentOrder.odometer_km ? `${Number(currentOrder.odometer_km).toLocaleString('id-ID')} km` : '-'}</p>
                     </div>
                 </div>
+
+                {remainingAmount > 0 && currentOrder.status !== 'cancelled' && (
+                    <TransactionPaymentSection
+                        title="Pembayaran"
+                        paymentMethod={currentOrder.payment_method || 'cash'}
+                        paidAmount={paidAmount}
+                        totalAmount={grandTotal}
+                        transferDestination={currentOrder.transfer_destination || ''}
+                        formatCurrency={formatPrice}
+                        onOpenPaymentModal={() => setShowPaymentModal(true)}
+                        note="Tekan tombol terima pembayaran untuk mencatat pembayaran service order ini."
+                    />
+                )}
             </div>
+
+            <PaymentReceiptModal
+                show={showPaymentModal}
+                onClose={() => setShowPaymentModal(false)}
+                onConfirm={handlePaymentConfirm}
+                totalAmount={remainingAmount}
+                cashDenominations={cashDenominations}
+                initialPayment={{
+                    payment_method: currentOrder.payment_method || 'cash',
+                    transfer_destination: currentOrder.transfer_destination || '',
+                    paid_amount: remainingAmount,
+                    payment_meta: currentOrder.payment_meta || {},
+                }}
+                formatCurrency={formatPrice}
+            />
         </>
     );
 }
 
 Show.layout = (page) => <DashboardLayout children={page} />;
+
+

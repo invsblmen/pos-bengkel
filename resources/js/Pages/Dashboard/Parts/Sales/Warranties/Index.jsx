@@ -143,10 +143,7 @@ export default function Index({ warranties, summary, filters, customers = [], ve
                 warranty_claim_notes: notes,
             }, {
                 preserveScroll: true,
-                onSuccess: () => {
-                    toast.success('Klaim garansi berhasil dicatat');
-                    router.reload();
-                },
+                onSuccess: () => toast.success('Klaim garansi berhasil dicatat'),
                 onError: (errors) => toast.error(errors?.error || 'Gagal mencatat klaim garansi'),
             });
             return;
@@ -160,10 +157,7 @@ export default function Index({ warranties, summary, filters, customers = [], ve
                 claim_notes: notes,
             }, {
                 preserveScroll: true,
-                onSuccess: () => {
-                    toast.success('Klaim garansi berhasil dicatat');
-                    router.reload();
-                },
+                onSuccess: () => toast.success('Klaim garansi berhasil dicatat'),
                 onError: (errors) => toast.error(errors?.error || 'Gagal mencatat klaim garansi'),
             });
             return;

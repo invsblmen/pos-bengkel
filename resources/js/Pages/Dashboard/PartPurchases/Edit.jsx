@@ -68,10 +68,15 @@ export default function Edit({ purchase, suppliers, parts, categories = [], cash
     };
 
     const handlePaymentConfirm = (paymentData) => {
+        const paymentReceivedAt = new Date().toISOString();
         handleChange('payment_method', paymentData.payment_method || 'cash');
         handleChange('paid_amount', Number(paymentData.paid_amount || 0));
+        handleChange('applied_amount', Number((paymentData.applied_amount ?? paymentData.paid_amount) || 0));
         handleChange('transfer_destination', paymentData.transfer_destination || '');
-        handleChange('payment_meta', paymentData.payment_meta || {});
+        handleChange('payment_meta', {
+            ...(paymentData.payment_meta || {}),
+            payment_received_at: paymentReceivedAt,
+        });
         setShowPaymentModal(false);
         toast.success('Data pembayaran tersimpan');
     };

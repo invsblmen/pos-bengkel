@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
-import { IconArrowLeft, IconRefresh, IconSearch, IconTruckDelivery } from '@tabler/icons-react';
+import { IconArrowLeft, IconRefresh, IconSearch, IconTruckDelivery, IconPlus, IconCheck, IconSend } from '@tabler/icons-react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/Card';
 import axios from 'axios';
@@ -213,6 +213,95 @@ export default function SDMSSpg({ initialIdBilling, sdms }) {
     const [compareLoading, setCompareLoading] = useState(false);
     const [compareResult, setCompareResult] = useState(null);
     const [compareError, setCompareError] = useState(null);
+    const [submitLoading, setSubmitLoading] = useState(false);
+    const [submitResult, setSubmitResult] = useState(null);
+    const [receivedParts, setReceivedParts] = useState([]);
+    const [showReceivedList, setShowReceivedList] = useState(false);
+
+    // local sparepart add modal state
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [modalPart, setModalPart] = useState({ numberPart: '', name: '' });
+    const [addedParts, setAddedParts] = useState({});
+    const [createSpareLoading, setCreateSpareLoading] = useState(false);
+    const [createPurchaseLoading, setCreatePurchaseLoading] = useState(false);
+
+    const handleOpenAddModal = (numberPart, name) => {
+        setModalPart({ numberPart, name });
+        setShowAddModal(true);
+    };
+
+    const handleAddPartLocal = async () => {
+        setCreateSpareLoading(true);
+        try {
+            // Create sparepart via API
+            await axios.post('/api/spg/sparepart', {
+                part_number: modalPart.numberPart,
+                name: modalPart.name,
+                supplier_id: detail ? parseInt(extractShipmentVendorId(detail)) || null : null,
+                buy_price: 0,
+                sell_price: 0,
+                status: 'active',
+            });
+            // Mark part as added in local state
+            setAddedParts((prev) => ({ ...prev, [modalPart.numberPart]: true }));
+            setShowAddModal(false);
+            setModalPart({ numberPart: '', name: '' });
+            alert('Sparepart berhasil ditambahkan!');
+        } catch (err) {
+            console.error(err);
+            alert('Gagal menambah sparepart: ' + (err?.response?.data?.message || err.message || 'Unknown'));
+        } finally {
+            setCreateSpareLoading(false);
+        }
+    };
+
+    const allPartsAdded = receivedParts.length > 0 && receivedParts.every((part) => addedParts[getCompareItemPartNumber(part)]);
+
+    const handleLanjutKePembelian = async () => {
+        if (!allPartsAdded) {
+            alert('Semua sparepart harus ditambahkan terlebih dahulu.');
+            return;
+        }
+
+        setCreatePurchaseLoading(true);
+        try {
+            // Extract supplier_id from detail
+            const vendorId = detail ? parseInt(extractShipmentVendorId(detail)) || null : null;
+            if (!vendorId) {
+                alert('Vendor ID tidak ditemukan.');
+                return;
+            }
+
+            // Map receivedParts to purchase items
+            const items = receivedParts.map((part) => ({
+                part_id: part.part_id || getCompareItemPartNumber(part), // will need part lookup
+                quantity: parseInt(getCompareItemQtyReceive(part)) || 1,
+                unit_price: 0, // default 0, can be updated later
+            }));
+
+            // Call create purchase endpoint
+            const response = await axios.post('/api/spg/part-purchase', {
+                supplier_id: vendorId,
+                items: items,
+                notes: `SPG ${idBilling} - Surat Jalan ${suratJalan}`,
+            });
+
+            if (response.data && response.data.success) {
+                alert(`Purchase Order berhasil dibuat: ${response.data.purchase_number}`);
+                // Optionally redirect atau navigate ke purchase page
+                // Untuk sekarang, reset state
+                setShowReceivedList(false);
+                setReceivedParts([]);
+                setAddedParts({});
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Gagal membuat purchase order: ' + (err?.response?.data?.message || err.message || 'Unknown'));
+        } finally {
+            setCreatePurchaseLoading(false);
+        }
+    };
+
 
     const handleCompare = async () => {
         if (!detail) {
@@ -264,6 +353,56 @@ export default function SDMSSpg({ initialIdBilling, sdms }) {
             setCompareResult(err?.response?.data || null);
         } finally {
             setCompareLoading(false);
+        }
+    };
+
+    const handleSubmitSPG = async () => {
+        if (!detail) {
+            alert('Detail SPG belum dimuat.');
+            return;
+        }
+
+        setSubmitResult(null);
+        setSubmitLoading(true);
+
+        // prefer items from compareResult.partDalamPS when available
+        const compareItemsObj = compareResult ? extractCompareItems(compareResult) : null;
+        const itemsToSend = compareItemsObj && Array.isArray(compareItemsObj.partDalamPS) && compareItemsObj.partDalamPS.length > 0
+            ? compareItemsObj.partDalamPS
+            : [];
+
+        if (itemsToSend.length === 0) {
+            if (!confirm('Tidak ada item dari hasil banding (partDalamPS). Tetap submit dengan item saat ini?')) {
+                setSubmitLoading(false);
+                return;
+            }
+        }
+
+        const payload = {
+            idBilling: idBilling,
+            nomorPs: extractShipmentLabel(detail, ['nomorPs', 'noPs', 'nomor_ps', 'purchaseNumber', 'documentNumber']) || '',
+            idVendor: extractShipmentVendorId(detail) || '',
+            dtCreated: extractShipmentLabel(detail, ['dtCreated', 'dtcreate', 'dt_create', 'createdAt', 'created_at', 'date', 'shipmentDate']) || '',
+            vendorName: extractShipmentVendorName(detail) || '',
+            documentNumber: suratJalan || extractShipmentDocumentNumber(detail) || '',
+            checkboxDocumentNumber: false,
+            dtStatus: extractShipmentDtStatus(detail) || '',
+            items: itemsToSend,
+        };
+
+        try {
+            const response = await axios.post('/api/part/ShipmentReceipt', payload);
+            setSubmitResult(response.data || null);
+            const received = (response.data && Array.isArray(response.data.partDalamPS)) ? response.data.partDalamPS : (itemsToSend || []);
+            setReceivedParts(received);
+            setShowReceivedList(true);
+            alert('Submit SPG berhasil. Received list ditampilkan.');
+        } catch (err) {
+            console.error(err);
+            alert('Gagal submit SPG: ' + (err?.response?.data?.message || err.message || 'Unknown'));
+            setSubmitResult(err?.response?.data || null);
+        } finally {
+            setSubmitLoading(false);
         }
     };
 
@@ -328,7 +467,21 @@ export default function SDMSSpg({ initialIdBilling, sdms }) {
                                 >
                                     {compareLoading ? 'Membandingkan...' : 'Bandingkan'}
                                 </button>
+                                <button
+                                    onClick={handleSubmitSPG}
+                                    disabled={submitLoading || !detail || !compareResult}
+                                    title={!compareResult ? 'Lakukan Bandingkan terlebih dahulu untuk melihat perbandingan' : ''}
+                                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    <IconSend size={16} />
+                                    {submitLoading ? 'Mengirim...' : 'Submit SPG'}
+                                </button>
                             </div>
+                            {!compareResult && (
+                                <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">
+                                    💡 <span className="font-semibold">Submit SPG</span> memerlukan hasil <span className="font-semibold">Bandingkan</span> untuk memvalidasi kesesuaian item.
+                                </div>
+                            )}
                         </div>
                     </CardHeader>
                     <CardBody>
@@ -598,10 +751,139 @@ export default function SDMSSpg({ initialIdBilling, sdms }) {
                             </div>
                         )}
 
-                        <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
-                            <summary className="cursor-pointer text-sm font-semibold text-slate-700 dark:text-slate-200">Raw JSON Detail</summary>
-                            <pre className="mt-3 overflow-auto text-xs leading-6 text-slate-700 dark:text-slate-300">{JSON.stringify(detail, null, 2)}</pre>
-                        </details>
+                        {showReceivedList && receivedParts.length > 0 && (
+                            <div className="mt-6 space-y-4 rounded-2xl border border-sky-200 bg-sky-50/50 p-4 dark:border-sky-900/40 dark:bg-sky-950/20">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-semibold text-slate-900 dark:text-white">📦 Daftar Sparepart Diterima</p>
+                                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">Tambahkan data sparepart yang belum ada di sistem, kemudian lanjut ke pembelian</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                            {Object.keys(addedParts).length}/{receivedParts.length}
+                                        </div>
+                                        <div className="text-[10px] text-slate-500">Added</div>
+                                    </div>
+                                </div>
+
+                                <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left text-sm">
+                                            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+                                                <tr>
+                                                    <th className="px-4 py-3">Nomor Part</th>
+                                                    <th className="px-4 py-3">Nama Part</th>
+                                                    <th className="px-4 py-3 text-right">Qty Terima</th>
+                                                    <th className="px-4 py-3 text-right">Qty Ditolak</th>
+                                                    <th className="px-4 py-3">Aksi</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-950">
+                                                {receivedParts.map((part, idx) => {
+                                                    const partNum = getCompareItemPartNumber(part);
+                                                    const partName = getCompareItemPartName(part);
+                                                    const qtyReceive = getCompareItemQtyReceive(part);
+                                                    const qtyRejected = getCompareItemQtyRejected(part);
+                                                    const isAdded = addedParts[partNum];
+
+                                                    return (
+                                                        <tr key={idx} className="transition hover:bg-slate-50 dark:hover:bg-slate-900">
+                                                            <td className="px-4 py-3 align-top text-slate-600 dark:text-slate-300">{partNum || '-'}</td>
+                                                            <td className="px-4 py-3 align-top font-medium text-slate-900 dark:text-white">{partName || '-'}</td>
+                                                            <td className="px-4 py-3 align-top text-right text-slate-900 dark:text-white">{qtyReceive}</td>
+                                                            <td className="px-4 py-3 align-top text-right text-slate-900 dark:text-white">{qtyRejected}</td>
+                                                            <td className="px-4 py-3 align-top">
+                                                                {isAdded ? (
+                                                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                                                        <IconCheck size={14} />
+                                                                        Added
+                                                                    </span>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={() => handleOpenAddModal(partNum, partName)}
+                                                                        className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-950/50"
+                                                                    >
+                                                                        <IconPlus size={14} />
+                                                                        Add
+                                                                    </button>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                {allPartsAdded && (
+                                    <button
+                                        onClick={handleLanjutKePembelian}
+                                        disabled={createPurchaseLoading}
+                                        className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        {createPurchaseLoading ? 'Membuat Purchase Order...' : '✓ Lanjut Ke Pembelian Sparepart'}
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
+                        {showAddModal && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70">
+                                <div className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-lg dark:border-slate-800 dark:bg-slate-950">
+                                    <div className="mb-4">
+                                        <p className="text-lg font-semibold text-slate-900 dark:text-white">Tambah Data Sparepart</p>
+                                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Lengkapi data sparepart yang belum ada di sistem</p>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Nomor Part (Kode Part)</label>
+                                            <input
+                                                type="text"
+                                                readOnly
+                                                value={modalPart.numberPart}
+                                                className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Nama Part</label>
+                                            <input
+                                                type="text"
+                                                readOnly
+                                                value={modalPart.name}
+                                                className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                                            />
+                                        </div>
+
+                                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/50">
+                                            <p className="text-xs text-slate-600 dark:text-slate-400">
+                                                ℹ️ Data lengkap sparepart akan disimpan. Anda dapat mengisi detail tambahan di halaman master sparepart kemudian.
+                                            </p>
+                                        </div>
+
+                                        <div className="flex gap-2 pt-2">
+                                            <button
+                                                onClick={() => setShowAddModal(false)}
+                                                disabled={createSpareLoading}
+                                                className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                                            >
+                                                Batal
+                                            </button>
+                                            <button
+                                                onClick={handleAddPartLocal}
+                                                disabled={createSpareLoading}
+                                                className="flex-1 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                            >
+                                                {createSpareLoading ? 'Menambah...' : 'Tambah Sparepart'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
 
                         <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
                             <summary className="cursor-pointer text-sm font-semibold text-slate-700 dark:text-slate-200">Raw JSON Item</summary>

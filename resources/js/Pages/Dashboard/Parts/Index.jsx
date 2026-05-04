@@ -97,15 +97,6 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
 
     useEffect(() => { setLiveItems(parts?.data || []); }, [parts?.data]);
 
-    useEffect(() => {
-        setSearch(filters?.q || '');
-        setStockStatus(filters?.stock_status || 'all');
-        setActiveFilters({
-            category_id: filters?.category_id || '',
-            supplier_id: filters?.supplier_id || '',
-        });
-    }, [filters?.q, filters?.stock_status, filters?.category_id, filters?.supplier_id]);
-
     const handleSort = (column) => {
         const dir = filters?.sort_by === column && filters?.sort_direction === 'asc' ? 'desc' : 'asc';
         router.get(route('parts.index'), { ...filters, sort_by: column, sort_direction: dir }, { preserveState: true, preserveScroll: true });

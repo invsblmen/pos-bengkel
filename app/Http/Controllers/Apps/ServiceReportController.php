@@ -82,10 +82,12 @@ class ServiceReportController extends Controller
             return $statusLabelMap[$status] ?? ucwords(str_replace('_', ' ', $status));
         };
 
+        $serviceDateExpression = $this->serviceOrderEventAtExpression('service_orders');
+
         $serviceBaseQuery = ServiceOrder::query()
             ->where('status', '!=', 'cancelled')
             ->where('paid_amount', '>', 0)
-            ->whereBetween('created_at', [$startDate, $endDate]);
+            ->whereRaw("{$serviceDateExpression} BETWEEN ? AND ?", [$startDate, $endDate]);
 
         $serviceRevenue = (int) (clone $serviceBaseQuery)
             ->selectRaw('SUM(COALESCE(paid_amount, 0)) as total')
@@ -94,7 +96,7 @@ class ServiceReportController extends Controller
         $partBaseQuery = PartSale::query()
             ->where('status', '!=', 'cancelled')
             ->where('paid_amount', '>', 0)
-            ->whereBetween('created_at', [$startDate, $endDate]);
+            ->whereRaw("{$this->transactionEventAtExpression('part_sales')} BETWEEN ? AND ?", [$startDate, $endDate]);
 
         $partRevenue = (int) (clone $partBaseQuery)
             ->selectRaw('SUM(COALESCE(paid_amount, 0)) as total')
@@ -103,7 +105,7 @@ class ServiceReportController extends Controller
         $partPurchaseBaseQuery = PartPurchase::query()
             ->where('status', '!=', 'cancelled')
             ->where('paid_amount', '>', 0)
-            ->whereBetween('created_at', [$startDate, $endDate]);
+            ->whereRaw("{$this->transactionEventAtExpression('part_purchases')} BETWEEN ? AND ?", [$startDate, $endDate]);
 
         $partPurchaseExpense = (int) (clone $partPurchaseBaseQuery)
             ->selectRaw('SUM(COALESCE(paid_amount, 0)) as total')
@@ -389,29 +391,41 @@ class ServiceReportController extends Controller
 
     private function buildOverallRowsQuery(Carbon $startDate, Carbon $endDate)
     {
+        $serviceDateExpression = $this->serviceOrderEventAtExpression('service_orders');
+        $partSaleDateExpression = $this->transactionEventAtExpression('part_sales');
+        $partPurchaseDateExpression = $this->transactionEventAtExpression('part_purchases');
+
         $serviceRows = DB::table('service_orders')
             ->leftJoin('customers', 'service_orders.customer_id', '=', 'customers.id')
             ->leftJoin('vehicles', 'service_orders.vehicle_id', '=', 'vehicles.id')
             ->where('service_orders.status', '!=', 'cancelled')
             ->where('service_orders.paid_amount', '>', 0)
-            ->whereBetween('service_orders.created_at', [$startDate, $endDate])
-            ->selectRaw("service_orders.created_at as event_at, 'service_order' as source, service_orders.id as source_id, service_orders.order_number as reference, TRIM(CONCAT_WS(' | ', customers.name, vehicles.plate_number)) as description, 'in' as flow, COALESCE(service_orders.paid_amount, 0) as amount, COALESCE(service_orders.payment_status, 'unpaid') as status");
+            ->whereRaw("{$serviceDateExpression} BETWEEN ? AND ?", [$startDate, $endDate])
+            ->selectRaw("{$serviceDateExpression} as event_at, 'service_order' as source, service_orders.id as source_id, service_orders.order_number as reference, TRIM(CONCAT_WS(' | ', customers.name, vehicles.plate_number)) as description, 'in' as flow, COALESCE(service_orders.paid_amount, 0) as amount, COALESCE(service_orders.payment_status, 'unpaid') as status");
 
         $partRows = DB::table('part_sales')
             ->leftJoin('customers', 'part_sales.customer_id', '=', 'customers.id')
             ->where('part_sales.status', '!=', 'cancelled')
             ->where('part_sales.paid_amount', '>', 0)
-            ->whereBetween('part_sales.created_at', [$startDate, $endDate])
-            ->selectRaw("part_sales.created_at as event_at, 'part_sale' as source, part_sales.id as source_id, part_sales.sale_number as reference, customers.name as description, 'in' as flow, COALESCE(part_sales.paid_amount, 0) as amount, COALESCE(part_sales.payment_status, 'unpaid') as status");
+            ->whereRaw("{$partSaleDateExpression} BETWEEN ? AND ?", [$startDate, $endDate])
+            ->selectRaw("{$partSaleDateExpression} as event_at, 'part_sale' as source, part_sales.id as source_id, part_sales.sale_number as reference, customers.name as description, 'in' as flow, COALESCE(part_sales.paid_amount, 0) as amount, COALESCE(part_sales.payment_status, 'unpaid') as status");
 
         $partPurchaseRows = DB::table('part_purchases')
             ->leftJoin('suppliers', 'part_purchases.supplier_id', '=', 'suppliers.id')
             ->where('part_purchases.status', '!=', 'cancelled')
             ->where('part_purchases.paid_amount', '>', 0)
-            ->whereBetween('part_purchases.created_at', [$startDate, $endDate])
-            ->selectRaw("part_purchases.created_at as event_at, 'part_purchase' as source, part_purchases.id as source_id, part_purchases.purchase_number as reference, suppliers.name as description, 'out' as flow, COALESCE(part_purchases.paid_amount, 0) as amount, COALESCE(part_purchases.payment_status, 'unpaid') as status");
+            ->whereRaw("{$partPurchaseDateExpression} BETWEEN ? AND ?", [$startDate, $endDate])
+            ->selectRaw("{$partPurchaseDateExpression} as event_at, 'part_purchase' as source, part_purchases.id as source_id, part_purchases.purchase_number as reference, suppliers.name as description, 'out' as flow, COALESCE(part_purchases.paid_amount, 0) as amount, COALESCE(part_purchases.payment_status, 'unpaid') as status");
 
         $cashRows = DB::table('cash_transactions')
+            ->whereNotIn('cash_transactions.source', [
+                'part-sale-payment',
+                'part-sale-change',
+                'service-order-payment',
+                'service-order-change',
+                'part-purchase-payment',
+                'part-purchase-change',
+            ])
             ->where(function ($query) use ($startDate, $endDate) {
                 $query->whereBetween('happened_at', [$startDate, $endDate])
                     ->orWhere(function ($fallback) use ($startDate, $endDate) {
@@ -463,25 +477,27 @@ class ServiceReportController extends Controller
         $startDate = Carbon::parse($startDate)->startOfDay();
         $endDate = Carbon::parse($endDate)->endOfDay();
 
+        $serviceDateExpression = $this->serviceOrderEventAtExpression('service_orders');
+
         // Build query - include completed orders
         $query = ServiceOrder::where('status', 'completed')
-            ->whereBetween('created_at', [$startDate, $endDate]);
+            ->whereRaw("{$serviceDateExpression} BETWEEN ? AND ?", [$startDate, $endDate]);
 
         // Group by period
         if ($period === 'daily') {
-            $data = $query->selectRaw('DATE(created_at) as date, COUNT(*) as count, SUM(total) as revenue, SUM(labor_cost) as labor_cost, SUM(material_cost) as material_cost')
-                ->groupByRaw('DATE(created_at)')
+            $data = $query->selectRaw("DATE({$serviceDateExpression}) as date, COUNT(*) as count, SUM(total) as revenue, SUM(labor_cost) as labor_cost, SUM(material_cost) as material_cost")
+                ->groupByRaw("DATE({$serviceDateExpression})")
                 ->orderBy('date')
                 ->get();
         } elseif ($period === 'weekly') {
-            $data = $query->selectRaw('YEAR(created_at) as year, WEEK(created_at) as week, COUNT(*) as count, SUM(total) as revenue, SUM(labor_cost) as labor_cost, SUM(material_cost) as material_cost')
-                ->groupByRaw('YEAR(created_at), WEEK(created_at)')
+            $data = $query->selectRaw("YEAR({$serviceDateExpression}) as year, WEEK({$serviceDateExpression}) as week, COUNT(*) as count, SUM(total) as revenue, SUM(labor_cost) as labor_cost, SUM(material_cost) as material_cost")
+                ->groupByRaw("YEAR({$serviceDateExpression}), WEEK({$serviceDateExpression})")
                 ->orderBy('year')
                 ->orderBy('week')
                 ->get();
         } else { // monthly
-            $data = $query->selectRaw('YEAR(created_at) as year, MONTH(created_at) as month, COUNT(*) as count, SUM(total) as revenue, SUM(labor_cost) as labor_cost, SUM(material_cost) as material_cost')
-                ->groupByRaw('YEAR(created_at), MONTH(created_at)')
+            $data = $query->selectRaw("YEAR({$serviceDateExpression}) as year, MONTH({$serviceDateExpression}) as month, COUNT(*) as count, SUM(total) as revenue, SUM(labor_cost) as labor_cost, SUM(material_cost) as material_cost")
+                ->groupByRaw("YEAR({$serviceDateExpression}), MONTH({$serviceDateExpression})")
                 ->orderBy('year')
                 ->orderBy('month')
                 ->get();
@@ -489,7 +505,7 @@ class ServiceReportController extends Controller
 
         // Summary stats - rebuild query without groupBy/orderBy
         $summaryQuery = ServiceOrder::where('status', 'completed')
-            ->whereBetween('created_at', [$startDate, $endDate]);
+            ->whereRaw("{$serviceDateExpression} BETWEEN ? AND ?", [$startDate, $endDate]);
 
         $summaryData = $summaryQuery
             ->selectRaw('COALESCE(SUM(total), 0) as total_revenue')
@@ -628,10 +644,10 @@ class ServiceReportController extends Controller
 
     private function getMechanicAggregates(Carbon $startDate, Carbon $endDate)
     {
-            $ordersSummary = ServiceOrder::query()
-                ->whereBetween('created_at', [$startDate, $endDate])
-                ->where('status', 'completed')
-                ->whereNotNull('mechanic_id')
+        $ordersSummary = ServiceOrder::query()
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->where('status', 'completed')
+            ->whereNotNull('mechanic_id')
             ->selectRaw('mechanic_id')
             ->selectRaw('COUNT(*) as total_orders')
             ->selectRaw('COALESCE(SUM(total), 0) as total_revenue')
@@ -672,6 +688,16 @@ class ServiceReportController extends Controller
             ->selectRaw('COALESCE(detail_summary.total_auto_discount, 0) as total_auto_discount')
             ->selectRaw('COALESCE(detail_summary.total_incentive, 0) as total_incentive')
             ->get();
+    }
+
+    private function serviceOrderEventAtExpression(string $table): string
+    {
+        return "COALESCE(STR_TO_DATE(JSON_UNQUOTE(JSON_EXTRACT({$table}.payment_meta, '$.payment_received_at')), '%Y-%m-%dT%H:%i:%s.%fZ'), {$table}.updated_at, {$table}.created_at)";
+    }
+
+    private function transactionEventAtExpression(string $table): string
+    {
+        return "COALESCE(STR_TO_DATE(JSON_UNQUOTE(JSON_EXTRACT({$table}.payment_meta, '$.payment_received_at')), '%Y-%m-%dT%H:%i:%s.%fZ'), {$table}.updated_at, {$table}.created_at)";
     }
 
     /**

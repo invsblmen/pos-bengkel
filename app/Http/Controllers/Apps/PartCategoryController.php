@@ -22,7 +22,7 @@ class PartCategoryController extends Controller
     {
         $q = $request->query('q', '');
 
-        $query = PartCategory::orderBy('sort_order')->orderBy('name');
+        $query = PartCategory::with('parent:id,name')->orderBy('sort_order', 'asc')->orderBy('name', 'asc');
         if ($q) {
             $query->where('name', 'like', "%{$q}%")
                   ->orWhere('description', 'like', "%{$q}%");
@@ -38,12 +38,26 @@ class PartCategoryController extends Controller
 
     public function create()
     {
-        return Inertia::render('Dashboard/PartCategories/Create');
+        $categories = PartCategory::query()
+            ->with('parent')
+            ->orderBy('sort_order', 'asc')
+            ->orderBy('name', 'asc')
+            ->get()
+            ->map(fn ($cat) => [
+                'id' => $cat->id,
+                'name' => $cat->name,
+                'depth' => $cat->getDepth(),
+            ]);
+
+        return Inertia::render('Dashboard/PartCategories/Create', [
+            'parentCategories' => $categories,
+        ]);
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
+            'parent_id' => 'nullable|exists:part_categories,id',
             'name' => 'required|string|unique:part_categories,name',
             'description' => 'nullable|string',
             'icon' => 'nullable|string',
@@ -61,14 +75,28 @@ class PartCategoryController extends Controller
 
     public function edit(PartCategory $partCategory)
     {
+        $categories = PartCategory::query()
+            ->whereKeyNot($partCategory->id)
+            ->with('parent')
+            ->orderBy('sort_order', 'asc')
+            ->orderBy('name', 'asc')
+            ->get()
+            ->map(fn ($cat) => [
+                'id' => $cat->id,
+                'name' => $cat->name,
+                'depth' => $cat->getDepth(),
+            ]);
+
         return Inertia::render('Dashboard/PartCategories/Edit', [
             'category' => $partCategory,
+            'parentCategories' => $categories,
         ]);
     }
 
     public function update(Request $request, PartCategory $partCategory)
     {
         $data = $request->validate([
+            'parent_id' => 'nullable|exists:part_categories,id|not_in:' . $partCategory->id,
             'name' => 'required|string|unique:part_categories,name,' . $partCategory->id,
             'description' => 'nullable|string',
             'icon' => 'nullable|string',
@@ -91,8 +119,13 @@ class PartCategoryController extends Controller
             throw ValidationException::withMessages(['error' => 'Cannot delete category that has parts']);
         }
 
+        // Cek apakah ada subkategori yang masih terkait
+        if ($partCategory->children()->count() > 0) {
+            throw ValidationException::withMessages(['error' => 'Cannot delete category that has subcategories']);
+        }
+
         $categoryId = $partCategory->id;
-        $partCategory->delete();
+        PartCategory::destroy($categoryId);
 
         $this->dispatchBroadcastSafely(
             fn () => PartCategoryDeleted::dispatch($categoryId),
@@ -108,6 +141,7 @@ class PartCategoryController extends Controller
     public function storeAjax(Request $request)
     {
         $validated = $request->validate([
+            'parent_id' => 'nullable|exists:part_categories,id',
             'name' => 'required|string|max:255|unique:part_categories,name',
             'description' => 'nullable|string',
             'icon' => 'nullable|string',
