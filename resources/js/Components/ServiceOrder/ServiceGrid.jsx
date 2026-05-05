@@ -259,21 +259,11 @@ export default function ServiceGrid({
     const totalBeforeDiscount = servicePriceAfterDiscount + partsSubtotal;
 
     return (
-        <div className="h-full flex flex-col overflow-hidden bg-slate-100 dark:bg-slate-950">
-            {/* Header */}
-            <div className="flex-shrink-0 p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                    {editingItemIndex !== null ? 'Edit Pesanan' : 'Buat Pesanan Service'}
-                </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Pilih layanan dan tambahkan sparepart
-                </p>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex h-full min-h-0 flex-col overflow-visible bg-slate-100 dark:bg-slate-950">
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-4">
                 {/* Service Selection */}
-                <div className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
-                    <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-3">
+                <div className="bg-white dark:bg-slate-900 rounded-xl p-3 border border-slate-200 dark:border-slate-800">
+                    <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-0">
                         Pilih Layanan Service
                     </label>
                     <Autocomplete
@@ -289,7 +279,7 @@ export default function ServiceGrid({
                     />
 
                     {selectedService && (
-                        <div className="mt-3 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2.5 dark:border-primary-800 dark:bg-primary-900/20">
+                        <div className="rounded-lg border border-primary-200 bg-primary-50 p-0 mt-2 dark:border-primary-800 dark:bg-primary-900/20">
                             <div className="flex items-start gap-2.5">
                                 <div className="h-9 w-9 flex-shrink-0 rounded-lg bg-primary-500 flex items-center justify-center">
                                     <IconTools size={18} className="text-white" />
@@ -333,19 +323,8 @@ export default function ServiceGrid({
 
                 {/* Parts Section */}
                 {selectedService && (
-                    <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/60 p-4 dark:border-slate-800 dark:from-slate-900 dark:to-slate-900">
-                        <div className="mb-3 flex items-start justify-between gap-3">
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-900 dark:text-white">
-                                    Sparepart (Opsional)
-                                </label>
-                                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                                    Tambahkan part jika diperlukan untuk layanan ini.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="mb-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/60 p-0 dark:border-slate-800 dark:from-slate-900 dark:to-slate-900">
+                        <div className="mb-2">
                             <div className="grid items-end gap-2.5 lg:grid-cols-12">
                                 <div className="lg:col-span-5">
                                     <label className="mb-1 block text-[11px] font-semibold text-slate-700 dark:text-slate-300">Pilih Sparepart</label>
@@ -469,64 +448,30 @@ export default function ServiceGrid({
 
                         {serviceParts.length > 0 ? (
                             <>
-                                <div className="hidden lg:block overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-                                    <table className="w-full table-fixed text-sm border-separate border-spacing-y-1.5 px-1">
-                                        <thead>
-                                            <tr className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                                <th className="px-2.5 py-2 text-left font-semibold w-[32%]">Sparepart</th>
-                                                <th className="px-1.5 py-2 text-center font-semibold w-[9%]">Qty</th>
-                                                <th className="px-1.5 py-2 text-right font-semibold w-[16%]">Harga</th>
-                                                <th className="px-1.5 py-2 text-left font-semibold w-[25%]">Diskon</th>
-                                                <th className="px-1.5 py-2 text-right font-semibold w-[12%]">Total</th>
-                                                <th className="px-1.5 py-2 text-center font-semibold w-[6%]">Aksi</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {serviceParts.map((part, index) => {
-                                                const selectedPart = parts.find((p) => p.id === parseInt(part.part_id));
-                                                const selectedPartStock = selectedPart ? getPartStock(selectedPart) : null;
-                                                const selectedPartName = selectedPart?.name || `Part #${part.part_id}`;
-                                                const selectedPartNumber = getPartNumber(selectedPart) || part.part_number;
-                                                const partPrice = parseFloat(part.price) || 0;
-                                                const partQty = parseInt(part.qty) || 1;
-                                                const partDiscountAmount = part.discount_mode === 'percent'
-                                                    ? (partPrice * partQty) * (part.discount_value / 100)
-                                                    : part.discount_value;
-                                                const partTotal = Math.max(0, (partPrice * partQty) - partDiscountAmount);
+                                <div className="hidden lg:block rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+                                    <div className="p-2 space-y-2">
+                                        {serviceParts.map((part, index) => {
+                                            const selectedPart = parts.find((p) => p.id === parseInt(part.part_id));
+                                            const selectedPartStock = selectedPart ? getPartStock(selectedPart) : null;
+                                            const selectedPartName = selectedPart?.name || `Part #${part.part_id}`;
+                                            const selectedPartNumber = getPartNumber(selectedPart) || part.part_number;
+                                            const partPrice = parseFloat(part.price) || 0;
+                                            const partQty = parseInt(part.qty) || 1;
+                                            const partDiscountAmount = part.discount_mode === 'percent'
+                                                ? (partPrice * partQty) * (part.discount_value / 100)
+                                                : part.discount_value;
+                                            const partTotal = Math.max(0, (partPrice * partQty) - partDiscountAmount);
 
                                                 return (
-                                                    <tr key={index} className="align-middle bg-slate-50 shadow-sm ring-1 ring-slate-200/70 dark:bg-slate-800/40 dark:ring-slate-700/70">
-                                                        <td className="px-2.5 py-2 rounded-l-lg">
-                                                            <div className="flex items-center gap-1.5">
-                                                                <div className="min-w-0">
-                                                                    <div className="truncate font-semibold text-slate-800 dark:text-slate-100" title={selectedPartName}>{selectedPartName}</div>
-                                                                    {selectedPartNumber && (
-                                                                        <div className="truncate text-[11px] text-slate-500 dark:text-slate-400">Kode: {selectedPartNumber}</div>
-                                                                    )}
-                                                                </div>
-                                                                {selectedPartStock !== null && (
-                                                                    <span
-                                                                        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
-                                                                        title={`Stok tersedia: ${selectedPartStock}`}
-                                                                    >
-                                                                        <IconInfoCircle size={12} />
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-1.5 py-2">
-                                                            <input
-                                                                type="number"
-                                                                min="1"
-                                                                value={part.qty}
-                                                                onChange={(e) => handlePartChange(index, 'qty', e.target.value)}
-                                                                onKeyDown={(e) => handlePartInputEnter(e, index, 'qty')}
-                                                                data-part-index={index}
-                                                                data-part-field="qty"
-                                                                className="block h-9 w-full rounded-lg border border-slate-300 bg-white px-2 text-center text-sm tabular-nums text-slate-900 transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
-                                                            />
-                                                        </td>
-                                                        <td className="px-1.5 py-2">
+                                                <div key={index} className="rounded-lg border border-slate-100 dark:border-slate-800">
+                                                    <div className="flex items-center justify-between gap-2 p-2">
+                                                        <div className="min-w-0">
+                                                            <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate" title={selectedPartName}>{selectedPartName}</div>
+                                                            {selectedPartNumber && (
+                                                                <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">Kode: {selectedPartNumber} · Stok: {selectedPartStock ?? '-'}</div>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-3">
                                                             <input
                                                                 type="number"
                                                                 min="0"
@@ -535,11 +480,39 @@ export default function ServiceGrid({
                                                                 onKeyDown={(e) => handlePartInputEnter(e, index, 'price')}
                                                                 data-part-index={index}
                                                                 data-part-field="price"
-                                                                className="block h-9 w-full rounded-lg border border-slate-300 bg-white px-2.5 text-right text-sm tabular-nums text-slate-900 transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                                                                className="h-8 w-28 rounded-lg border border-slate-300 bg-white px-2.5 text-right text-sm tabular-nums text-slate-900 transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
                                                             />
-                                                        </td>
-                                                        <td className="px-1.5 py-2 align-middle">
-                                                            <div className="flex items-center gap-1.5">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleRemovePart(index)}
+                                                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100 dark:border-red-900/50 dark:bg-red-900/10 dark:text-red-400"
+                                                                title="Hapus part"
+                                                            >
+                                                                <IconTrash size={14} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="p-2 border-t border-slate-100 dark:border-slate-800 grid grid-cols-4 gap-2 items-center">
+                                                        <div>
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                value={part.qty}
+                                                                onChange={(e) => handlePartChange(index, 'qty', e.target.value)}
+                                                                onKeyDown={(e) => handlePartInputEnter(e, index, 'qty')}
+                                                                data-part-index={index}
+                                                                data-part-field="qty"
+                                                                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-2 text-center text-sm tabular-nums text-slate-900 transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                                                            />
+                                                        </div>
+
+                                                        <div>
+                                                            {/* price input moved to first row; keep this column empty to preserve grid */}
+                                                        </div>
+
+                                                        <div>
+                                                            <div className="flex items-center gap-1">
                                                                 <div className="inline-flex h-9 min-w-[70px] shrink-0 overflow-hidden rounded-lg border border-slate-300 dark:border-slate-700">
                                                                     <button
                                                                         type="button"
@@ -571,27 +544,18 @@ export default function ServiceGrid({
                                                             {partDiscountAmount > 0 && (
                                                                 <div className="mt-0.5 text-[11px] text-red-600 dark:text-red-400">Diskon: -{formatCurrency(partDiscountAmount)}</div>
                                                             )}
-                                                        </td>
-                                                        <td className="px-1.5 py-2 text-right align-middle">
+                                                        </div>
+
+                                                        <div className="text-right">
                                                             <div className="inline-flex h-9 min-w-[94px] items-center justify-end rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 text-xs font-bold tabular-nums text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300">
                                                                 {formatCurrency(partTotal)}
                                                             </div>
-                                                        </td>
-                                                        <td className="px-1.5 py-2 text-center align-middle rounded-r-lg">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleRemovePart(index)}
-                                                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100 dark:border-red-900/50 dark:bg-red-900/10 dark:text-red-400 dark:hover:bg-red-900/20"
-                                                                title="Hapus part"
-                                                            >
-                                                                <IconTrash size={14} />
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
 
                                 <div className="space-y-2 lg:hidden">

@@ -168,6 +168,11 @@ class ServiceOrderController extends Controller
                     'part_id' => $detail->part_id,
                     'qty' => $detail->qty,
                     'price' => $detail->price,
+                    'discount_type' => $detail->discount_type,
+                    'discount_value' => $detail->discount_value,
+                    'discount_amount' => $detail->discount_amount,
+                    'final_amount' => $detail->final_amount,
+                    'part_number' => $detail->part?->part_number,
                 ];
             }
         }
@@ -293,6 +298,8 @@ class ServiceOrderController extends Controller
             'tax_value' => 'nullable|numeric|min:0',
             'voucher_code' => 'nullable|string|max:50',
         ]);
+
+        Log::debug('Service Order Store - Request items', ['items' => $request->items]);
 
         $this->validateDiscountBounds($request);
 

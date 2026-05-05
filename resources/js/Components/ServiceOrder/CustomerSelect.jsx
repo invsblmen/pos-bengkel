@@ -18,6 +18,7 @@ export default function CustomerSelect({
     error,
     label,
     onCustomerAdded,
+    clearButtonPlacement = "inline",
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
@@ -138,8 +139,8 @@ export default function CustomerSelect({
                         />
                     </button>
 
-                    {/* Clear Customer Button - only show when selected */}
-                    {selected && onClear && (
+                    {/* Clear Customer Button - inline */}
+                    {selected && onClear && clearButtonPlacement === "inline" && (
                         <button
                             type="button"
                             onClick={(e) => {
@@ -168,6 +169,21 @@ export default function CustomerSelect({
                         <IconUserPlus size={20} />
                     </button>
                 </div>
+
+                {selected && onClear && clearButtonPlacement === "below" && (
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onClear();
+                        }}
+                        className="mt-2 inline-flex items-center gap-2 rounded-lg px-1 py-1 text-xs font-medium text-slate-500 transition-colors hover:text-danger-600"
+                        title="Batalkan pilihan pelanggan"
+                    >
+                        <IconX size={14} />
+                        <span>Batalkan pilihan</span>
+                    </button>
+                )}
 
                 {/* Error Message */}
                 {error && (

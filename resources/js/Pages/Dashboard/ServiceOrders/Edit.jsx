@@ -59,6 +59,10 @@ export default function Edit({
                 part_id: p.part_id,
                 qty: p.qty,
                 price: p.price,
+                discount_type: p.discount_type || 'none',
+                discount_value: p.discount_value || 0,
+                discount_amount: p.discount_amount || 0,
+                final_amount: p.final_amount || 0,
             })) || [],
         })) || [],
         discount_type: order?.discount_type || 'none',
@@ -108,6 +112,29 @@ export default function Edit({
             minimumFractionDigits: 0,
             maximumFractionDigits: 0,
         }).format(value);
+    };
+
+    const normalizePartDiscountType = (part) => {
+        const rawType = part?.discount_type || part?.discount_mode || 'none';
+
+        if (rawType === 'nominal') return 'fixed';
+        if (rawType === 'fixed' || rawType === 'percent') return rawType;
+
+        return 'none';
+    };
+    const normalizePartDiscountValue = (part) => Number(part?.discount_value || 0);
+
+    const calculatePartFinalAmount = (part) => {
+        const amount = Number(part?.price || 0) * Number(part?.qty || 0);
+        const discountType = normalizePartDiscountType(part);
+        const discountValue = normalizePartDiscountValue(part);
+        const discount = discountType === 'percent'
+            ? amount * (discountValue / 100)
+            : discountType === 'fixed'
+                ? discountValue
+                : 0;
+
+        return Math.max(0, amount - discount);
     };
 
     const handlePaymentConfirm = (paymentData) => {
@@ -249,7 +276,18 @@ export default function Edit({
                     ? item.service_discount_value
                     : 0;
             const serviceSubtotal = servicePrice - serviceDiscount;
-            const partsTotal = item.parts.reduce((ps, p) => ps + (p.price * p.qty), 0);
+            const partsTotal = item.parts.reduce((ps, p) => {
+                const partPrice = Number(p.price || 0);
+                const partQty = Number(p.qty || 0) || 0;
+                const amount = partPrice * partQty;
+                const discount = p.discount_type === 'percent'
+                    ? amount * (Number(p.discount_value || 0) / 100)
+                    : p.discount_type === 'fixed'
+                        ? Number(p.discount_value || 0)
+                        : 0;
+                const final = Math.max(0, amount - discount);
+                return ps + final;
+            }, 0);
             return sum + serviceSubtotal + partsTotal;
         }, 0);
     }, [data.items, services]);
@@ -361,7 +399,14 @@ export default function Edit({
                 service_id: itemData.service_id,
                 service_discount_type: itemData.service_discount_type,
                 service_discount_value: itemData.service_discount_value,
-                parts: itemData.parts,
+                parts: itemData.parts.map((part) => ({
+                    part_id: part.part_id,
+                    qty: part.qty,
+                    price: part.price,
+                    discount_type: normalizePartDiscountType(part),
+                    discount_value: Number(part.discount_value || 0),
+                    part_number: part.part_number,
+                })),
             };
             setData('items', newItems);
             setEditingItemIndex(null);
@@ -371,7 +416,16 @@ export default function Edit({
                 service_id: itemData.service_id,
                 service_discount_type: itemData.service_discount_type,
                 service_discount_value: itemData.service_discount_value,
-                parts: itemData.parts.filter(p => p.part_id),
+                parts: itemData.parts
+                    .filter((part) => part.part_id)
+                    .map((part) => ({
+                        part_id: part.part_id,
+                        qty: part.qty,
+                        price: part.price,
+                        discount_type: normalizePartDiscountType(part),
+                        discount_value: Number(part.discount_value || 0),
+                        part_number: part.part_number,
+                    })),
             };
             setData('items', [...data.items, newItem]);
             toast.success('Layanan ditambahkan ke pesanan');
@@ -550,138 +604,256 @@ export default function Edit({
         >
             <Head title={`Edit Service Order - ${order.order_number}`} />
 
-            <div className="h-[calc(100vh-4rem)] flex flex-col lg:flex-row">
-                {mobileView === 'services' && data.items.length > 0 && (
-                    <div className="fixed right-4 bottom-4 z-50 lg:hidden">
+            <div className="flex flex-col gap-3 pb-0">
+                <div className="flex flex-col lg:grid lg:grid-cols-[380px_minmax(0,1fr)_420px] lg:items-stretch lg:gap-2 lg:pt-4 lg:px-4">
+                    {mobileView === 'services' && data.items.length > 0 && (
+                        <div className="fixed right-4 bottom-4 z-50 lg:hidden">
+                            <button
+                                onClick={() => setMobileView('summary')}
+                                aria-label={`Buka ringkasan - ${itemCount} item`}
+                                className="inline-flex items-center gap-3 px-4 py-3 rounded-2xl bg-primary-500 text-white shadow-lg hover:bg-primary-600 focus:outline-none"
+                            >
+                                <div className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white text-primary-600 font-bold text-sm">
+                                    {itemCount}
+                                </div>
+                                <div className="flex flex-col text-right">
+                                    <div className="text-xs">Total</div>
+                                    <div className="text-sm font-semibold">{formatCurrency(grandTotal)}</div>
+                                </div>
+                            </button>
+                        </div>
+                    )}
+
+                    <div className="lg:hidden flex border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                        <button
+                            onClick={() => setMobileView('services')}
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${
+                                mobileView === 'services'
+                                    ? 'text-primary-600 border-b-2 border-primary-500'
+                                    : 'text-slate-500'
+                            }`}
+                        >
+                            <IconClipboardList size={18} />
+                            <span>Layanan</span>
+                        </button>
                         <button
                             onClick={() => setMobileView('summary')}
-                            aria-label={`Buka ringkasan - ${itemCount} item`}
-                            className="inline-flex items-center gap-3 px-4 py-3 rounded-2xl bg-primary-500 text-white shadow-lg hover:bg-primary-600 focus:outline-none"
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors relative ${
+                                mobileView === 'summary'
+                                    ? 'text-primary-600 border-b-2 border-primary-500'
+                                    : 'text-slate-500'
+                            }`}
                         >
-                            <div className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white text-primary-600 font-bold text-sm">
-                                {itemCount}
-                            </div>
-                            <div className="flex flex-col text-right">
-                                <div className="text-xs">Total</div>
-                                <div className="text-sm font-semibold">{formatCurrency(grandTotal)}</div>
-                            </div>
+                            <IconReceipt size={18} />
+                            <span>Ringkasan</span>
+                            {itemCount > 0 && (
+                                <span className="absolute top-2 right-1/4 w-5 h-5 flex items-center justify-center text-xs font-bold bg-primary-500 text-white rounded-full">
+                                    {itemCount}
+                                </span>
+                            )}
                         </button>
                     </div>
-                )}
 
-                <div className="lg:hidden flex border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-                    <button
-                        onClick={() => setMobileView('services')}
-                        className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${
-                            mobileView === 'services'
-                                ? 'text-primary-600 border-b-2 border-primary-500'
-                                : 'text-slate-500'
-                        }`}
-                    >
-                        <IconClipboardList size={18} />
-                        <span>Layanan</span>
-                    </button>
-                    <button
-                        onClick={() => setMobileView('summary')}
-                        className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors relative ${
-                            mobileView === 'summary'
-                                ? 'text-primary-600 border-b-2 border-primary-500'
-                                : 'text-slate-500'
-                        }`}
-                    >
-                        <IconReceipt size={18} />
-                        <span>Ringkasan</span>
-                        {itemCount > 0 && (
-                            <span className="absolute top-2 right-1/4 w-5 h-5 flex items-center justify-center text-xs font-bold bg-primary-500 text-white rounded-full">
-                                {itemCount}
-                            </span>
-                        )}
-                    </button>
-                </div>
-
-                <div
-                    className={`flex-1 bg-slate-100 dark:bg-slate-950 overflow-hidden ${
-                        mobileView !== 'services'
-                            ? 'hidden lg:flex lg:flex-col'
-                            : 'flex flex-col'
-                    }`}
-                >
-                    <ServiceGrid
-                        services={services}
-                        parts={parts}
-                        onAddServiceWithParts={handleAddServiceWithParts}
-                        onQuickCreatePart={handleQuickCreatePartFromGrid}
-                        onEditItem={handleEditItem}
-                        editingItemIndex={editingItemIndex}
-                        editingItem={editingItemIndex !== null ? data.items[editingItemIndex] : null}
-                    />
-                </div>
-
-                <div
-                    className={`w-full lg:w-[420px] xl:w-[480px] flex flex-col bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 ${
-                        mobileView !== 'summary' ? 'hidden lg:flex' : 'flex'
-                    }`}
-                    style={{ height: 'calc(100vh - 4rem)' }}
-                >
-                    <div className="p-3 border-b border-slate-200 dark:border-slate-800 flex-shrink-0">
-                        <VehicleSelect
-                            vehicles={customerVehicles.length > 0 ? customerVehicles : liveVehicles}
-                            customers={liveCustomers}
-                            selected={data.vehicle_id ? (customerVehicles.length > 0 ? customerVehicles : liveVehicles).find(v => Number(v.id) === Number(data.vehicle_id)) : null}
-                            onSelect={handleVehicleChange}
-                            onVehicleAdded={handleVehicleCreated}
-                            placeholder="Pilih kendaraan..."
-                            error={errors?.vehicle_id}
-                            label="Kendaraan"
-                            getOptionDisabled={(v) => isVehicleInService(v.id)}
-                            renderOption={(v, isDisabled) => {
-                                const statusInfo = getVehicleServiceStatus(v.id);
-                                return (
-                                    <div className="flex items-center justify-between gap-2 flex-1">
-                                        <span className={isDisabled ? 'text-gray-400 dark:text-gray-500' : ''}>
-                                            {v.plate_number} - {v.brand} {v.model}
-                                        </span>
-                                        {isDisabled && statusInfo && (
-                                            <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
-                                                statusInfo.status === 'pending'
-                                                    ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                                            }`}>
-                                                {statusInfo.statusText}
-                                            </span>
-                                        )}
-                                    </div>
-                                );
-                            }}
-                        />
-                        {currentVehicle && (
-                            <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">
-                                {currentVehicle.brand} {currentVehicle.model} ({currentVehicle.year})
-                                {insights.vehicle_km !== null && (
-                                    <span> • KM: {insights.vehicle_km?.toLocaleString('id-ID')}</span>
-                                )}
+                    <div className="hidden lg:flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:sticky lg:top-6 lg:h-[calc(100vh-100px)] lg:min-h-0">
+                        <div className="space-y-4">
+                            <div>
+                                <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                                    Kendaraan
+                                </div>
+                                <VehicleSelect
+                                    vehicles={customerVehicles.length > 0 ? customerVehicles : liveVehicles}
+                                    customers={liveCustomers}
+                                    selected={data.vehicle_id ? (customerVehicles.length > 0 ? customerVehicles : liveVehicles).find(v => Number(v.id) === Number(data.vehicle_id)) : null}
+                                    onSelect={handleVehicleChange}
+                                    onClear={() => setData('vehicle_id', '')}
+                                    onVehicleAdded={handleVehicleCreated}
+                                    placeholder="Pilih kendaraan..."
+                                    error={errors?.vehicle_id}
+                                    /* label removed to avoid duplicate title */
+                                    clearButtonPlacement="below"
+                                    getOptionDisabled={(v) => isVehicleInService(v.id)}
+                                    renderOption={(v, isDisabled) => {
+                                        const statusInfo = getVehicleServiceStatus(v.id);
+                                        return (
+                                            <div className="flex items-center justify-between gap-2 flex-1">
+                                                <span className={isDisabled ? 'text-gray-400 dark:text-gray-500' : ''}>
+                                                    {v.plate_number} - {v.brand} {v.model}
+                                                </span>
+                                                {isDisabled && statusInfo && (
+                                                    <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
+                                                        statusInfo.status === 'pending'
+                                                            ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                                            : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                                    }`}>
+                                                        {statusInfo.statusText}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        );
+                                    }}
+                                />
+                                {/* currentVehicle display removed to avoid duplicate vehicle type info */}
                             </div>
-                        )}
+
+                            <div>
+                                <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                                    Pelanggan
+                                </div>
+                                <CustomerSelect
+                                    customers={liveCustomers}
+                                    selected={data.customer_id ? liveCustomers.find(c => Number(c.id) === Number(data.customer_id)) : null}
+                                    onSelect={handleCustomerChange}
+                                    onClear={() => {
+                                        setData('customer_id', '');
+                                        setData('vehicle_id', '');
+                                        setCustomerVehicles([]);
+                                    }}
+                                    placeholder="Pilih pelanggan..."
+                                    error={errors?.customer_id}
+                                    /* label removed to avoid duplicate title */
+                                    clearButtonPlacement="below"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
+                                    Odometer (km)
+                                </label>
+                                <input
+                                    type="number"
+                                    value={data.odometer_km || ''}
+                                    onChange={(e) => setData('odometer_km', e.target.value)}
+                                    placeholder="Contoh: 50000"
+                                    className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
+                                    Mekanik (Opsional)
+                                </label>
+                                <select
+                                    value={data.mechanic_id}
+                                    onChange={(e) => setData('mechanic_id', e.target.value)}
+                                    className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                                >
+                                    <option value="">-- Pilih Mekanik --</option>
+                                    {mechanics.map((m) => (
+                                        <option key={m.id} value={m.id}>
+                                            {m.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
+                                    Kode Voucher
+                                </label>
+                                <input
+                                    type="text"
+                                    value={data.voucher_code || ''}
+                                    onChange={(e) => setData('voucher_code', e.target.value.toUpperCase())}
+                                    placeholder="Contoh: SERVICEHEMAT"
+                                    list="service-order-voucher-options"
+                                    className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                                />
+                                <datalist id="service-order-voucher-options">
+                                    {availableVouchers.map((voucher) => (
+                                        <option key={voucher.id} value={voucher.code}>{voucher.name}</option>
+                                    ))}
+                                </datalist>
+                                {errors.voucher_code && <p className="mt-1 text-xs text-red-600">{errors.voucher_code}</p>}
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
+                                    Catatan
+                                </label>
+                                <textarea
+                                    value={data.notes}
+                                    onChange={(e) => setData('notes', e.target.value)}
+                                    rows="2"
+                                    placeholder="Keluhan pelanggan..."
+                                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                                />
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto min-h-0">
-                        <div className="p-3 border-b border-slate-200 dark:border-slate-800">
-                            <CustomerSelect
-                                customers={liveCustomers}
-                                selected={data.customer_id ? liveCustomers.find(c => Number(c.id) === Number(data.customer_id)) : null}
-                                onSelect={handleCustomerChange}
-                                onClear={() => {
-                                    setData('customer_id', '');
-                                    setData('vehicle_id', '');
-                                    setCustomerVehicles([]);
-                                }}
-                                placeholder="Pilih pelanggan..."
-                                error={errors?.customer_id}
-                                label="Pelanggan"
-                            />
-                        </div>
+                    <div className={`min-w-0 self-start lg:flex lg:flex-col lg:h-[calc(100vh-100px)] lg:min-h-0 ${
+                            mobileView !== 'services'
+                                ? 'hidden lg:flex'
+                                : 'flex'
+                        }`}>
+                        {/* render ServiceGrid directly without outer rounded container */}
+                        <ServiceGrid
+                            services={services}
+                            parts={parts}
+                            onAddServiceWithParts={handleAddServiceWithParts}
+                            onQuickCreatePart={handleQuickCreatePartFromGrid}
+                            onEditItem={handleEditItem}
+                            editingItemIndex={editingItemIndex}
+                            editingItem={editingItemIndex !== null ? data.items[editingItemIndex] : null}
+                        />
+                    </div>
 
-                        <div className="p-3 border-b border-slate-200 dark:border-slate-800">
+                    <div
+                        className={`w-full lg:w-auto self-start flex flex-col rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:sticky lg:top-6 lg:h-[calc(100vh-100px)] lg:min-h-0 ${
+                            mobileView !== 'summary' ? 'hidden lg:flex' : 'flex'
+                        }`}
+                    >
+                            <div className="lg:hidden p-3 border-b border-slate-200 dark:border-slate-800 space-y-3 flex-shrink-0">
+                            <div>
+                                <VehicleSelect
+                                    vehicles={customerVehicles.length > 0 ? customerVehicles : liveVehicles}
+                                    customers={liveCustomers}
+                                    selected={data.vehicle_id ? (customerVehicles.length > 0 ? customerVehicles : liveVehicles).find(v => Number(v.id) === Number(data.vehicle_id)) : null}
+                                    onSelect={handleVehicleChange}
+                                    onClear={() => setData('vehicle_id', '')}
+                                    onVehicleAdded={handleVehicleCreated}
+                                    placeholder="Pilih kendaraan..."
+                                    error={errors?.vehicle_id}
+                                    /* label removed to avoid duplicate title */
+                                    clearButtonPlacement="below"
+                                    getOptionDisabled={(v) => isVehicleInService(v.id)}
+                                    renderOption={(v, isDisabled) => {
+                                        const statusInfo = getVehicleServiceStatus(v.id);
+                                        return (
+                                            <div className="flex items-center justify-between gap-2 flex-1">
+                                                <span className={isDisabled ? 'text-gray-400 dark:text-gray-500' : ''}>
+                                                    {v.plate_number} - {v.brand} {v.model}
+                                                </span>
+                                                {isDisabled && statusInfo && (
+                                                    <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
+                                                        statusInfo.status === 'pending'
+                                                            ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                                            : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                                    }`}>
+                                                        {statusInfo.statusText}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        );
+                                    }}
+                                />
+                            </div>
+                            <div>
+                                <CustomerSelect
+                                    customers={liveCustomers}
+                                    selected={data.customer_id ? liveCustomers.find(c => Number(c.id) === Number(data.customer_id)) : null}
+                                    onSelect={handleCustomerChange}
+                                    onClear={() => {
+                                        setData('customer_id', '');
+                                        setData('vehicle_id', '');
+                                        setCustomerVehicles([]);
+                                    }}
+                                    placeholder="Pilih pelanggan..."
+                                    error={errors?.customer_id}
+                                    /* label removed to avoid duplicate title */
+                                    clearButtonPlacement="below"
+                                />
+                            </div>
                             <button
                                 type="button"
                                 onClick={() => setShowCheckIn(true)}
@@ -693,8 +865,8 @@ export default function Edit({
                             </button>
                         </div>
 
-                        <div className="p-3 border-b border-slate-200 dark:border-slate-800">
-                            <div className="flex items-center justify-between mb-3">
+                        <div className="flex-1 min-h-0 overflow-y-auto p-3 border-b border-slate-200 dark:border-slate-800 flex flex-col">
+                            <div className="flex items-center justify-between mb-3 flex-shrink-0">
                                 <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
                                     <IconShoppingCart size={16} />
                                     Pesanan
@@ -707,7 +879,7 @@ export default function Edit({
                             </div>
 
                             {data.items.length > 0 ? (
-                                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                                <div className="space-y-2 pr-1 flex-1">
                                     {data.items.map((item, index) => {
                                         const service = services.find((s) => s.id === parseInt(item.service_id));
                                         if (!service) return null;
@@ -720,7 +892,9 @@ export default function Edit({
                                                 ? item.service_discount_value
                                                 : 0;
                                         const serviceSubtotal = servicePrice - serviceDiscount;
-                                        const partsTotal = item.parts.reduce((ps, p) => ps + p.price * p.qty, 0);
+                                        const partsTotal = item.parts.reduce((ps, p) => {
+                                            return ps + calculatePartFinalAmount(p);
+                                        }, 0);
                                         const itemTotal = serviceSubtotal + partsTotal;
 
                                         return (
@@ -738,6 +912,11 @@ export default function Edit({
                                                             {formatCurrency(servicePrice)}
                                                             {serviceDiscount > 0 && ` - ${formatCurrency(serviceDiscount)}`}
                                                         </p>
+                                                        {serviceDiscount > 0 && (
+                                                            <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                                                                Diskon layanan: -{formatCurrency(serviceDiscount)}
+                                                            </p>
+                                                        )}
                                                     </div>
                                                     <div className="flex gap-1 ml-2">
                                                         <button
@@ -767,13 +946,29 @@ export default function Edit({
                                                         {item.parts.map((part, partIndex) => {
                                                             const partData = parts.find((p) => p.id === parseInt(part.part_id));
                                                             const partNumber = partData?.part_number || partData?.code || part.part_number || '';
+                                                            const partAmount = Number(part.price || 0) * Number(part.qty || 0);
+                                                            const partDiscountType = normalizePartDiscountType(part);
+                                                            const partDiscountValue = normalizePartDiscountValue(part);
+                                                            const partDiscount = partDiscountType === 'percent'
+                                                                ? partAmount * (partDiscountValue / 100)
+                                                                : partDiscountType === 'fixed'
+                                                                    ? partDiscountValue
+                                                                    : 0;
+                                                            const partFinal = Math.max(0, partAmount - partDiscount);
                                                             return (
-                                                                <div key={partIndex} className="flex items-center justify-between text-xs">
-                                                                    <span className="text-slate-600 dark:text-slate-400 flex-1 min-w-0 truncate">
-                                                                        {partData?.name || 'Sparepart'} {partNumber ? `(Kode: ${partNumber})` : ''} x{part.qty}
-                                                                    </span>
+                                                                <div key={partIndex} className="flex items-start justify-between text-xs gap-2">
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <span className="text-slate-600 dark:text-slate-400 block truncate">
+                                                                            {partData?.name || 'Sparepart'} {partNumber ? `(Kode: ${partNumber})` : ''} x{part.qty}
+                                                                        </span>
+                                                                        {partDiscount > 0 && (
+                                                                            <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                                                                                Diskon part: -{formatCurrency(partDiscount)}
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
                                                                     <span className="text-slate-900 dark:text-white font-medium">
-                                                                        {formatCurrency(part.price * part.qty)}
+                                                                        {formatCurrency(partFinal)}
                                                                     </span>
                                                                 </div>
                                                             );
@@ -799,23 +994,7 @@ export default function Edit({
                             )}
                         </div>
 
-                        <div className="p-3 space-y-4">
-                            <div>
-                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
-                                    Mekanik (Opsional)
-                                </label>
-                                <select
-                                    value={data.mechanic_id}
-                                    onChange={(e) => setData('mechanic_id', e.target.value)}
-                                    className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-                                >
-                                    <option value="">-- Pilih Mekanik --</option>
-                                    {mechanics.map((m) => (
-                                        <option key={m.id} value={m.id}>{m.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-
+                        <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-4 border-b border-slate-200 dark:border-slate-800">
                             <div>
                                 <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-3">
                                     Diskon
@@ -851,47 +1030,6 @@ export default function Edit({
                             </div>
 
                             <div>
-                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
-                                    Kode Voucher
-                                </label>
-                                <input
-                                    type="text"
-                                    value={data.voucher_code || ''}
-                                    onChange={(e) => setData('voucher_code', e.target.value.toUpperCase())}
-                                    placeholder="Contoh: SERVICEHEMAT"
-                                    list="service-order-voucher-options"
-                                    className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-                                />
-                                <datalist id="service-order-voucher-options">
-                                    {availableVouchers.map((voucher) => (
-                                        <option key={voucher.id} value={voucher.code}>{voucher.name}</option>
-                                    ))}
-                                </datalist>
-                                {errors.voucher_code && <p className="mt-1 text-xs text-red-600">{errors.voucher_code}</p>}
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
-                                    Catatan
-                                </label>
-                                <textarea
-                                    value={data.notes}
-                                    onChange={(e) => setData('notes', e.target.value)}
-                                    rows="2"
-                                    placeholder="Keluhan pelanggan..."
-                                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-                                />
-                            </div>
-
-                            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 p-4 space-y-3">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Pembayaran Service Order</h3>
-                                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                            Letakkan pembayaran di sini agar area input utama tetap lega saat membuat order baru.
-                                        </p>
-                                    </div>
-                                </div>
                                 <TransactionPaymentSection
                                     title="Pembayaran Service Order"
                                     paymentMethod={data.payment_method}
@@ -905,7 +1043,7 @@ export default function Edit({
                         </div>
                     </div>
 
-                    <div className="flex-shrink-0 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80 p-3">
+                    <div className="flex-shrink-0 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80 p-3 space-y-3">
                         <div className="flex justify-between items-center mb-2 text-sm">
                             <span className="text-slate-500">Subtotal</span>
                             <span className="font-medium">{formatCurrency(itemsSubtotal)}</span>

@@ -10,7 +10,7 @@ class DiscountTaxService
      * @param float|int $subtotal The base amount to apply discount to
      * @param string $discountType 'none', 'percent', or 'fixed'
      * @param float|int $discountValue The discount percentage or fixed amount
-     * @return int The discount amount (in cents/smallest unit)
+        * @return int The discount amount in rupiah
      */
     public static function calculateDiscount($subtotal, $discountType = 'none', $discountValue = 0)
     {
@@ -26,7 +26,7 @@ class DiscountTaxService
         }
 
         if ($discountType === 'fixed') {
-            return (int) round($discountValue * 100); // Convert to cents
+            return (int) round($discountValue);
         }
 
         return 0;
@@ -38,7 +38,7 @@ class DiscountTaxService
      * @param float|int $amount The base amount to apply tax to
      * @param string $taxType 'none', 'percent', or 'fixed'
      * @param float|int $taxValue The tax percentage or fixed amount
-     * @return int The tax amount (in cents/smallest unit)
+        * @return int The tax amount in rupiah
      */
     public static function calculateTax($amount, $taxType = 'none', $taxValue = 0)
     {
@@ -54,7 +54,7 @@ class DiscountTaxService
         }
 
         if ($taxType === 'fixed') {
-            return (int) round($taxValue * 100); // Convert to cents
+            return (int) round($taxValue);
         }
 
         return 0;

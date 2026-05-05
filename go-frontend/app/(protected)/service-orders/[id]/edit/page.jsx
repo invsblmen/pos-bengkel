@@ -32,9 +32,13 @@ export default function ServiceOrderEditPage({ params }) {
     status: 'pending',
     notes: '',
     service_id: '',
+    service_discount_type: 'none',
+    service_discount_value: '0',
     part_id: '',
     qty: '1',
     price: '0',
+    part_discount_type: 'none',
+    part_discount_value: '0',
   }))
 
   useEffect(() => {
@@ -48,7 +52,9 @@ export default function ServiceOrderEditPage({ params }) {
         if (!mounted) return
 
         const order = res?.data?.order || {}
-        const firstDetail = order.details?.[0]
+        const details = Array.isArray(order.details) ? order.details : []
+        const firstServiceDetail = details.find((detail) => Number(detail?.service_id || 0) > 0)
+        const firstPartDetail = details.find((detail) => Number(detail?.part_id || 0) > 0)
 
         setSeed({
           customers: Array.isArray(res?.data?.customers) ? res.data.customers : [],
@@ -65,10 +71,14 @@ export default function ServiceOrderEditPage({ params }) {
           odometer_km: String(order.odometer_km || '0'),
           status: order.status || 'pending',
           notes: order.notes || '',
-          service_id: firstDetail?.service_id ? String(firstDetail.service_id) : '',
-          part_id: firstDetail?.parts?.[0]?.part_id ? String(firstDetail.parts[0].part_id) : '',
-          qty: firstDetail?.parts?.[0]?.qty ? String(firstDetail.parts[0].qty) : '1',
-          price: firstDetail?.parts?.[0]?.price ? String(firstDetail.parts[0].price) : '0',
+          service_id: firstServiceDetail?.service_id ? String(firstServiceDetail.service_id) : '',
+          service_discount_type: firstServiceDetail?.discount_type || 'none',
+          service_discount_value: String(Number(firstServiceDetail?.discount_value || 0)),
+          part_id: firstPartDetail?.part_id ? String(firstPartDetail.part_id) : '',
+          qty: firstPartDetail?.qty ? String(firstPartDetail.qty) : '1',
+          price: firstPartDetail?.price ? String(firstPartDetail.price) : '0',
+          part_discount_type: firstPartDetail?.discount_type || 'none',
+          part_discount_value: String(Number(firstPartDetail?.discount_value || 0)),
         })
       } catch (err) {
         if (!mounted) return
@@ -117,13 +127,15 @@ export default function ServiceOrderEditPage({ params }) {
       notes: form.notes || '',
       items: [{
         service_id: toIntOrNil(form.service_id),
+        service_discount_type: form.service_discount_type || 'none',
+        service_discount_value: Math.max(0, Number(form.service_discount_value || 0)),
         parts: toIntOrNil(form.part_id)
           ? [{
               part_id: toIntOrNil(form.part_id),
               qty: Math.max(1, Number(form.qty || 1)),
               price: Math.max(0, Number(form.price || 0)),
-              discount_type: 'none',
-              discount_value: 0,
+              discount_type: form.part_discount_type || 'none',
+              discount_value: Math.max(0, Number(form.part_discount_value || 0)),
             }]
           : [],
       }],
@@ -201,6 +213,16 @@ export default function ServiceOrderEditPage({ params }) {
                 {seed.services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </label>
+            <label className={labelClass}>Diskon Service
+              <div className="mt-1 grid grid-cols-2 gap-2">
+                <select className={selectClass.replace('mt-1 ', '')} value={form.service_discount_type} onChange={onChange('service_discount_type')}>
+                  <option value="none">Tidak ada</option>
+                  <option value="percent">Persen (%)</option>
+                  <option value="fixed">Nominal</option>
+                </select>
+                <input type="number" min="0" className={inputClass.replace('mt-1 ', '')} value={form.service_discount_value} onChange={onChange('service_discount_value')} />
+              </div>
+            </label>
             <label className={labelClass}>Part (opsional)
               <select className={selectClass} value={form.part_id} onChange={onPartChange}>
                 <option value="">Tanpa part item</option>
@@ -212,6 +234,16 @@ export default function ServiceOrderEditPage({ params }) {
             </label>
             <label className={labelClass}>Harga Part
               <input type="number" min="0" className={inputClass} value={form.price} onChange={onChange('price')} placeholder={String(selectedPartPrice)} />
+            </label>
+            <label className={labelClass}>Diskon Part
+              <div className="mt-1 grid grid-cols-2 gap-2">
+                <select className={selectClass.replace('mt-1 ', '')} value={form.part_discount_type} onChange={onChange('part_discount_type')}>
+                  <option value="none">Tidak ada</option>
+                  <option value="percent">Persen (%)</option>
+                  <option value="fixed">Nominal</option>
+                </select>
+                <input type="number" min="0" className={inputClass.replace('mt-1 ', '')} value={form.part_discount_value} onChange={onChange('part_discount_value')} />
+              </div>
             </label>
           </div>
 

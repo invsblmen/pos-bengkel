@@ -152,6 +152,7 @@ export default function ServiceOrderShowPage({ params }) {
                 <Table.Th>Jenis</Table.Th>
                 <Table.Th>Qty</Table.Th>
                 <Table.Th>Harga</Table.Th>
+                <Table.Th>Diskon</Table.Th>
                 <Table.Th>Final</Table.Th>
                 <Table.Th>Garansi</Table.Th>
               </Table.Tr>
@@ -159,13 +160,17 @@ export default function ServiceOrderShowPage({ params }) {
             <Table.Tbody>
               {details.map((item) => {
                 const warranty = warrantyRegistrations?.[item.id]
+                const itemAmount = Number(item.amount || (Number(item.price || 0) * Number(item.qty || 0)) || 0)
+                const itemDiscount = Number(item.discount_amount || 0)
+                const itemFinal = Number(item.final_amount || itemAmount)
                 return (
                   <Table.Tr key={item.id}>
                     <Table.Td className="font-medium text-slate-800 dark:text-slate-100">{item.service?.name || item.part?.name || '-'}</Table.Td>
                     <Table.Td>{item.service ? 'Service' : item.part ? 'Part' : '-'}</Table.Td>
                     <Table.Td>{Number(item.qty || 0).toLocaleString('id-ID')}</Table.Td>
-                    <Table.Td>{Number(item.price || 0).toLocaleString('id-ID')}</Table.Td>
-                    <Table.Td className="font-semibold text-slate-800 dark:text-slate-100">{Number(item.final_amount || 0).toLocaleString('id-ID')}</Table.Td>
+                    <Table.Td>{itemAmount.toLocaleString('id-ID')}</Table.Td>
+                    <Table.Td className={itemDiscount > 0 ? 'font-medium text-rose-600 dark:text-rose-300' : ''}>{itemDiscount.toLocaleString('id-ID')}</Table.Td>
+                    <Table.Td className="font-semibold text-slate-800 dark:text-slate-100">{itemFinal.toLocaleString('id-ID')}</Table.Td>
                     <Table.Td><Badge tone={warranty?.status ? 'success' : 'neutral'}>{warranty?.status || '-'}</Badge></Table.Td>
                   </Table.Tr>
                 )
