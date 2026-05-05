@@ -260,7 +260,7 @@ export default function ServiceGrid({
 
     return (
         <div className="flex h-full min-h-0 flex-col overflow-visible bg-slate-100 dark:bg-slate-950">
-            <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-4">
                 {/* Service Selection */}
                 <div className="bg-white dark:bg-slate-900 rounded-xl p-3 border border-slate-200 dark:border-slate-800">
                     <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-0">
@@ -279,7 +279,8 @@ export default function ServiceGrid({
                     />
 
                     {selectedService && (
-                        <div className="rounded-lg border border-primary-200 bg-primary-50 p-0 mt-2 dark:border-primary-800 dark:bg-primary-900/20">
+                        <div className="rounded-lg border p-3
+                         border-primary-200 bg-primary-50 p-0 mt-2 dark:border-primary-800 dark:bg-primary-900/20">
                             <div className="flex items-start gap-2.5">
                                 <div className="h-9 w-9 flex-shrink-0 rounded-lg bg-primary-500 flex items-center justify-center">
                                     <IconTools size={18} className="text-white" />
@@ -323,7 +324,7 @@ export default function ServiceGrid({
 
                 {/* Parts Section */}
                 {selectedService && (
-                    <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/60 p-0 dark:border-slate-800 dark:from-slate-900 dark:to-slate-900">
+                    <div className="rounded-2xl p-3 border border-slate-200 bg-gradient-to-br from-white to-slate-50/60 p-0 dark:border-slate-800 dark:from-slate-900 dark:to-slate-900">
                         <div className="mb-2">
                             <div className="grid items-end gap-2.5 lg:grid-cols-12">
                                 <div className="lg:col-span-5">
