@@ -146,7 +146,12 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
             const row = [];
             if (visibleColumns.name)          row.push(`"${p.name}"`);
             if (visibleColumns.part_number)   row.push(p.part_number || '');
-            if (visibleColumns.category)      row.push(p.category?.name || '');
+            if (visibleColumns.category) {
+                const cats = p.categories?.length > 0 
+                    ? p.categories.map(c => `${c.parent?.name ? c.parent.name + ' > ' : ''}${c.name}`).join('; ')
+                    : (p.category?.name || '');
+                row.push(`"${cats}"`);
+            }
             if (visibleColumns.supplier)      row.push(p.supplier?.name || '');
             if (visibleColumns.rack_location) row.push(p.rack_location || '');
             if (visibleColumns.stock)         row.push(p.stock);
@@ -356,7 +361,23 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
                                                         <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">{idx + 1 + ((parts.current_page || 1) - 1) * (parts.per_page || parts.data.length)}</td>
                                                         {visibleColumns.name && <td className="px-4 py-3"><div className="text-sm font-semibold text-slate-900 dark:text-white">{p.name}</div>{p.description && <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">{p.description}</div>}</td>}
                                                         {visibleColumns.part_number && <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 font-mono">{p.part_number || '-'}</td>}
-                                                        {visibleColumns.category && <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{p.category?.name || '-'}</td>}
+                                                        {visibleColumns.category && (
+                                                            <td className="px-4 py-3">
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {p.categories && p.categories.length > 0 ? (
+                                                                        p.categories.map((cat, idx) => (
+                                                                            <span key={cat.id} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300 whitespace-nowrap">
+                                                                                {cat.parent && <span className="opacity-75">{cat.parent.name}</span>}
+                                                                                {cat.parent && <span className="opacity-50">›</span>}
+                                                                                <span>{cat.name}</span>
+                                                                            </span>
+                                                                        ))
+                                                                    ) : (
+                                                                        <span className="text-sm text-slate-400">-</span>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        )}
                                                         {visibleColumns.supplier && <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{p.supplier?.name || '-'}</td>}
                                                         {visibleColumns.rack_location && (
                                                             <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
@@ -405,7 +426,22 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
                                                     <span className={`shrink-0 px-2 py-1 rounded-full text-[11px] font-semibold ${stockCls}`}>{stockLabel}</span>
                                                 </div>
                                                 <div className="mt-3 space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
-                                                    <div className="flex items-center gap-1.5"><IconCategory size={13} className="shrink-0 text-slate-400" /><span>{p.category?.name || '-'}</span></div>
+                                                    <div className="flex items-start gap-1.5">
+                                                        <IconCategory size={13} className="shrink-0 text-slate-400 mt-0.5" />
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {p.categories && p.categories.length > 0 ? (
+                                                                p.categories.map(cat => (
+                                                                    <span key={cat.id} className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
+                                                                        {cat.parent && <span className="opacity-75 mr-0.5">{cat.parent.name}</span>}
+                                                                        {cat.parent && <span className="opacity-50 mr-0.5">›</span>}
+                                                                        <span>{cat.name}</span>
+                                                                    </span>
+                                                                ))
+                                                            ) : (
+                                                                <span className="text-slate-400">-</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                     <div className="flex items-center gap-1.5"><IconTruck size={13} className="shrink-0 text-slate-400" /><span>{p.supplier?.name || '-'}</span></div>
                                                     {p.rack_location && <div className="flex items-center gap-1.5"><IconMapPin size={13} className="shrink-0 text-slate-400" /><span>{p.rack_location}</span></div>}
                                                 </div>

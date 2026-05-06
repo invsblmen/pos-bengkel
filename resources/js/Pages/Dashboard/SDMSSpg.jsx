@@ -116,8 +116,9 @@ const getCompareItemPartNumber = (item) => getCompareItemValue(item, ['numberPar
 const getCompareItemPartName = (item) => getCompareItemValue(item, ['name', 'partName', 'part_name', 'description', 'desc']);
 const getCompareItemDescription = (item) => getCompareItemValue(item, ['description', 'status', 'mismatchStatus', 'result']);
 
-export default function SDMSSpg({ initialIdBilling, sdms }) {
+export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
     const [idBilling, setIdBilling] = useState(initialIdBilling ?? '');
+    const [selectedSupplierId, setSelectedSupplierId] = useState(initialSupplierId ?? '');
     const [detail, setDetail] = useState(null);
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -233,11 +234,18 @@ export default function SDMSSpg({ initialIdBilling, sdms }) {
     const handleAddPartLocal = async () => {
         setCreateSpareLoading(true);
         try {
+            const vendorId = Number(selectedSupplierId || extractShipmentVendorId(detail)) || null;
+
+            if (!vendorId) {
+                alert('Supplier pembelian belum dipilih. Kembali ke list pemesanan untuk memilih supplier.');
+                return;
+            }
+
             // Create sparepart via API
             await axios.post('/api/spg/sparepart', {
                 part_number: modalPart.numberPart,
                 name: modalPart.name,
-                supplier_id: detail ? parseInt(extractShipmentVendorId(detail)) || null : null,
+                supplier_id: vendorId,
                 buy_price: 0,
                 sell_price: 0,
                 status: 'active',
@@ -265,10 +273,9 @@ export default function SDMSSpg({ initialIdBilling, sdms }) {
 
         setCreatePurchaseLoading(true);
         try {
-            // Extract supplier_id from detail
-            const vendorId = detail ? parseInt(extractShipmentVendorId(detail)) || null : null;
+            const vendorId = Number(selectedSupplierId || extractShipmentVendorId(detail)) || null;
             if (!vendorId) {
-                alert('Vendor ID tidak ditemukan.');
+                alert('Supplier pembelian belum dipilih.');
                 return;
             }
 
@@ -423,7 +430,7 @@ export default function SDMSSpg({ initialIdBilling, sdms }) {
                             </p>
                         </div>
 
-                        <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[420px]">
+                                <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[420px]">
                             <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/60">
                                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">idBilling</p>
                                 <p className="mt-2 break-all text-sm font-semibold text-slate-900 dark:text-white">{idBilling || '-'}</p>
@@ -439,6 +446,28 @@ export default function SDMSSpg({ initialIdBilling, sdms }) {
                         </div>
                     </div>
                 </div>
+
+                        <div className="mt-4 rounded-2xl border border-cyan-200 bg-cyan-50/70 p-4 dark:border-cyan-900/40 dark:bg-cyan-950/20">
+                            <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-semibold uppercase tracking-wide text-cyan-800 dark:text-cyan-300">Supplier Pembelian</label>
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                        <input
+                                            value={selectedSupplierId}
+                                            onChange={(event) => setSelectedSupplierId(event.target.value)}
+                                            placeholder="Isi dari list pemesanan atau ubah manual jika perlu"
+                                            className="w-full rounded-xl border border-cyan-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 dark:border-cyan-900/40 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-900/30"
+                                        />
+                                        <div className="rounded-xl bg-cyan-100 px-3 py-2 text-xs font-semibold text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-200">
+                                            Vendor aktif untuk pembelian ini
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="text-xs text-cyan-900 dark:text-cyan-200">
+                                    Supplier ini dipakai saat menambahkan part ke pembelian dan saat membuat purchase order.
+                                </div>
+                            </div>
+                        </div>
 
                 <Card>
                     <CardHeader>

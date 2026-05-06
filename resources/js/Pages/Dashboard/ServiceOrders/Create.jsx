@@ -334,6 +334,16 @@ export default function Create({ customers, mechanics, services, parts, vehicles
         }
     };
 
+    const handleViewVehicleDetails = (vehicle) => {
+        if (!vehicle?.id) return;
+        window.open(route('vehicles.show', vehicle.id), '_blank');
+    };
+
+    const handleViewCustomerDetails = (customer) => {
+        if (!customer?.id) return;
+        window.open(route('customers.show', customer.id), '_blank');
+    };
+
     const handleVehicleCreated = (newVehicle) => {
         setLiveVehicles((prev) => {
             if (prev.some((vehicle) => vehicle.id === newVehicle.id)) {
@@ -649,6 +659,7 @@ export default function Create({ customers, mechanics, services, parts, vehicles
                                     selected={data.vehicle_id ? (customerVehicles.length > 0 ? customerVehicles : liveVehicles).find(v => Number(v.id) === Number(data.vehicle_id)) : null}
                                     onSelect={handleVehicleChange}
                                     onClear={() => setData('vehicle_id', '')}
+                                    onViewDetails={handleViewVehicleDetails}
                                     onVehicleAdded={handleVehicleCreated}
                                     placeholder="Pilih kendaraan..."
                                     error={errors?.vehicle_id}
@@ -691,6 +702,7 @@ export default function Create({ customers, mechanics, services, parts, vehicles
                                         setData('vehicle_id', '');
                                         setCustomerVehicles([]);
                                     }}
+                                    onViewDetails={handleViewCustomerDetails}
                                     placeholder="Pilih pelanggan..."
                                     error={errors?.customer_id}
                                     /* label removed to avoid duplicate title */
@@ -709,6 +721,11 @@ export default function Create({ customers, mechanics, services, parts, vehicles
                                     placeholder="Contoh: 50000"
                                     className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                                 />
+                                {insights.last_order_km && (
+                                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                                        Kilometer sebelumnya: {parseInt(insights.last_order_km).toLocaleString('id-ID')} km
+                                    </p>
+                                )}
                             </div>
 
                             <div>
@@ -794,6 +811,7 @@ export default function Create({ customers, mechanics, services, parts, vehicles
                                     selected={data.vehicle_id ? (customerVehicles.length > 0 ? customerVehicles : liveVehicles).find(v => Number(v.id) === Number(data.vehicle_id)) : null}
                                     onSelect={handleVehicleChange}
                                     onClear={() => setData('vehicle_id', '')}
+                                    onViewDetails={handleViewVehicleDetails}
                                     onVehicleAdded={handleVehicleCreated}
                                     placeholder="Pilih kendaraan..."
                                     error={errors?.vehicle_id}
@@ -830,6 +848,7 @@ export default function Create({ customers, mechanics, services, parts, vehicles
                                         setData('vehicle_id', '');
                                         setCustomerVehicles([]);
                                     }}
+                                    onViewDetails={handleViewCustomerDetails}
                                     placeholder="Pilih pelanggan..."
                                     error={errors?.customer_id}
                                     clearButtonPlacement="below"

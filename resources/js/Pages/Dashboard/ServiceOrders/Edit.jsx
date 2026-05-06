@@ -355,6 +355,16 @@ export default function Edit({
         }
     };
 
+    const handleViewVehicleDetails = (vehicle) => {
+        if (!vehicle?.id) return;
+        window.open(route('vehicles.show', vehicle.id), '_blank');
+    };
+
+    const handleViewCustomerDetails = (customer) => {
+        if (!customer?.id) return;
+        window.open(route('customers.show', customer.id), '_blank');
+    };
+
     const handleVehicleCreated = (newVehicle) => {
         setLiveVehicles((prev) => {
             if (prev.some((vehicle) => vehicle.id === newVehicle.id)) {
@@ -666,6 +676,7 @@ export default function Edit({
                                     selected={data.vehicle_id ? (customerVehicles.length > 0 ? customerVehicles : liveVehicles).find(v => Number(v.id) === Number(data.vehicle_id)) : null}
                                     onSelect={handleVehicleChange}
                                     onClear={() => setData('vehicle_id', '')}
+                                    onViewDetails={handleViewVehicleDetails}
                                     onVehicleAdded={handleVehicleCreated}
                                     placeholder="Pilih kendaraan..."
                                     error={errors?.vehicle_id}
@@ -708,6 +719,7 @@ export default function Edit({
                                         setData('vehicle_id', '');
                                         setCustomerVehicles([]);
                                     }}
+                                    onViewDetails={handleViewCustomerDetails}
                                     placeholder="Pilih pelanggan..."
                                     error={errors?.customer_id}
                                     /* label removed to avoid duplicate title */
@@ -726,6 +738,11 @@ export default function Edit({
                                     placeholder="Contoh: 50000"
                                     className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                                 />
+                                {insights.last_order_km && (
+                                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                                        Kilometer sebelumnya: {parseInt(insights.last_order_km).toLocaleString('id-ID')} km
+                                    </p>
+                                )}
                             </div>
 
                             <div>
@@ -803,7 +820,7 @@ export default function Edit({
                             mobileView !== 'summary' ? 'hidden lg:flex' : 'flex'
                         }`}
                     >
-                            <div className="lg:hidden p-3 border-b border-slate-200 dark:border-slate-800 space-y-3 flex-shrink-0">
+                        <div className="lg:hidden p-3 border-b border-slate-200 dark:border-slate-800 space-y-3 flex-shrink-0">
                             <div>
                                 <VehicleSelect
                                     vehicles={customerVehicles.length > 0 ? customerVehicles : liveVehicles}
@@ -811,6 +828,7 @@ export default function Edit({
                                     selected={data.vehicle_id ? (customerVehicles.length > 0 ? customerVehicles : liveVehicles).find(v => Number(v.id) === Number(data.vehicle_id)) : null}
                                     onSelect={handleVehicleChange}
                                     onClear={() => setData('vehicle_id', '')}
+                                    onViewDetails={handleViewVehicleDetails}
                                     onVehicleAdded={handleVehicleCreated}
                                     placeholder="Pilih kendaraan..."
                                     error={errors?.vehicle_id}
@@ -848,6 +866,7 @@ export default function Edit({
                                         setData('vehicle_id', '');
                                         setCustomerVehicles([]);
                                     }}
+                                    onViewDetails={handleViewCustomerDetails}
                                     placeholder="Pilih pelanggan..."
                                     error={errors?.customer_id}
                                     /* label removed to avoid duplicate title */
@@ -865,6 +884,7 @@ export default function Edit({
                             </button>
                         </div>
 
+                        {/* Order Items List */}
                         <div className="flex-1 min-h-0 overflow-y-auto p-3 border-b border-slate-200 dark:border-slate-800 flex flex-col">
                             <div className="flex items-center justify-between mb-3 flex-shrink-0">
                                 <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
@@ -994,6 +1014,7 @@ export default function Edit({
                             )}
                         </div>
 
+                        {/* Payment Details */}
                         <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-4 border-b border-slate-200 dark:border-slate-800">
                             <div>
                                 <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-3">
@@ -1041,67 +1062,68 @@ export default function Edit({
                                 />
                             </div>
                         </div>
-                    </div>
 
-                    <div className="flex-shrink-0 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80 p-3 space-y-3">
-                        <div className="flex justify-between items-center mb-2 text-sm">
-                            <span className="text-slate-500">Subtotal</span>
-                            <span className="font-medium">{formatCurrency(itemsSubtotal)}</span>
-                        </div>
-                        {transactionDiscount > 0 && (
+                        {/* Summary & Submit - Fixed at bottom */}
+                        <div className="flex-shrink-0 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80 p-3 space-y-3">
                             <div className="flex justify-between items-center mb-2 text-sm">
-                                <span className="text-slate-500">Diskon</span>
-                                <span className="text-danger-500">-{formatCurrency(transactionDiscount)}</span>
+                                <span className="text-slate-500">Subtotal</span>
+                                <span className="font-medium">{formatCurrency(itemsSubtotal)}</span>
                             </div>
-                        )}
-                        {taxAmount > 0 && (
-                            <div className="flex justify-between items-center mb-2 text-sm">
-                                <span className="text-slate-500">Pajak</span>
-                                <span className="text-success-600">+{formatCurrency(taxAmount)}</span>
-                            </div>
-                        )}
-                        {roundingAdjustment !== 0 && (
-                            <div className="flex justify-between items-center mb-2 text-sm">
-                                <span className="text-slate-500">Pembulatan</span>
-                                <span className={roundingAdjustment > 0 ? 'text-success-600' : 'text-danger-500'}>
-                                    {roundingAdjustment > 0 ? '+' : ''}{formatCurrency(roundingAdjustment)}
+                            {transactionDiscount > 0 && (
+                                <div className="flex justify-between items-center mb-2 text-sm">
+                                    <span className="text-slate-500">Diskon</span>
+                                    <span className="text-danger-500">-{formatCurrency(transactionDiscount)}</span>
+                                </div>
+                            )}
+                            {taxAmount > 0 && (
+                                <div className="flex justify-between items-center mb-2 text-sm">
+                                    <span className="text-slate-500">Pajak</span>
+                                    <span className="text-success-600">+{formatCurrency(taxAmount)}</span>
+                                </div>
+                            )}
+                            {roundingAdjustment !== 0 && (
+                                <div className="flex justify-between items-center mb-2 text-sm">
+                                    <span className="text-slate-500">Pembulatan</span>
+                                    <span className={roundingAdjustment > 0 ? 'text-success-600' : 'text-danger-500'}>
+                                        {roundingAdjustment > 0 ? '+' : ''}{formatCurrency(roundingAdjustment)}
+                                    </span>
+                                </div>
+                            )}
+                            <div className="flex justify-between items-center mb-3">
+                                <span className="font-semibold text-slate-800 dark:text-white">Total</span>
+                                <span className="text-xl font-bold text-primary-600 dark:text-primary-400">
+                                    {formatCurrency(grandTotal)}
                                 </span>
                             </div>
-                        )}
-                        <div className="flex justify-between items-center mb-3">
-                            <span className="font-semibold text-slate-800 dark:text-white">Total</span>
-                            <span className="text-xl font-bold text-primary-600 dark:text-primary-400">
-                                {formatCurrency(grandTotal)}
-                            </span>
-                        </div>
 
-                        <button
-                            type="button"
-                            onClick={handleSubmit}
-                            disabled={processing || isSubmitting || !data.customer_id || !data.vehicle_id || data.items.length === 0}
-                            className={`w-full h-12 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
-                                data.customer_id && data.vehicle_id && data.items.length > 0
-                                    ? 'bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-lg shadow-primary-500/30'
-                                    : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                            }`}
-                        >
-                            {(processing || isSubmitting) ? (
-                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            ) : (
-                                <>
-                                    <IconDeviceFloppy size={18} />
-                                    <span>
-                                        {!data.customer_id
-                                            ? 'Pilih Pelanggan'
-                                            : !data.vehicle_id
-                                            ? 'Pilih Kendaraan'
-                                            : data.items.length === 0
-                                            ? 'Tambah Layanan'
-                                            : 'Perbarui Order'}
-                                    </span>
-                                </>
-                            )}
-                        </button>
+                            <button
+                                type="button"
+                                onClick={handleSubmit}
+                                disabled={processing || isSubmitting || !data.customer_id || !data.vehicle_id || data.items.length === 0}
+                                className={`w-full h-12 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
+                                    data.customer_id && data.vehicle_id && data.items.length > 0
+                                        ? 'bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-lg shadow-primary-500/30'
+                                        : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                                }`}
+                            >
+                                {(processing || isSubmitting) ? (
+                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                    <>
+                                        <IconDeviceFloppy size={18} />
+                                        <span>
+                                            {!data.customer_id
+                                                ? 'Pilih Pelanggan'
+                                                : !data.vehicle_id
+                                                ? 'Pilih Kendaraan'
+                                                : data.items.length === 0
+                                                ? 'Tambah Layanan'
+                                                : 'Perbarui Order'}
+                                        </span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1140,10 +1162,10 @@ export default function Edit({
             />
 
             <VehicleHistoryModal
-                isOpen={showHistoryModal}
+                show={showHistoryModal}
                 onClose={() => setShowHistoryModal(false)}
-                loading={loadingHistory}
-                history={vehicleHistory}
+                vehicle={currentVehicle}
+                serviceHistory={vehicleHistory}
             />
 
             <PaymentReceiptModal

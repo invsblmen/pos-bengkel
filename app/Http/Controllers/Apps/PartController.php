@@ -29,7 +29,7 @@ class PartController extends Controller
         $sortDirection = $request->query('sort_direction', 'asc');
         $perPage = $request->query('per_page', 10);
 
-        $query = Part::with(['supplier', 'category', 'categories']);
+        $query = Part::with(['supplier', 'category', 'categories.parent']);
 
         // Search
         if ($q) {
@@ -42,9 +42,11 @@ class PartController extends Controller
             });
         }
 
-        // Category filter
+        // Category filter (via many-to-many relationship)
         if ($categoryId) {
-            $query->where('part_category_id', $categoryId);
+            $query->whereHas('categories', function ($q) use ($categoryId) {
+                $q->where('part_category_id', $categoryId);
+            });
         }
 
         // Supplier filter

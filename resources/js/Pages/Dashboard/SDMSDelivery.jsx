@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { IconFileDescription, IconRefresh, IconSearch, IconTruck } from '@tabler/icons-react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/Card';
@@ -9,15 +9,19 @@ import { toDisplayDateTime } from '@/Utils/datetime';
 
 const normalizeText = (value) => (value ?? '').toString().toLowerCase();
 
-const extractInvoiceNumber = (item) => item.billingNumber ?? item.BillingNumber ?? item.billingNo ?? item.billing_number ?? item.billNo ?? item.billing ?? '';
+const extractInvoiceNumber = (item) =>
+    item.billingNumber ?? item.BillingNumber ?? item.billingNo ?? item.billing_number ?? item.billNo ?? item.billing ?? item.billingnumber ?? '';
 
-const extractDocumentNumber = (item) => item.documentNumber ?? item.DocumentNumber ?? item.documentNo ?? item.document_number ?? item.document ?? '';
+const extractDocumentNumber = (item) =>
+    item.documentNumber ?? item.DocumentNumber ?? item.documentNo ?? item.document_number ?? item.document ?? item.documentnumber ?? '';
 
-const extractDeliveryDate = (item) => item.dtCreate ?? item.dtcreate ?? item.dt_create ?? item.createdAt ?? item.date ?? item.deliveryDate ?? '';
+const extractDeliveryDate = (item) =>
+    item.dtCreate ?? item.dtcreate ?? item.dt_create ?? item.dtcreated ?? item.createdAt ?? item.date ?? item.deliveryDate ?? '';
 
 const extractDeliveryStatus = (item) => item.statusDO ?? item.StatusDO ?? item.status ?? item.descStatus ?? item.DeliveryStatus ?? '';
 
-const extractDeliveryCustomer = (item) => item.customerName ?? (item.customer && item.customer.name) ?? item.customer ?? '';
+const extractDeliveryCustomer = (item) =>
+    item.customerName ?? (item.customer && item.customer.name) ?? item.customer ?? item.name ?? '';
 
 const extractDeliveryVehicle = (item) => item.vehicleNumber ?? item.vehicle_number ?? item.vehicle ?? item.kendaraan ?? item.vehicleNo ?? '';
 
@@ -36,11 +40,13 @@ const getStatusTone = (status) => {
     return 'bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:ring-blue-900/60';
 };
 
-export default function SDMSDelivery({ sdms }) {
+export default function SDMSDelivery({ sdms, defaultSupplierId = '', defaultSupplierName = 'MPM Surabaya' }) {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [query, setQuery] = useState('');
+    const [appliedQuery, setAppliedQuery] = useState('');
+
 
     const [showDetail, setShowDetail] = useState(false);
     const [selected, setSelected] = useState(null);
@@ -89,6 +95,51 @@ export default function SDMSDelivery({ sdms }) {
         }
     };
 
+    const handleShipmentSearch = async (searchTerm) => {
+        if (!searchTerm || String(searchTerm).trim() === '') return;
+        setAppliedQuery(String(searchTerm).trim());
+        setLoading(true);
+        try {
+            const filter = { jurnal: String(searchTerm).trim() };
+            const res = await axios.get('/api/part/Shipment', {
+                params: {
+                    size: 20,
+                    filterData: JSON.stringify(filter),
+                    page: 0,
+                },
+            });
+
+            let d = res.data;
+            // some proxy wrappers may exist
+            if (d && d.body && d.target) {
+                let inner = d.body;
+                if (typeof inner === 'string') {
+                    try {
+                        inner = JSON.parse(inner);
+                    } catch (e) {
+                        // leave as-is
+                    }
+                }
+                d = inner;
+            }
+
+            if (d && Array.isArray(d.Result)) {
+                setItems(d.Result || []);
+                setError(null);
+            } else if (Array.isArray(d)) {
+                setItems(d);
+                setError(null);
+            } else {
+                setItems([]);
+                setError('Tidak ada hasil dari pencarian Shipment');
+            }
+        } catch (err) {
+            setError(err.response?.data?.message || err.message || 'Gagal mencari Shipment');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         let mounted = true;
         if (mounted) fetchDelivery();
@@ -98,7 +149,7 @@ export default function SDMSDelivery({ sdms }) {
     }, []);
 
     const filteredItems = useMemo(() => {
-        const keyword = query.trim().toLowerCase();
+        const keyword = appliedQuery.trim().toLowerCase();
         if (!keyword) return items;
 
         return items.filter((item) => {
@@ -122,6 +173,20 @@ export default function SDMSDelivery({ sdms }) {
         () => items.filter((item) => normalizeText(extractDeliveryStatus(item)).includes('open')).length,
         [items]
     );
+
+
+
+    const handleOpenSpg = (item) => {
+        const fill = locateFillValue(item);
+        const supplierId = defaultSupplierId || '';
+
+        if (!supplierId) {
+            alert('Supplier default belum disiapkan.');
+            return;
+        }
+
+        router.visit(route('sdms.spg.index', { idbilling: fill, supplier_id: supplierId }));
+    };
 
     const completeCount = useMemo(
         () => items.filter((item) => normalizeText(extractDeliveryStatus(item)).includes('close') || normalizeText(extractDeliveryStatus(item)).includes('done')).length,
@@ -316,10 +381,24 @@ export default function SDMSDelivery({ sdms }) {
                                     <input
                                         value={query}
                                         onChange={(e) => setQuery(e.target.value)}
-                                        placeholder="Cari nomor, customer, kendaraan, status..."
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                   setAppliedQuery(query); handleShipmentSearch(query);
+                                            }
+                                        }}
+                                        placeholder="Cari nomor INV (tekan Enter atau klik Search)..."
                                         className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-900/40"
                                     />
                                 </div>
+                                <button
+                                        onClick={() => { setAppliedQuery(query); handleShipmentSearch(query); }}
+                                    disabled={loading}
+                                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-70"
+                                >
+                                    <IconSearch size={16} />
+                                    {loading ? 'Mencari...' : 'Cari'}
+                                </button>
                                 <button
                                     onClick={fetchDelivery}
                                     disabled={loading}
@@ -368,6 +447,7 @@ export default function SDMSDelivery({ sdms }) {
                                                 const status = extractDeliveryStatus(it);
                                                 const customer = extractDeliveryCustomer(it);
                                                 const vehicle = extractDeliveryVehicle(it);
+                                                const fill = locateFillValue(it) || `${idx}`;
 
                                                 return (
                                                     <tr key={idx} className="transition hover:bg-cyan-50/60 dark:hover:bg-cyan-950/20">
@@ -386,25 +466,28 @@ export default function SDMSDelivery({ sdms }) {
                                                             </span>
                                                         </td>
                                                         <td className="px-4 py-3 align-top text-right">
-                                                            <div className="inline-flex flex-wrap justify-end gap-2">
-                                                                <Link
-                                                                    href={route('sdms.spg.index', { idbilling: locateFillValue(it) })}
-                                                                    className="inline-flex items-center gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm font-semibold text-cyan-700 transition hover:border-cyan-300 hover:bg-cyan-100 dark:border-cyan-900/40 dark:bg-cyan-950/30 dark:text-cyan-200"
-                                                                >
-                                                                    SPG
-                                                                </Link>
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setSelected(it);
-                                                                        setShowDetail(true);
-                                                                        fetchOrderItems(it);
-                                                                    }}
-                                                                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-cyan-300 hover:text-cyan-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200"
-                                                                >
-                                                                    Detail
-                                                                    <IconFileDescription size={16} />
-                                                                </button>
-                                                            </div>
+                                                            <div className="inline-flex min-w-[220px] flex-col gap-2 text-left">
+                                                                        <div className="inline-flex flex-wrap justify-end gap-2">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleOpenSpg(it)}
+                                                                        className="inline-flex items-center gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm font-semibold text-cyan-700 transition hover:border-cyan-300 hover:bg-cyan-100 dark:border-cyan-900/40 dark:bg-cyan-950/30 dark:text-cyan-200"
+                                                                    >
+                                                                        SPG
+                                                                    </button>
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setSelected(it);
+                                                                                setShowDetail(true);
+                                                                                fetchOrderItems(it);
+                                                                            }}
+                                                                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-cyan-300 hover:text-cyan-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200"
+                                                                        >
+                                                                            Detail
+                                                                            <IconFileDescription size={16} />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
                                                         </td>
                                                     </tr>
                                                 );

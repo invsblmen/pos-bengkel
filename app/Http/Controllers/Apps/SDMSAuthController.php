@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Apps;
 
 use App\Http\Controllers\Controller;
+use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Arr;
@@ -116,8 +117,14 @@ class SDMSAuthController extends Controller
     public function deliveryOrders()
     {
         $sdms = session('sdms', null);
+        $defaultName = env('SDMS_DEFAULT_SUPPLIER_NAME', 'MPM Surabaya');
+        $default = Supplier::where('name', $defaultName)->first();
+        $defaultId = $default ? $default->id : null;
+
         return Inertia::render('Dashboard/SDMSDelivery', [
             'sdms' => $sdms,
+            'defaultSupplierId' => $defaultId,
+            'defaultSupplierName' => $defaultName,
         ]);
     }
 
@@ -128,6 +135,7 @@ class SDMSAuthController extends Controller
         return Inertia::render('Dashboard/SDMSSpg', [
             'sdms' => $sdms,
             'initialIdBilling' => $request->query('idbilling') ?? $request->query('idBilling') ?? null,
+            'initialSupplierId' => $request->query('supplier_id') ?? $request->query('supplierId') ?? null,
         ]);
     }
 

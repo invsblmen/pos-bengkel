@@ -27,6 +27,12 @@ Route::get('/part/DeliveryOrder', function (Request $request) {
     return $controller->proxy($request, 'api/part/DeliveryOrder');
 })->middleware('web');
 
+// Proxy specific Shipment endpoint so frontend can call local /api/part/Shipment
+Route::get('/part/Shipment', function (Request $request) {
+    $controller = app(\App\Http\Controllers\ApiProxyController::class);
+    return $controller->proxy($request, 'api/part/Shipment');
+})->middleware('web');
+
 // Proxy specific ShipmentPackageNonMulia endpoint for SPG detail page
 Route::get('/part/ShipmentPackageNonMulia', function (Request $request) {
     $controller = app(\App\Http\Controllers\ApiProxyController::class);

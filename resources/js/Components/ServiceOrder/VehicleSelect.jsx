@@ -4,6 +4,7 @@ import {
     IconSearch,
     IconCheck,
     IconChevronDown,
+    IconEye,
     IconX,
 } from "@tabler/icons-react";
 import QuickCreateVehicleModal from "@/Components/Dashboard/QuickCreateVehicleModal";
@@ -21,6 +22,7 @@ export default function VehicleSelect({
     renderOption,
     onVehicleAdded,
     clearButtonPlacement = "inline",
+    onViewDetails,
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
@@ -142,21 +144,43 @@ export default function VehicleSelect({
                         />
                     </button>
 
-                    {selected && onClear && clearButtonPlacement === "inline" && (
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onClear();
-                            }}
-                            className="h-12 w-12 rounded-xl border-2 border-slate-200 dark:border-slate-700
-                                text-slate-500 hover:bg-danger-50 hover:border-danger-300 hover:text-danger-600
-                                dark:hover:bg-danger-950/30 dark:hover:border-danger-700 dark:hover:text-danger-500
-                                flex items-center justify-center transition-colors"
-                            title="Batalkan pilihan kendaraan"
-                        >
-                            <IconX size={18} />
-                        </button>
+                    {selected && (onViewDetails || onClear) && clearButtonPlacement === "inline" && (
+                        <div className="flex items-center gap-2">
+                            {onViewDetails && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onViewDetails(selected);
+                                    }}
+                                    className="h-12 px-3 rounded-xl border-2 border-slate-200 dark:border-slate-700
+                                        text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700
+                                        dark:hover:bg-slate-800 dark:hover:border-slate-600 dark:hover:text-slate-300
+                                        flex items-center gap-2 transition-colors"
+                                    title="Lihat detail kendaraan"
+                                >
+                                    <IconEye size={18} />
+                                    <span className="text-xs font-medium">Detail</span>
+                                </button>
+                            )}
+                            {onClear && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onClear();
+                                    }}
+                                    className="h-12 px-3 rounded-xl border-2 border-slate-200 dark:border-slate-700
+                                        text-slate-500 hover:bg-danger-50 hover:border-danger-300 hover:text-danger-600
+                                        dark:hover:bg-danger-950/30 dark:hover:border-danger-700 dark:hover:text-danger-500
+                                        flex items-center gap-2 transition-colors"
+                                    title="Batalkan pilihan kendaraan"
+                                >
+                                    <IconX size={18} />
+                                    <span className="text-xs font-medium">Batalkan pilihan</span>
+                                </button>
+                            )}
+                        </div>
                     )}
 
                     {/* Add Vehicle Button */}
@@ -172,19 +196,37 @@ export default function VehicleSelect({
                     </button>
                 </div>
 
-                {selected && onClear && clearButtonPlacement === "below" && (
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onClear();
-                        }}
-                        className="mt-2 inline-flex items-center gap-2 rounded-lg px-1 py-1 text-xs font-medium text-slate-500 transition-colors hover:text-danger-600"
-                        title="Batalkan pilihan kendaraan"
-                    >
-                        <IconX size={14} />
-                        <span>Batalkan pilihan</span>
-                    </button>
+                {selected && (onViewDetails || onClear) && clearButtonPlacement === "below" && (
+                    <div className="mt-2 flex items-center gap-2">
+                        {onViewDetails && (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onViewDetails(selected);
+                                }}
+                                className="inline-flex items-center gap-2 rounded-lg px-1 py-1 text-xs font-medium text-slate-500 transition-colors hover:text-slate-700 dark:hover:text-slate-300"
+                                title="Lihat detail kendaraan"
+                            >
+                                <IconEye size={14} />
+                                <span>Detail</span>
+                            </button>
+                        )}
+                        {onClear && (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onClear();
+                                }}
+                                className="inline-flex items-center gap-2 rounded-lg px-1 py-1 text-xs font-medium text-slate-500 transition-colors hover:text-danger-600"
+                                title="Batalkan pilihan kendaraan"
+                            >
+                                <IconX size={14} />
+                                <span>Batalkan pilihan</span>
+                            </button>
+                        )}
+                    </div>
                 )}
 
                 {/* Error Message */}
