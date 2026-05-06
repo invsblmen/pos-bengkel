@@ -748,37 +748,20 @@ export default function Edit({
                             </div>
 
                             <div>
-                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
-                                    Mekanik (Opsional)
-                                </label>
-                                <select
-                                    value={data.mechanic_id}
-                                    onChange={(e) => setData('mechanic_id', e.target.value)}
-                                    className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-                                >
-                                    <option value="">-- Pilih Mekanik --</option>
-                                    {mechanics.map((m) => (
-                                        <option key={m.id} value={m.id}>
-                                            {m.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                <MechanicSelect
+                                    mechanics={mechanics}
+                                    selected={
+                                        data.mechanic_id
+                                            ? mechanics.find((m) => m.id === parseInt(data.mechanic_id))
+                                            : null
+                                    }
+                                    onSelect={(mechanicId) => setData('mechanic_id', mechanicId)}
+                                    onClear={() => setData('mechanic_id', '')}
+                                    label="Mekanik (Opsional)"
+                                    placeholder="Pilih mekanik..."
+                                    clearButtonPlacement="below"
+                                />
                             </div>
-                                <div>
-                                    <MechanicSelect
-                                        mechanics={mechanics}
-                                        selected={
-                                            data.mechanic_id
-                                                ? mechanics.find((m) => m.id === parseInt(data.mechanic_id))
-                                                : null
-                                        }
-                                        onSelect={(mechanicId) => setData('mechanic_id', mechanicId)}
-                                        onClear={() => setData('mechanic_id', '')}
-                                        label="Mekanik (Opsional)"
-                                        placeholder="Pilih mekanik..."
-                                        clearButtonPlacement="below"
-                                    />
-                                </div>
                             <div>
                                 <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
                                     Kode Voucher
