@@ -147,7 +147,7 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
             if (visibleColumns.name)          row.push(`"${p.name}"`);
             if (visibleColumns.part_number)   row.push(p.part_number || '');
             if (visibleColumns.category) {
-                const cats = p.categories?.length > 0 
+                const cats = p.categories?.length > 0
                     ? p.categories.map(c => `${c.parent?.name ? c.parent.name + ' > ' : ''}${c.name}`).join('; ')
                     : (p.category?.name || '');
                 row.push(`"${cats}"`);
