@@ -5,6 +5,7 @@ import ServiceGrid from '@/Components/ServiceOrder/ServiceGrid';
 import DiscountModeToggle from '@/Components/ServiceOrder/DiscountModeToggle';
 import VehicleSelect from '@/Components/ServiceOrder/VehicleSelect';
 import CustomerSelect from '@/Components/ServiceOrder/CustomerSelect';
+import MechanicSelect from '@/Components/ServiceOrder/MechanicSelect';
 import OdometerCheckInModal from '@/Components/ServiceOrder/OdometerCheckInModal';
 import QuickCreateVehicleModal from '@/Components/Dashboard/QuickCreateVehicleModal';
 import QuickCreatePartModal from '@/Components/Dashboard/QuickCreatePartModal';
@@ -256,6 +257,7 @@ export default function Edit({
             }).then((r) => r.json()),
         ])
             .then(([insightsData, historyData]) => {
+                console.log('🔍 API Response - Insights:', insightsData);
                 setInsights(insightsData);
                 setVehicleHistory(historyData.recent_orders || []);
             })
@@ -738,7 +740,7 @@ export default function Edit({
                                     placeholder="Contoh: 50000"
                                     className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                                 />
-                                {insights.last_order_km && (
+                                {insights.last_order_km != null && (
                                     <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                                         Kilometer sebelumnya: {parseInt(insights.last_order_km).toLocaleString('id-ID')} km
                                     </p>
@@ -762,7 +764,21 @@ export default function Edit({
                                     ))}
                                 </select>
                             </div>
-
+                                <div>
+                                    <MechanicSelect
+                                        mechanics={mechanics}
+                                        selected={
+                                            data.mechanic_id
+                                                ? mechanics.find((m) => m.id === parseInt(data.mechanic_id))
+                                                : null
+                                        }
+                                        onSelect={(mechanicId) => setData('mechanic_id', mechanicId)}
+                                        onClear={() => setData('mechanic_id', '')}
+                                        label="Mekanik (Opsional)"
+                                        placeholder="Pilih mekanik..."
+                                        clearButtonPlacement="below"
+                                    />
+                                </div>
                             <div>
                                 <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
                                     Kode Voucher

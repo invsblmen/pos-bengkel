@@ -373,6 +373,12 @@ class VehicleController extends Controller
             return false;
         };
 
+        // Get last order odometer (any service order)
+        $lastOrder = \App\Models\ServiceOrder::where('vehicle_id', $vehicle->id)
+            ->whereNotNull('odometer_km')
+            ->orderByDesc('created_at')
+            ->first(['odometer_km']);
+
         foreach ($orders as $order) {
             foreach ($order->details as $detail) {
                 $serviceTitle = $detail->service->title ?? '';
@@ -401,6 +407,7 @@ class VehicleController extends Controller
             'last_service_date' => $calculatedData['last_service_date'],
             'next_service_date' => $calculatedData['next_service_date'],
             'last_km' => $lastKm,
+            'last_order_km' => $lastOrder?->odometer_km,
         ];
 
         return response()->json($payload);

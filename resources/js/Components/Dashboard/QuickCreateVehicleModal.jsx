@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useForm } from '@inertiajs/react';
 import axios from 'axios';
 import {
@@ -142,11 +143,17 @@ export default function QuickCreateVehicleModal({ isOpen, onClose, initialPlateN
         onClose();
     };
 
-    if (!isOpen) return null;
+    if (!isOpen || typeof document === 'undefined') return null;
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col">
+    return createPortal(
+        <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            onClick={handleClose}
+        >
+            <div
+                className="relative z-[10000] w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col"
+                onClick={(e) => e.stopPropagation()}
+            >
                 {/* Header */}
                 <div className="bg-gradient-to-r from-primary-500 to-primary-600 px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-3 text-white">
@@ -742,6 +749,7 @@ export default function QuickCreateVehicleModal({ isOpen, onClose, initialPlateN
                     </div>
                 </form>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
