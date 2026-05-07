@@ -9,6 +9,10 @@ import { SidebarProvider } from './Context/SidebarContext';
 import DashboardLayout from './Layouts/DashboardLayout';
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 const dashboardLayout = (page) => <DashboardLayout>{page}</DashboardLayout>;
+const dashboardLayoutExclusions = new Set([
+    'Dashboard/ServiceOrders/Create',
+    'Dashboard/ServiceOrders/Edit',
+]);
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
@@ -18,7 +22,11 @@ createInertiaApp({
             import.meta.glob('./Pages/**/*.jsx')
         );
 
-        if ((name === 'Dashboard' || name.startsWith('Dashboard/')) && page?.default) {
+        if (
+            (name === 'Dashboard' || name.startsWith('Dashboard/')) &&
+            !dashboardLayoutExclusions.has(name) &&
+            page?.default
+        ) {
             page.default.layout = dashboardLayout;
         }
 
