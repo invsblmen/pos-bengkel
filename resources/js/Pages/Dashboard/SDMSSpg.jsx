@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import { IconArrowLeft, IconRefresh, IconSearch, IconTruckDelivery, IconPlus, IconCheck, IconSend } from '@tabler/icons-react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/Card';
 import axios from 'axios';
 import { toDisplayDateTime } from '@/Utils/datetime';
@@ -414,7 +413,7 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
     };
 
     return (
-        <DashboardLayout>
+        <>
             <Head title="SPG" />
 
             <div className="space-y-6">
@@ -926,6 +925,6 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                     </CardBody>
                 </Card>
             </div>
-        </DashboardLayout>
+        </>
     );
 }

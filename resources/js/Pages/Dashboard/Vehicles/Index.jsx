@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import Pagination from '@/Components/Dashboard/Pagination';
 import Button from '@/Components/Dashboard/Button';
 import { toDisplayDate } from '@/Utils/datetime';
@@ -405,6 +404,3 @@ export default function Index({ vehicles, filters, stats }) {
         </>
     );
 }
-
-Index.layout = (page) => <DashboardLayout children={page} />;
-

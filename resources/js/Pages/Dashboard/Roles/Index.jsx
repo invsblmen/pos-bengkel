@@ -1,5 +1,4 @@
 import React from "react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
 import { Head, useForm, usePage } from "@inertiajs/react";
 import Button from "@/Components/Dashboard/Button";
 import Input from "@/Components/Dashboard/Input";
@@ -277,5 +276,3 @@ export default function Index() {
         </>
     );
 }
-
-Index.layout = (page) => <DashboardLayout children={page} />;

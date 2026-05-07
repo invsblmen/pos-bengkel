@@ -1,6 +1,5 @@
 import React from 'react';
 import { Head, useForm, Link } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import { IconArrowLeft, IconPlus, IconX } from '@tabler/icons-react';
 import { todayLocalDate } from '@/Utils/datetime';
 
@@ -196,5 +195,3 @@ export default function Create({ suppliers, parts }) {
         </>
     );
 }
-
-Create.layout = (page) => <DashboardLayout children={page} />;

@@ -1,6 +1,5 @@
 import React from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import { IconBell, IconCheck, IconTrash, IconInbox } from '@tabler/icons-react';
 import Pagination from '@/Components/Dashboard/Pagination';
 
@@ -73,7 +72,7 @@ export default function NotificationsIndex({ notifications, summary, filters }) 
     };
 
     return (
-        <DashboardLayout>
+        <>
             <Head title="Manajemen Notifikasi" />
 
             <div className="space-y-6">
@@ -247,6 +246,6 @@ export default function NotificationsIndex({ notifications, summary, filters }) 
                     <Pagination links={notifications.links} />
                 )}
             </div>
-        </DashboardLayout>
+        </>
     );
 }

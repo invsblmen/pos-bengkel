@@ -879,6 +879,11 @@ export default function Create({ customers, mechanics, services, parts, vehicles
                                 )}
                             </div>
 
+                            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center px-3 py-1.5 mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                                <span>Item Layanan</span>
+                                <span>Total</span>
+                            </div>
+
                             {data.items.length > 0 ? (
                                 <div className="space-y-2 pr-1 flex-1">
                                     {data.items.map((item, index) => {

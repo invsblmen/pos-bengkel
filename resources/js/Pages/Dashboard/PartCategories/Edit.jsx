@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Head, useForm, Link } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import {
     IconArrowLeft, IconDeviceFloppy, IconBox, IconTruck, IconTool,
     IconBolt, IconCylinder, IconGauge, IconFilter, IconLink, IconCircle,
@@ -241,7 +240,4 @@ function Edit({ auth, category, parentCategories = [] }) {
         </>
     );
 }
-
-Edit.layout = (page) => <DashboardLayout children={page} />;
-
 export default Edit;

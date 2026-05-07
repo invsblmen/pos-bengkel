@@ -1,5 +1,4 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Head, useForm, Link, router } from '@inertiajs/react';
 import Input from '@/Components/Dashboard/Input';
 import Textarea from '@/Components/Dashboard/TextArea';
@@ -514,5 +513,3 @@ export default function Edit({ part, suppliers: initialSuppliers, categories: in
         </>
     );
 }
-
-Edit.layout = (page) => <DashboardLayout children={page} />;

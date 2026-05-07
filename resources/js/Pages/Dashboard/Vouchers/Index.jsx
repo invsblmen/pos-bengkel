@@ -1,6 +1,5 @@
 import React from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import toast from 'react-hot-toast';
 
 function formatDateTime(value) {
@@ -28,7 +27,7 @@ export default function Index({ vouchers, filters = {} }) {
     };
 
     return (
-        <DashboardLayout>
+        <>
             <Head title="Voucher" />
 
             <div className="space-y-6">
@@ -142,6 +141,6 @@ export default function Index({ vouchers, filters = {} }) {
                     </div>
                 </div>
             </div>
-        </DashboardLayout>
+        </>
     );
 }

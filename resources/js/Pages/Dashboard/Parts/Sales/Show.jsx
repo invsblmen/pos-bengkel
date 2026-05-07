@@ -1,6 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import TransactionPaymentSection from '@/Components/TransactionPaymentSection';
 import PaymentReceiptModal from '@/Components/PaymentReceiptModal';
 import { IconArrowLeft, IconPrinter, IconPencil, IconEdit, IconCheck, IconX, IconCash, IconShoppingCart, IconReceipt, IconUser, IconDiscount, IconShieldCheck } from '@tabler/icons-react';
@@ -322,7 +321,7 @@ export default function Show({ sale, businessProfile, cashDenominations = [] }) 
     };
 
     return (
-        <DashboardLayout>
+        <>
             <Head title={`Penjualan ${sale.sale_number}`} />
 
             <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 -m-6 p-6">
@@ -873,6 +872,6 @@ export default function Show({ sale, businessProfile, cashDenominations = [] }) 
                     }
                 `}</style>
             </div>
-        </DashboardLayout>
+        </>
     );
 }

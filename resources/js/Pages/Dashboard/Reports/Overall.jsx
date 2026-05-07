@@ -1,5 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from "react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
+import React, { useEffect, useRef, useState } from "react";
 import { Head, router } from "@inertiajs/react";
 import { Card, CardBody, CardHeader, CardTitle } from "@/Components/Card";
 import { IconChartInfographic, IconDownload, IconFilter } from "@tabler/icons-react";
@@ -243,7 +242,7 @@ export default function OverallReport({ summary, filters, transactions, statusOp
     };
 
     return (
-        <DashboardLayout>
+        <>
             <Head title="Laporan Keseluruhan" />
 
             <div className="space-y-6">
@@ -598,7 +597,7 @@ export default function OverallReport({ summary, filters, transactions, statusOp
                     </CardBody>
                 </Card>
             </div>
-        </DashboardLayout>
+        </>
     );
 }
 

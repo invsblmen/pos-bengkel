@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { extractDateFromISO } from '@/Utils/datetime';
 import { Head, useForm, Link } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import CustomerSelect from '@/Components/ServiceOrder/CustomerSelect';
 import {
     IconArrowLeft,
@@ -604,5 +603,3 @@ export default function Edit({ vehicle, customers }) {
         </>
     );
 }
-
-Edit.layout = (page) => <DashboardLayout children={page} />;

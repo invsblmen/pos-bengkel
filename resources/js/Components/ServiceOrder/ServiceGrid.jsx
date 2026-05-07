@@ -450,6 +450,13 @@ export default function ServiceGrid({
                         {serviceParts.length > 0 ? (
                             <>
                                 <div className="hidden lg:block rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+                                    <div className="grid grid-cols-[minmax(0,1fr)_52px_minmax(0,140px)_70px_minmax(0,120px)] items-end gap-2 border-b border-slate-200 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                                        <span className="min-w-0 pr-2 border-r border-slate-200 dark:border-slate-700">Sparepart</span>
+                                        <span className="text-center flex-shrink-0">Qty</span>
+                                        <span className="min-w-0 text-center">Harga</span>
+                                        <span className="text-center flex-shrink-0">Diskon</span>
+                                        <span aria-hidden="true" />
+                                    </div>
                                     <div className="p-2 space-y-2">
                                         {serviceParts.map((part, index) => {
                                             const selectedPart = parts.find((p) => p.id === parseInt(part.part_id));
@@ -466,12 +473,12 @@ export default function ServiceGrid({
                                                 return (
                                                 <div key={index} className="rounded-lg border border-slate-100 dark:border-slate-800">
                                                     {/* Row 1: Part Info | Qty | Harga | Diskon Toggle | Diskon Value */}
-                                                    <div className="flex items-end gap-2 p-2" style={{gridTemplateColumns: 'auto 1fr'}}>
+                                                    <div className="grid grid-cols-[minmax(0,1fr)_52px_minmax(0,140px)_70px_minmax(0,120px)] items-end gap-2 p-2">
                                                         {/* Part Name + Code + Stock */}
-                                                        <div className="min-w-0 flex-shrink-0 pr-2 border-r border-slate-200 dark:border-slate-700">
-                                                            <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate w-max" title={selectedPartName}>{selectedPartName}</div>
+                                                        <div className="min-w-0 pr-2 border-r border-slate-200 dark:border-slate-700">
+                                                            <div className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100" title={selectedPartName}>{selectedPartName}</div>
                                                             {selectedPartNumber && (
-                                                                <div className="text-[10px] text-slate-500 dark:text-slate-400 whitespace-nowrap">Kode: {selectedPartNumber} · Stok: {selectedPartStock ?? '-'}</div>
+                                                                <div className="truncate text-[10px] text-slate-500 dark:text-slate-400">Kode: {selectedPartNumber} · Stok: {selectedPartStock ?? '-'}</div>
                                                             )}
                                                         </div>
 
@@ -491,7 +498,7 @@ export default function ServiceGrid({
                                                         </div>
 
                                                         {/* Harga */}
-                                                        <div className="flex-1 min-w-0">
+                                                        <div className="min-w-0">
                                                             <input
                                                                 type="number"
                                                                 min="0"
@@ -505,8 +512,7 @@ export default function ServiceGrid({
                                                         </div>
 
                                                         {/* Diskon Toggle */}
-                                                        <div className="flex-shrink-0">
-                                                            <div className="inline-flex h-9 min-w-[70px] overflow-hidden rounded-lg border border-slate-300 dark:border-slate-700">
+                                                        <div className="inline-flex h-9 w-[70px] flex-shrink-0 overflow-hidden rounded-lg border border-slate-300 dark:border-slate-700">
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => handlePartDiscountChange(index, 'discount_mode', 'percent')}
@@ -521,11 +527,10 @@ export default function ServiceGrid({
                                                                 >
                                                                     Rp
                                                                 </button>
-                                                            </div>
                                                         </div>
 
                                                         {/* Diskon Value */}
-                                                        <div className="flex-1 min-w-0">
+                                                        <div className="min-w-0">
                                                             <input
                                                                 type="number"
                                                                 min="0"
@@ -535,7 +540,7 @@ export default function ServiceGrid({
                                                                 data-part-index={index}
                                                                 data-part-field="discount_value"
                                                                 placeholder={(part.discount_mode || 'percent') === 'percent' ? '0-100' : '0'}
-                                                                className="h-9 w-full rounded-lg border border-slate-300 px-2.5 text-xs font-semibold tabular-nums text-right focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white bg-white"
+                                                                className="h-9 w-full min-w-0 rounded-lg border border-slate-300 px-2.5 text-xs font-semibold tabular-nums text-right focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white bg-white"
                                                             />
                                                         </div>
                                                     </div>
@@ -568,6 +573,12 @@ export default function ServiceGrid({
                                 </div>
 
                                 <div className="space-y-2 lg:hidden">
+                                    <div className="flex items-end gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+                                        <span className="min-w-0 flex-1 pr-2 border-r border-slate-200 dark:border-slate-700">Sparepart</span>
+                                        <span className="w-12 text-center flex-shrink-0">Qty</span>
+                                        <span className="flex-1 min-w-0 text-right">Harga</span>
+                                        <span className="min-w-[70px] flex-shrink-0 text-center">Diskon</span>
+                                    </div>
                                     {serviceParts.map((part, index) => {
                                         const selectedPart = parts.find((p) => p.id === parseInt(part.part_id));
                                         const selectedPartStock = selectedPart ? getPartStock(selectedPart) : null;
@@ -583,12 +594,12 @@ export default function ServiceGrid({
                                         return (
                                             <div key={index} className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/40">
                                                 {/* Row 1: Part Info | Qty | Harga | Diskon Toggle | Diskon Value */}
-                                                <div className="flex items-end gap-2 mb-2">
+                                                    <div className="flex items-end gap-2 mb-2">
                                                     {/* Part Name + Code + Stock */}
                                                     <div className="min-w-0 pr-2 border-r border-slate-200 dark:border-slate-700 flex-shrink-0">
-                                                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 whitespace-nowrap">{selectedPartName}</p>
+                                                            <p className="max-w-[190px] truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{selectedPartName}</p>
                                                         {selectedPartNumber && (
-                                                            <p className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Kode: {selectedPartNumber}</p>
+                                                                <p className="max-w-[190px] truncate text-xs text-slate-500 dark:text-slate-400">Kode: {selectedPartNumber}</p>
                                                         )}
                                                     </div>
 
@@ -614,7 +625,7 @@ export default function ServiceGrid({
                                                         onKeyDown={(e) => handlePartInputEnter(e, index, 'price')}
                                                         data-part-index={index}
                                                         data-part-field="price"
-                                                        className="h-9 flex-1 rounded-lg border border-slate-300 bg-white px-2.5 text-right text-sm tabular-nums dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                                                        className="h-9 flex-1 rounded-lg border border-slate-300 bg-white px-2.5 text-right text-sm tabular-nums dark:border-slate-600 dark:text-white"
                                                     />
 
                                                     {/* Diskon Toggle */}
@@ -644,7 +655,7 @@ export default function ServiceGrid({
                                                         onKeyDown={(e) => handlePartInputEnter(e, index, 'discount_value')}
                                                         data-part-index={index}
                                                         data-part-field="discount_value"
-                                                        className="h-9 w-16 rounded-lg border border-slate-300 bg-white px-2 text-right text-xs font-semibold tabular-nums dark:border-slate-600 dark:bg-slate-800 dark:text-white flex-shrink-0"
+                                                        className="h-9 w-16 rounded-lg border border-slate-300 bg-white px-2 text-right text-xs font-semibold tabular-nums dark:border-slate-600 dark:text-white flex-shrink-0"
                                                     />
                                                 </div>
 

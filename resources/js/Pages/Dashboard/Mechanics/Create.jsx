@@ -1,5 +1,4 @@
 import React from 'react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Head, useForm, Link, router } from '@inertiajs/react';
 import Input from '@/Components/Dashboard/Input';
 import Textarea from '@/Components/Dashboard/TextArea';
@@ -61,5 +60,3 @@ export default function Create() {
         </>
     );
 }
-
-Create.layout = (page) => <DashboardLayout children={page} />;

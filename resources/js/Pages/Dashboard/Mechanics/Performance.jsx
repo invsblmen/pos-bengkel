@@ -1,5 +1,4 @@
 import React from "react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
 import { Head, Link } from "@inertiajs/react";
 import {
     IconArrowLeft,
@@ -28,7 +27,7 @@ export default function MechanicPerformance({ mechanic, service_orders, stats, m
     };
 
     return (
-        <DashboardLayout>
+        <>
             <Head title={`Performa ${mechanic.name}`} />
 
             <div className="space-y-6">
@@ -297,6 +296,6 @@ export default function MechanicPerformance({ mechanic, service_orders, stats, m
                     </CardBody>
                 </Card>
             </div>
-        </DashboardLayout>
+        </>
     );
 }

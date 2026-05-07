@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
 import { Head, router } from "@inertiajs/react";
 import { Card, CardBody, CardHeader, CardTitle } from "@/Components/Card";
 import {
@@ -92,7 +91,7 @@ export default function DailyFinanceReport({ filters, summary, sourceSummary = [
     const yesterday = toDateInput(yesterdayDate);
 
     return (
-        <DashboardLayout>
+        <>
             <Head title="Monitoring Keuangan Harian" />
 
             <div className="space-y-6">
@@ -359,6 +358,6 @@ export default function DailyFinanceReport({ filters, summary, sourceSummary = [
                     </CardBody>
                 </Card>
             </div>
-        </DashboardLayout>
+        </>
     );
 }

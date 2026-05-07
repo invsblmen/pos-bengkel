@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import Button from '@/Components/Dashboard/Button';
 import Search from '@/Components/Dashboard/Search';
 import Pagination from '@/Components/Dashboard/Pagination';
@@ -172,7 +171,4 @@ function Index({ categories }) {
         </>
     );
 }
-
-Index.layout = (page) => <DashboardLayout children={page} />;
-
 export default Index;

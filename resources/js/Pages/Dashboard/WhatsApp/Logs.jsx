@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Head, router, usePage } from "@inertiajs/react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
 import Pagination from "@/Components/Dashboard/Pagination";
 import { toDisplayDateTime } from "@/Utils/datetime";
 import { useRealtimeEvents } from "@/Hooks/useRealtimeEvents";
@@ -633,6 +632,3 @@ export default function Logs({ filters, summary, outboundStatuses, webhookEvents
         </>
     );
 }
-
-Logs.layout = (page) => <DashboardLayout children={page} />;
-

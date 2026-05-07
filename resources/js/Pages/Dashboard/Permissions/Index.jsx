@@ -1,5 +1,4 @@
 import React from "react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
 import { Head, usePage } from "@inertiajs/react";
 import { IconDatabaseOff, IconKey, IconShield } from "@tabler/icons-react";
 import Search from "@/Components/Dashboard/Search";
@@ -82,5 +81,3 @@ export default function Index() {
         </>
     );
 }
-
-Index.layout = (page) => <DashboardLayout children={page} />;

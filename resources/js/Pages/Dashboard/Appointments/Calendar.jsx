@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
 import { Head, Link, router, usePage } from "@inertiajs/react";
 import {
     IconCalendar,
@@ -268,7 +267,7 @@ export default function AppointmentCalendar({
     };
 
     return (
-        <DashboardLayout>
+        <>
             <Head title="Kalender Booking" />
 
             <div className="space-y-5">
@@ -848,7 +847,7 @@ export default function AppointmentCalendar({
                     </div>
                 )}
             </div>
-        </DashboardLayout>
+        </>
     );
 }
 

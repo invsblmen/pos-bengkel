@@ -1,6 +1,5 @@
 import React, { useEffect } from "react";
 import { Head, useForm, usePage } from "@inertiajs/react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
 import Input from "@/Components/Dashboard/Input";
 import Checkbox from "@/Components/Dashboard/Checkbox";
 import {
@@ -261,5 +260,3 @@ export default function Payment({ setting, supportedGateways = [] }) {
         </>
     );
 }
-
-Payment.layout = (page) => <DashboardLayout children={page} />;

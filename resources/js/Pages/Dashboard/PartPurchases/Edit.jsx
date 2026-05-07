@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Head, router } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import toast from 'react-hot-toast';
 import TransactionPaymentSection from '@/Components/TransactionPaymentSection';
 import PaymentReceiptModal from '@/Components/PaymentReceiptModal';
@@ -1131,5 +1130,3 @@ export default function Edit({ purchase, suppliers, parts, categories = [], cash
         </>
     );
 }
-
-Edit.layout = (page) => <DashboardLayout children={page} />;

@@ -1,5 +1,4 @@
 import { Head, Link, useForm, router } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import { IconArrowLeft, IconDeviceFloppy } from '@tabler/icons-react';
 import toast from 'react-hot-toast';
 
@@ -183,7 +182,4 @@ function Create({ auth, parentCategories = [] }) {
         </>
     );
 }
-
-Create.layout = (page) => <DashboardLayout children={page} />;
-
 export default Create;

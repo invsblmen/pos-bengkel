@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import TransactionPaymentSection from '@/Components/TransactionPaymentSection';
 import PaymentReceiptModal from '@/Components/PaymentReceiptModal';
 import {
@@ -536,7 +535,3 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
         </>
     );
 }
-
-Show.layout = (page) => <DashboardLayout children={page} />;
-
-

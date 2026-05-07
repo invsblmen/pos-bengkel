@@ -1,6 +1,5 @@
 import React, { useEffect } from "react";
 import { Head, useForm, usePage } from "@inertiajs/react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
 import Input from "@/Components/Dashboard/Input";
 import { IconDeviceFloppy, IconBuildingStore } from "@tabler/icons-react";
 import toast from "react-hot-toast";
@@ -230,5 +229,3 @@ export default function BusinessProfile({ profile }) {
         </>
     );
 }
-
-BusinessProfile.layout = (page) => <DashboardLayout children={page} />;

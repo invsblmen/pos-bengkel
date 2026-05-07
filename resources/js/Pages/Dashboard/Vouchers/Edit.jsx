@@ -1,7 +1,5 @@
 import React from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
-
 function MultiSelectList({ title, items, selected, onChange, labelKey = 'name' }) {
     const selectedSet = new Set((selected || []).map((v) => Number(v)));
 
@@ -63,7 +61,7 @@ export default function Edit({ voucher, partCategories = [], parts = [], service
     };
 
     return (
-        <DashboardLayout>
+        <>
             <Head title="Edit Voucher" />
 
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -151,6 +149,6 @@ export default function Edit({ voucher, partCategories = [], parts = [], service
                     {processing ? 'Menyimpan...' : 'Simpan Perubahan'}
                 </button>
             </form>
-        </DashboardLayout>
+        </>
     );
 }

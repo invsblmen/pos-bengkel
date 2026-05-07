@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from "react";
 import { Head, router } from "@inertiajs/react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
 import {
     IconCash,
     IconCalculator,
@@ -472,7 +471,7 @@ export default function CashDrawer({ denominations = [], summary = {}, recentTra
     };
 
     return (
-        <DashboardLayout>
+        <>
             <Head title="Akuntansi Kas" />
 
             <div className="space-y-6">
@@ -987,6 +986,6 @@ export default function CashDrawer({ denominations = [], summary = {}, recentTra
                     </div>
                 </div>
             </div>
-        </DashboardLayout>
+        </>
     );
 }

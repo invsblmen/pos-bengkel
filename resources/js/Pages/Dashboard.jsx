@@ -1,7 +1,6 @@
-﻿import Card from '@/Components/Dashboard/Card';
+import Card from '@/Components/Dashboard/Card';
 import Table from '@/Components/Dashboard/Table';
 import Widget from '@/Components/Dashboard/Widget';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Head } from '@inertiajs/react';
 import { IconBox, IconCategory, IconMoneybag, IconUsers } from '@tabler/icons-react';
 
@@ -42,6 +41,3 @@ export default function Dashboard() {
         </>
     );
 }
-
-Dashboard.layout = page => <DashboardLayout children={page} />
-

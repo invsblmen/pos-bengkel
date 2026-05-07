@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import { IconFileDescription, IconRefresh, IconSearch, IconTruck } from '@tabler/icons-react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/Card';
 import axios from 'axios';
 import Modal from '@/Components/Dashboard/Modal';
@@ -111,7 +110,7 @@ export default function SDMSPkb({ sdms }) {
     const latestLabel = filteredItems.length > 0 ? extractPkbNo(filteredItems[0]) : '-';
 
     return (
-        <DashboardLayout>
+        <>
             <Head title="List PKB" />
 
             <div className="space-y-6">
@@ -290,6 +289,6 @@ export default function SDMSPkb({ sdms }) {
                     </CardBody>
                 </Card>
             </div>
-        </DashboardLayout>
+        </>
     );
 }

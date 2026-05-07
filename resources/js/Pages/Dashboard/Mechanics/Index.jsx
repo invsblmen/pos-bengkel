@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Head, router } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import Pagination from '@/Components/Dashboard/Pagination';
 import Button from '@/Components/Dashboard/Button';
 import Search from '@/Components/Dashboard/Search';
@@ -220,7 +219,3 @@ export default function Index({ mechanics, filters }) {
         </>
     );
 }
-
-Index.layout = (page) => <DashboardLayout children={page} />;
-
-

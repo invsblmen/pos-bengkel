@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
 import { Head, router } from "@inertiajs/react";
 import { Card, CardBody, CardHeader, CardTitle } from "@/Components/Card";
 import { IconDownload } from "@tabler/icons-react";
@@ -32,7 +31,7 @@ export default function MechanicPayroll({ mechanics, filters, summary }) {
     };
 
     return (
-        <DashboardLayout>
+        <>
             <Head title="Laporan Gaji Mekanik" />
 
             <div className="space-y-6">
@@ -133,6 +132,6 @@ export default function MechanicPayroll({ mechanics, filters, summary }) {
                     </CardBody>
                 </Card>
             </div>
-        </DashboardLayout>
+        </>
     );
 }

@@ -1,6 +1,5 @@
 import React from 'react';
 import { Head, useForm, Link } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import { IconArrowLeft, IconDeviceFloppy, IconPlus, IconX } from '@tabler/icons-react';
 import toast from 'react-hot-toast';
 
@@ -553,7 +552,4 @@ function Create({ auth, categories, mechanics, services }) {
         </>
     );
 }
-
-Create.layout = (page) => <DashboardLayout children={page} />;
-
 export default Create;

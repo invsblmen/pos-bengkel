@@ -1,6 +1,5 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import {
     IconChartBar,
     IconTrendingUp,
@@ -343,6 +342,3 @@ export default function PartSalesProfit({ sales, summary, topParts, filters }) {
         </>
     );
 }
-
-PartSalesProfit.layout = (page) => <DashboardLayout children={page} />;
-

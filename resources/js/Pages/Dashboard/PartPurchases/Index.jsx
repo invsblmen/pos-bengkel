@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Head, router, Link } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import Pagination from '@/Components/Dashboard/Pagination';
 import { IconFilter, IconSearch, IconX, IconCirclePlus, IconEye, IconDatabaseOff, IconEdit, IconReceipt, IconTruck, IconCalendar, IconPackage, IconLayoutGrid, IconList } from '@tabler/icons-react';
 import { toDisplayDate } from '@/Utils/datetime';
@@ -446,7 +445,3 @@ export default function Index({ purchases, suppliers, filters }) {
         </>
     );
 }
-
-Index.layout = (page) => <DashboardLayout children={page} />;
-
-

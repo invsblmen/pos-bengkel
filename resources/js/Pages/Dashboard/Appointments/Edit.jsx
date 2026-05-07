@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import toast from 'react-hot-toast';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/Card';
 import {
     IconArrowLeft,
@@ -116,7 +115,7 @@ export default function Edit({ appointment, mechanics }) {
     };
 
     return (
-        <DashboardLayout>
+        <>
             <Head title="Edit Appointment" />
 
             <div className="space-y-6">
@@ -328,6 +327,6 @@ export default function Edit({ appointment, mechanics }) {
                     </CardBody>
                 </Card>
             </div>
-        </DashboardLayout>
+        </>
     );
 }

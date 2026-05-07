@@ -1,4 +1,3 @@
-import DashboardLayout from "@/Layouts/DashboardLayout";
 import { Head, Link, usePage } from "@inertiajs/react";
 import { useEffect, useMemo, useRef } from "react";
 import Chart from "chart.js/auto";
@@ -458,5 +457,3 @@ export default function Dashboard({
         </>
     );
 }
-
-Dashboard.layout = (page) => <DashboardLayout children={page} />;

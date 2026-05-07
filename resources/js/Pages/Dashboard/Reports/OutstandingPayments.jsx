@@ -1,5 +1,4 @@
-﻿import React from "react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
+import React from "react";
 import { Head, Link } from "@inertiajs/react";
 import { IconClock, IconAlertCircle } from "@tabler/icons-react";
 import { toDisplayDate } from "@/Utils/datetime";
@@ -21,7 +20,7 @@ export default function OutstandingPaymentsReport({ orders, summary }) {
     };
 
     return (
-        <DashboardLayout>
+        <>
             <Head title="Laporan Pembayaran Tertunda" />
 
             <div className="space-y-6">
@@ -206,7 +205,7 @@ export default function OutstandingPaymentsReport({ orders, summary }) {
                     </CardBody>
                 </Card>
             </div>
-        </DashboardLayout>
+        </>
     );
 }
 

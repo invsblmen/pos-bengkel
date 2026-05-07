@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import Pagination from '@/Components/Dashboard/Pagination';
 import {
     IconCalendar,
@@ -380,7 +379,3 @@ export default function Index({ appointments }) {
         </>
     );
 }
-
-Index.layout = (page) => <DashboardLayout children={page} />;
-
-

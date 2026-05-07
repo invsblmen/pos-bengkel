@@ -1,5 +1,4 @@
 import React from 'react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Head, useForm, Link, router } from '@inertiajs/react';
 import toast from 'react-hot-toast';
 import {
@@ -229,5 +228,3 @@ export default function Create() {
         </>
     );
 }
-
-Create.layout = (page) => <DashboardLayout children={page} />;

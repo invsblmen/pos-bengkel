@@ -1,5 +1,4 @@
 import React from "react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
 import { Head } from "@inertiajs/react";
 import {
     IconUsers,
@@ -11,7 +10,7 @@ import { Card, CardBody, CardHeader, CardTitle } from "@/Components/Card";
 
 export default function MechanicDashboard({ mechanics, summary }) {
     return (
-        <DashboardLayout>
+        <>
             <Head title="Dashboard Performa Mekanik" />
 
             <div className="space-y-6">
@@ -204,6 +203,6 @@ export default function MechanicDashboard({ mechanics, summary }) {
                     </CardBody>
                 </Card>
             </div>
-        </DashboardLayout>
+        </>
     );
 }

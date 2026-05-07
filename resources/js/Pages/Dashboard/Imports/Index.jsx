@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Head, useForm, usePage } from "@inertiajs/react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
 import { IconDownload, IconFileImport, IconUpload } from "@tabler/icons-react";
 import toast from "react-hot-toast";
 
@@ -392,5 +391,3 @@ export default function Index({ datasets = [], selectedType = "", lastResult = n
         </>
     );
 }
-
-Index.layout = (page) => <DashboardLayout children={page} />;

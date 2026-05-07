@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import { IconArrowLeft, IconCalendar } from '@tabler/icons-react';
 import { toDisplayDate } from '@/Utils/datetime';
 
@@ -227,5 +226,3 @@ export default function Show({ order }) {
         </>
     );
 }
-
-Show.layout = (page) => <DashboardLayout children={page} />;

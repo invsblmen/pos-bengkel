@@ -1,6 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import Button from '@/Components/Dashboard/Button';
 import CustomerSelect from '@/Components/ServiceOrder/CustomerSelect';
 import {
@@ -220,7 +219,7 @@ export default function Edit({ sale, customers = [], parts = [] }) {
                 : 'unpaid';
 
     return (
-        <DashboardLayout>
+        <>
             <Head title="Edit Penjualan Sparepart" />
 
             <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 -m-6 p-4 sm:p-5 lg:p-6 space-y-6">
@@ -1023,6 +1022,6 @@ export default function Edit({ sale, customers = [], parts = [] }) {
             </div>
 
 
-        </DashboardLayout>
+        </>
     );
 }

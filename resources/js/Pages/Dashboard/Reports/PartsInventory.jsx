@@ -1,5 +1,4 @@
-﻿import React, { useState } from "react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
+import React, { useState } from "react";
 import { Head, router } from "@inertiajs/react";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { Card, CardBody, CardHeader, CardTitle } from "@/Components/Card";
@@ -17,7 +16,7 @@ export default function PartsInventoryReport({ parts, filters, summary }) {
     };
 
     return (
-        <DashboardLayout>
+        <>
             <Head title="Laporan Inventori Sparepart" />
 
             <div className="space-y-6">
@@ -197,7 +196,7 @@ export default function PartsInventoryReport({ parts, filters, summary }) {
                     </CardBody>
                 </Card>
             </div>
-        </DashboardLayout>
+        </>
     );
 }
 

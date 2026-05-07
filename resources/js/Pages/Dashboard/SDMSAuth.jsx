@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/Card';
 import toast from 'react-hot-toast';
 
@@ -22,7 +21,7 @@ export default function SDMSAuth({ sdms }) {
     };
 
     return (
-        <DashboardLayout>
+        <>
             <Head title="Autentikasi SDMS" />
 
             <div className="space-y-6">
@@ -87,6 +86,6 @@ export default function SDMSAuth({ sdms }) {
                     </CardBody>
                 </Card>
             </div>
-        </DashboardLayout>
+        </>
     );
 }

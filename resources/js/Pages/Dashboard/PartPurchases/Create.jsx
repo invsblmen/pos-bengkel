@@ -1,6 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import TransactionPaymentSection from '@/Components/TransactionPaymentSection';
 import PaymentReceiptModal from '@/Components/PaymentReceiptModal';
 import {
@@ -993,5 +992,3 @@ export default function Create({ suppliers = [], parts = [], categories = [], ca
         </>
     );
 }
-
-Create.layout = (page) => <DashboardLayout children={page} />;

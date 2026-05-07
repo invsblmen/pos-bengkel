@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import Pagination from '@/Components/Dashboard/Pagination';
 import {
     IconAlertCircle, IconDatabaseOff, IconPackage, IconMapPin, IconPencilCog,
@@ -240,5 +239,3 @@ export default function LowStock({ alerts, filters }) {
         </>
     );
 }
-
-LowStock.layout = (page) => <DashboardLayout children={page} />;

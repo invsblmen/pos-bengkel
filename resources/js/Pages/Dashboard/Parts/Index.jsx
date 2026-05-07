@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Head, router, Link } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import Button from '@/Components/Dashboard/Button';
 import Pagination from '@/Components/Dashboard/Pagination';
 import {
@@ -481,6 +480,3 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
         </>
     );
 }
-
-Index.layout = (page) => <DashboardLayout children={page} />;
-

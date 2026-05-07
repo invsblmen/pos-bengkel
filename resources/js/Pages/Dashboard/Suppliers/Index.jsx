@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Head, router, Link } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import toast from 'react-hot-toast';
 import Pagination from '@/Components/Dashboard/Pagination';
 import {
@@ -287,7 +286,3 @@ export default function Index({ suppliers, filters }) {
         </>
     );
 }
-
-Index.layout = (page) => <DashboardLayout children={page} />;
-
-

@@ -1,6 +1,5 @@
 import React from 'react';
 import { Head, useForm, Link, router } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import { IconArrowLeft, IconDeviceFloppy } from '@tabler/icons-react';
 import toast from 'react-hot-toast';
 
@@ -192,7 +191,4 @@ function Edit({ auth, category, parentCategories = [] }) {
         </>
     );
 }
-
-Edit.layout = (page) => <DashboardLayout children={page} />;
-
 export default Edit;

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Head, useForm, Link, router } from '@inertiajs/react';
 import Input from '@/Components/Dashboard/Input';
 import Select from '@/Components/Dashboard/Select';
@@ -73,5 +72,3 @@ export default function Create({ type, parts, suppliers }) {
         </>
     );
 }
-
-Create.layout = (page) => <DashboardLayout children={page} />;

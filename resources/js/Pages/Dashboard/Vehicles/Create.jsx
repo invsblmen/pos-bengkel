@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Head, useForm, Link, router } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import CustomerSelect from '@/Components/ServiceOrder/CustomerSelect';
 import {
     IconArrowLeft,
@@ -595,5 +594,3 @@ export default function Create({ customers }) {
         </>
     );
 }
-
-Create.layout = (page) => <DashboardLayout children={page} />;

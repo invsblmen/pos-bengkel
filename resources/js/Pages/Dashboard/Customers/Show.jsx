@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
 import { Head, Link } from "@inertiajs/react";
 import {
     IconArrowLeft,
@@ -211,6 +210,3 @@ export default function Show({ customer }) {
         </>
     );
 }
-
-Show.layout = (page) => <DashboardLayout children={page} />;
-

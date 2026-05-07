@@ -1,11 +1,10 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/Card';
 
 export default function SDMSDashboard({ sdms }) {
     return (
-        <DashboardLayout>
+        <>
             <Head title="SDMS Dashboard" />
 
             <div className="space-y-6">
@@ -51,6 +50,6 @@ export default function SDMSDashboard({ sdms }) {
                     </CardBody>
                 </Card>
             </div>
-        </DashboardLayout>
+        </>
     );
 }

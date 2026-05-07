@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import {
     IconArrowLeft,
     IconPencil,
@@ -530,6 +529,3 @@ export default function Show({ part, stock_history }) {
         </>
     );
 }
-
-Show.layout = (page) => <DashboardLayout children={page} />;
-

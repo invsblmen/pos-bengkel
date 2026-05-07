@@ -47,9 +47,10 @@ export default function Navbar({ toggleSidebar, themeSwitcher, darkMode }) {
             <div className="flex items-center gap-4">
                 {/* Sidebar Toggle */}
                 <button
+                    data-toggle-sidebar
                     onClick={toggleSidebar}
                     className="hidden md:flex p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors"
-                    title="Toggle Sidebar"
+                    title="Toggle Sidebar (Alt+T)"
                 >
                     <IconMenu2 size={20} strokeWidth={1.5} />
                 </button>

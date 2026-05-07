@@ -1,6 +1,5 @@
 import React from "react";
 import { Head, usePage, useForm, Link, router } from "@inertiajs/react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
 import {
     IconUserPlus,
     IconDeviceFloppy,
@@ -170,5 +169,3 @@ export default function Create() {
         </>
     );
 }
-
-Create.layout = (page) => <DashboardLayout children={page} />;

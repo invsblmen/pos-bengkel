@@ -1096,6 +1096,46 @@ class PartSaleController extends Controller
         }
     }
 
+    private function recordCashPaymentFromMeta(PartSale $partSale, int $userId): void
+    {
+        $meta = $partSale->payment_meta ?? [];
+
+        if (is_string($meta)) {
+            $meta = json_decode($meta, true) ?: [];
+        }
+
+        if (!is_array($meta) || !in_array(($meta['payment_method'] ?? null), ['cash', 'mixed'], true)) {
+            return;
+        }
+
+        $receivedRows = collect($meta['cash_breakdown'] ?? [])
+            ->map(fn ($row) => [
+                'denomination_id' => (int) ($row['denomination_id'] ?? 0),
+                'quantity' => (int) ($row['quantity'] ?? 0),
+            ])
+            ->filter(fn ($row) => $row['denomination_id'] > 0 && $row['quantity'] > 0)
+            ->values();
+
+        if ($receivedRows->isEmpty()) {
+            return;
+        }
+
+        $cashDueAmount = max(0, (int) ($meta['cash_due_amount'] ?? 0));
+        $changeAmount = max(0, (int) ($meta['cash_change_amount'] ?? 0));
+
+        if ($cashDueAmount <= 0) {
+            return;
+        }
+
+        $this->recordCashPaymentWithDenominations(
+            $partSale,
+            $cashDueAmount,
+            $changeAmount,
+            $receivedRows,
+            $userId
+        );
+    }
+
     public function updateStatus(Request $request, PartSale $partSale)
     {
         $request->validate([

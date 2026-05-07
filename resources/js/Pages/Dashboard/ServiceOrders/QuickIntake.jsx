@@ -1,6 +1,5 @@
 import React from "react";
 import { Head, useForm } from "@inertiajs/react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
 import { IconBolt, IconDeviceFloppy } from "@tabler/icons-react";
 import toast from "react-hot-toast";
 
@@ -67,7 +66,7 @@ export default function QuickIntake({ mechanics = [] }) {
     };
 
     return (
-        <DashboardLayout>
+        <>
             <Head title="Penerimaan Cepat" />
 
             <div className="max-w-4xl space-y-5">
@@ -212,6 +211,6 @@ export default function QuickIntake({ mechanics = [] }) {
                     </div>
                 </form>
             </div>
-        </DashboardLayout>
+        </>
     );
 }

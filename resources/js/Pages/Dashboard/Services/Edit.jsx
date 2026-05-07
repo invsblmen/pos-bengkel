@@ -1,6 +1,5 @@
 import React from 'react';
 import { Head, useForm, Link } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import { IconArrowLeft, IconDeviceFloppy, IconPlus, IconTrash, IconX } from '@tabler/icons-react';
 import toast from 'react-hot-toast';
 
@@ -582,7 +581,4 @@ function Edit({ auth, service, categories, mechanics, services }) {
         </>
     );
 }
-
-Edit.layout = (page) => <DashboardLayout children={page} />;
-
 export default Edit;

@@ -1,5 +1,13 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Link, usePage } from "@inertiajs/react";
+import { useSidebar } from "@/Context/SidebarContext";
+import { IconHeart, IconHeartFilled } from "@tabler/icons-react";
+import Menu from "@/Utils/Menu";
+import {
+    getComparableSidebarHref,
+    getSidebarShortcutMap,
+    isExternalSidebarHref,
+} from "@/Utils/sidebarShortcuts";
 
 export default function LinkItem({
     href,
@@ -12,9 +20,12 @@ export default function LinkItem({
 }) {
     const { url } = usePage();
     const { auth } = usePage().props;
+    const { isFavorite, toggleFavorite } = useSidebar();
 
-    const isActive = url.startsWith(href);
+    const comparableHref = getComparableSidebarHref(href);
+    const isActive = comparableHref ? url.startsWith(comparableHref) : false;
     const canAccess = auth.super === true || access === true;
+    const isFav = isFavorite(href);
 
     const handleClick = (event) => {
         if (disableWhenActive && isActive) {
@@ -22,7 +33,20 @@ export default function LinkItem({
         }
     };
 
-    const isStaticOrExternal = href.startsWith("http") || href.startsWith("/api-docs/");
+    const handleFavoriteToggle = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleFavorite(href);
+    };
+
+    // Get keyboard shortcut index
+    const menuItems = Menu();
+    const shortcutIndex = useMemo(() => {
+        return getSidebarShortcutMap(menuItems)[href] || null;
+    }, [menuItems]);
+
+    const isStaticOrExternal = isExternalSidebarHref(href);
+    const linkHref = isStaticOrExternal ? href : comparableHref;
 
     if (!canAccess) return null;
 
@@ -30,6 +54,7 @@ export default function LinkItem({
         flex items-center gap-3
         transition-all duration-200
         text-slate-600 dark:text-slate-400
+        relative group
     `;
 
     const activeClasses = isActive
@@ -43,6 +68,7 @@ export default function LinkItem({
                     href={href}
                     className={`${baseClasses} ${activeClasses} px-4 py-2.5 text-sm font-medium`}
                     onClick={handleClick}
+                    title={shortcutIndex ? `${title} (Alt+${shortcutIndex})` : title}
                     {...props}
                 >
                     <span
@@ -52,16 +78,28 @@ export default function LinkItem({
                     >
                         {icon}
                     </span>
-                    <span className="truncate">{title}</span>
+                    <span className="truncate flex-1">{title}</span>
+                    <button
+                        onClick={handleFavoriteToggle}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                        title={isFav ? "Remove from favorites" : "Add to favorites"}
+                    >
+                        {isFav ? (
+                            <IconHeartFilled size={16} className="text-red-500" />
+                        ) : (
+                            <IconHeart size={16} className="text-slate-400" />
+                        )}
+                    </button>
                 </a>
             );
         }
 
         return (
             <Link
-                href={href}
+                href={linkHref}
                 className={`${baseClasses} ${activeClasses} px-4 py-2.5 text-sm font-medium`}
                 onClick={handleClick}
+                title={shortcutIndex ? `${title} (Alt+${shortcutIndex})` : title}
                 {...props}
             >
                 <span
@@ -71,7 +109,18 @@ export default function LinkItem({
                 >
                     {icon}
                 </span>
-                <span className="truncate">{title}</span>
+                <span className="truncate flex-1">{title}</span>
+                <button
+                    onClick={handleFavoriteToggle}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                    title={isFav ? "Remove from favorites" : "Add to favorites"}
+                >
+                    {isFav ? (
+                        <IconHeartFilled size={16} className="text-red-500" />
+                    ) : (
+                        <IconHeart size={16} className="text-slate-400" />
+                    )}
+                </button>
             </Link>
         );
     }
@@ -89,19 +138,23 @@ export default function LinkItem({
                         ? "text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-950/50"
                         : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
                 }
+                relative group
             `}
-                title={title}
+                title={shortcutIndex ? `${title} (Alt+${shortcutIndex})` : title}
                 onClick={handleClick}
                 {...props}
             >
                 {icon}
+                {isFav && (
+                    <IconHeartFilled size={12} className="absolute top-1 right-1 text-red-500" />
+                )}
             </a>
         );
     }
 
     return (
         <Link
-            href={href}
+            href={linkHref}
             className={`
                 w-full flex justify-center py-3
                 transition-all duration-200
@@ -110,12 +163,16 @@ export default function LinkItem({
                         ? "text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-950/50"
                         : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
                 }
+                relative group
             `}
-            title={title}
+            title={shortcutIndex ? `${title} (Alt+${shortcutIndex})` : title}
             onClick={handleClick}
             {...props}
         >
             {icon}
+            {isFav && (
+                <IconHeartFilled size={12} className="absolute top-1 right-1 text-red-500" />
+            )}
         </Link>
     );
 }

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Head, router, Link } from '@inertiajs/react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
 import toast from 'react-hot-toast';
 import { IconArrowLeft, IconCalendar, IconTruck, IconUser, IconEdit, IconReceipt, IconPackage, IconCurrencyDollar, IconPrinter } from '@tabler/icons-react';
 import { toDisplayDate, todayLocalDate } from '@/Utils/datetime';
@@ -531,5 +530,3 @@ export default function Show({ purchase }) {
         </>
     );
 }
-
-Show.layout = (page) => <DashboardLayout children={page} />;

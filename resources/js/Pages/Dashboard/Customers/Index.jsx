@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
 import { Head, usePage, Link, router } from "@inertiajs/react";
 import Button from "@/Components/Dashboard/Button";
 import {
@@ -422,6 +421,3 @@ export default function Index({ customers }) {
         </>
     );
 }
-
-Index.layout = (page) => <DashboardLayout children={page} />;
-

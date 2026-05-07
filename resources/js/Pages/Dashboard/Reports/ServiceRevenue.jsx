@@ -1,5 +1,4 @@
-﻿import React, { useState } from "react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
+import React, { useState } from "react";
 import { Head, router } from "@inertiajs/react";
 import {
     IconCalendar,
@@ -50,7 +49,7 @@ export default function ServiceRevenueReport({
     };
 
     return (
-        <DashboardLayout>
+        <>
             <Head title="Laporan Pendapatan Service" />
 
             <div className="space-y-6">
@@ -310,7 +309,7 @@ export default function ServiceRevenueReport({
                     </CardBody>
                 </Card>
             </div>
-        </DashboardLayout>
+        </>
     );
 }
 
