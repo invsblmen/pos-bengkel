@@ -37,6 +37,8 @@ export default function QuickCreateVehicleModal({ isOpen, onClose, initialPlateN
     const [newCustomerData, setNewCustomerData] = useState({
         name: '',
         phone: '',
+        identity_type: '',
+        identity_number: '',
         email: '',
     });
     const [creatingCustomer, setCreatingCustomer] = useState(false);
@@ -118,7 +120,7 @@ export default function QuickCreateVehicleModal({ isOpen, onClose, initialPlateN
             // Set customer_id dengan ID pelanggan baru
             setData('customer_id', result.customer.id);
             setShowCreateCustomer(false);
-            setNewCustomerData({ name: '', phone: '', email: '' });
+            setNewCustomerData({ name: '', phone: '', identity_type: '', identity_number: '', email: '' });
             setCustomerErrors({});
         } catch (error) {
             console.error('Error creating customer:', error);
@@ -233,6 +235,37 @@ export default function QuickCreateVehicleModal({ isOpen, onClose, initialPlateN
                                         }}
                                         className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                                     >
+
+                                    <div>
+                                        <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                                            Tipe Identitas
+                                        </label>
+                                        <select
+                                            value={newCustomerData.identity_type}
+                                            onChange={(e) => setNewCustomerData((prev) => ({ ...prev, identity_type: e.target.value }))}
+                                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                                        >
+                                            <option value="">Pilih tipe identitas</option>
+                                            <option value="KTP">KTP</option>
+                                            <option value="SIM">SIM</option>
+                                            <option value="Passport">Passport</option>
+                                        </select>
+                                        {customerErrors.identity_type && <p className="mt-1 text-xs text-red-500">{customerErrors.identity_type}</p>}
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                                            Nomor Identitas
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={newCustomerData.identity_number}
+                                            onChange={(e) => setNewCustomerData((prev) => ({ ...prev, identity_number: e.target.value }))}
+                                            placeholder="Nomor KTP / SIM / Passport"
+                                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                                        />
+                                        {customerErrors.identity_number && <p className="mt-1 text-xs text-red-500">{customerErrors.identity_number}</p>}
+                                    </div>
                                         Kembali
                                     </button>
                                 </div>

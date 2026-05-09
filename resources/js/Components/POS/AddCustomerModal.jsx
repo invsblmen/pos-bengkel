@@ -16,6 +16,8 @@ export default function AddCustomerModal({ isOpen, onClose, onSuccess }) {
     const [form, setForm] = useState({
         name: "",
         phone: "",
+        identity_type: "",
+        identity_number: "",
         email: "",
         address: "",
     });
@@ -59,7 +61,7 @@ export default function AddCustomerModal({ isOpen, onClose, onSuccess }) {
 
             if (response.data.success) {
                 toast.success("Pelanggan berhasil ditambahkan");
-                setForm({ name: "", phone: "", email: "", address: "" });
+                setForm({ name: "", phone: "", identity_type: "", identity_number: "", email: "", address: "" });
                 setErrors({});
                 setIsSubmitting(false);
                 onSuccess?.(response.data.customer);
@@ -100,7 +102,7 @@ export default function AddCustomerModal({ isOpen, onClose, onSuccess }) {
     };
 
     const handleClose = () => {
-        setForm({ name: "", phone: "", email: "", address: "" });
+        setForm({ name: "", phone: "", identity_type: "", identity_number: "", email: "", address: "" });
         setErrors({});
         onClose();
     };
@@ -190,6 +192,49 @@ export default function AddCustomerModal({ isOpen, onClose, onSuccess }) {
                         {errors.phone && (
                             <p className="mt-1 text-xs text-danger-500">
                                 {errors.phone}
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Identity Type */}
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                            Tipe Identitas
+                        </label>
+                        <select
+                            name="identity_type"
+                            value={form.identity_type}
+                            onChange={handleChange}
+                            className="w-full h-11 px-4 rounded-xl border border-slate-200 dark:border-slate-700 focus:ring-primary-500/20 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-4 focus:border-primary-500 transition-all"
+                        >
+                            <option value="">Pilih tipe identitas</option>
+                            <option value="KTP">KTP</option>
+                            <option value="SIM">SIM</option>
+                            <option value="Passport">Passport</option>
+                        </select>
+                        {errors.identity_type && (
+                            <p className="mt-1 text-xs text-danger-500">
+                                {errors.identity_type}
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Identity Number */}
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                            Nomor Identitas
+                        </label>
+                        <input
+                            type="text"
+                            name="identity_number"
+                            value={form.identity_number}
+                            onChange={handleChange}
+                            placeholder="Nomor KTP / SIM / Passport"
+                            className="w-full h-11 px-4 rounded-xl border border-slate-200 dark:border-slate-700 focus:ring-primary-500/20 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-4 focus:border-primary-500 transition-all"
+                        />
+                        {errors.identity_number && (
+                            <p className="mt-1 text-xs text-danger-500">
+                                {errors.identity_number}
                             </p>
                         )}
                     </div>

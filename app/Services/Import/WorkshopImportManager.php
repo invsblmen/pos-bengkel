@@ -44,21 +44,21 @@ class WorkshopImportManager
             'label' => 'Kendaraan',
             'description' => 'Data kendaraan milik pelanggan',
             'headers' => [
-                'customer_phone', 'plate_number', 'brand', 'model', 'year', 'notes',
+                'customer_phone', 'customer_identity_number', 'customer_name', 'plate_number', 'brand', 'model', 'year', 'notes',
                 'engine_type', 'transmission_type', 'color', 'cylinder_volume',
                 'features', 'chassis_number', 'engine_number', 'manufacture_year',
                 'registration_number', 'registration_date', 'stnk_expiry_date', 'previous_owner',
             ],
             'sample' => [[
-                '081234567890', 'D1234AB', 'Honda', 'Beat', '2022', 'Servis rutin',
+                '', '3273010000000001', 'Budi Santoso', 'D1234AB', 'Honda', 'Beat', '2022', 'Servis rutin',
                 '4-stroke', 'automatic', 'Hitam', '110cc',
                 'ABS,LED', 'CHS-123', 'ENG-888', '2022',
                 'REG-4455', '2024-01-10', '2029-01-10', 'Budi Santoso',
             ]],
-            'required_headers' => ['customer_phone', 'plate_number'],
-            'recommended_headers' => ['brand', 'model', 'year'],
+            'required_headers' => ['plate_number'],
+            'recommended_headers' => ['customer_phone', 'customer_identity_number', 'customer_name', 'brand', 'model', 'year'],
             'import_order' => 2,
-            'notes' => 'Pastikan pelanggan sudah diimport lebih dulu (matching by customer_phone).',
+            'notes' => 'Isi customer_phone atau customer_identity_number untuk identitas unik pemilik. customer_name boleh dipakai jika unik.',
         ],
         'mechanics' => [
             'label' => 'Mekanik',
@@ -488,19 +488,14 @@ class WorkshopImportManager
     {
         $plateNumber = strtoupper((string) ($this->stringOrNull($row, 'plate_number') ?? ''));
         $customerPhone = $this->stringOrNull($row, 'customer_phone');
+        $customerIdentityNumber = $this->stringOrNull($row, 'customer_identity_number');
+        $customerName = $this->stringOrNull($row, 'customer_name');
 
         if (! $plateNumber) {
             throw new InvalidArgumentException('Kolom plate_number wajib diisi.');
         }
 
-        if (! $customerPhone) {
-            throw new InvalidArgumentException('Kolom customer_phone wajib diisi.');
-        }
-
-        $customer = Customer::where('phone', $customerPhone)->first();
-        if (! $customer) {
-            throw new InvalidArgumentException('Pelanggan dengan customer_phone ' . $customerPhone . ' tidak ditemukan.');
-        }
+        $customer = $this->resolveVehicleCustomer($customerName, $customerPhone, $customerIdentityNumber, $dryRun);
 
         $payload = [
             'customer_id' => $customer->id,
@@ -536,6 +531,73 @@ class WorkshopImportManager
             Vehicle::create($payload);
         }
         return 'created';
+    }
+
+    private function resolveVehicleCustomer(?string $customerName, ?string $customerPhone, ?string $customerIdentityNumber, bool $dryRun = false)
+    {
+        $defaultPhone = '000000000000';
+        $defaultName = 'Pemilik Tidak Diketahui';
+
+        if ($customerPhone) {
+            $customer = Customer::where('phone', $customerPhone)->first();
+            if ($customer) {
+                return $customer;
+            }
+
+            throw new InvalidArgumentException('Pelanggan dengan customer_phone ' . $customerPhone . ' tidak ditemukan.');
+        }
+
+        if ($customerIdentityNumber) {
+            $customer = Customer::where('identity_number', $customerIdentityNumber)->first();
+            if ($customer) {
+                return $customer;
+            }
+
+            throw new InvalidArgumentException('Pelanggan dengan customer_identity_number ' . $customerIdentityNumber . ' tidak ditemukan.');
+        }
+
+        if ($customerName) {
+            $query = Customer::where('name', $customerName);
+            $matchCount = (int) $query->count();
+
+            if ($matchCount === 1) {
+                return $query->first();
+            }
+
+            if ($matchCount > 1) {
+                throw new InvalidArgumentException('Nama customer "' . $customerName . '" ditemukan lebih dari satu kali. Gunakan customer_phone atau customer_identity_number.');
+            }
+
+            throw new InvalidArgumentException('Pelanggan dengan customer_name ' . $customerName . ' tidak ditemukan.');
+        }
+
+        if ($dryRun) {
+            return Customer::make([
+                'name' => $customerName ?: $defaultName,
+                'phone' => $customerPhone,
+                'email' => null,
+                'address' => null,
+                'gender' => null,
+                'birth_date' => null,
+                'city' => null,
+                'postal_code' => null,
+                'identity_type' => null,
+                'identity_number' => null,
+            ]);
+        }
+
+        return Customer::create([
+            'name' => $customerName ?: $defaultName,
+            'phone' => $customerPhone ?: $defaultPhone,
+            'email' => null,
+            'address' => null,
+            'gender' => null,
+            'birth_date' => null,
+            'city' => null,
+            'postal_code' => null,
+            'identity_type' => null,
+            'identity_number' => null,
+        ]);
     }
 
     private function importMechanic(array $row, bool $dryRun = false): string

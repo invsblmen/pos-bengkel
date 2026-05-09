@@ -6,6 +6,7 @@ import {
     IconUser,
     IconPhone,
     IconMail,
+    IconId,
     IconMapPin,
     IconCar,
     IconTool,
@@ -93,6 +94,20 @@ export default function Show({ customer }) {
                             <p className="flex items-start gap-2 font-medium text-slate-900 dark:text-white">
                                 <IconMapPin size={16} className="mt-0.5 text-slate-400" />
                                 <span>{customer?.address || "-"}</span>
+                            </p>
+                        </div>
+                        <div>
+                            <p className="mb-1 text-xs uppercase tracking-wide text-slate-500">Tipe Identitas</p>
+                            <p className="flex items-center gap-2 font-medium text-slate-900 dark:text-white">
+                                <IconId size={16} className="text-slate-400" />
+                                {customer?.identity_type || "-"}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="mb-1 text-xs uppercase tracking-wide text-slate-500">Nomor Identitas</p>
+                            <p className="flex items-center gap-2 font-medium text-slate-900 dark:text-white">
+                                <IconId size={16} className="text-slate-400" />
+                                {customer?.identity_number || "-"}
                             </p>
                         </div>
                     </div>

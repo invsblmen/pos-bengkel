@@ -7,6 +7,8 @@ export default function QuickCreateCustomerModal({ isOpen, onClose, initialName 
     const { data, setData, post, processing, errors, reset } = useForm({
         name: initialName,
         phone: '',
+        identity_type: '',
+        identity_number: '',
         email: '',
         address: '',
     });
@@ -75,6 +77,37 @@ export default function QuickCreateCustomerModal({ isOpen, onClose, initialName 
                                 required
                             />
                             {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone}</p>}
+                        </div>
+
+                        <div>
+                            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Tipe Identitas
+                            </label>
+                            <select
+                                value={data.identity_type}
+                                onChange={(e) => setData('identity_type', e.target.value)}
+                                className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                            >
+                                <option value="">Pilih tipe identitas</option>
+                                <option value="KTP">KTP</option>
+                                <option value="SIM">SIM</option>
+                                <option value="Passport">Passport</option>
+                            </select>
+                            {errors.identity_type && <p className="mt-1 text-sm text-red-600">{errors.identity_type}</p>}
+                        </div>
+
+                        <div>
+                            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Nomor Identitas
+                            </label>
+                            <input
+                                type="text"
+                                value={data.identity_number}
+                                onChange={(e) => setData('identity_number', e.target.value)}
+                                placeholder="Nomor KTP / SIM / Passport"
+                                className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                            />
+                            {errors.identity_number && <p className="mt-1 text-sm text-red-600">{errors.identity_number}</p>}
                         </div>
 
                         <div>

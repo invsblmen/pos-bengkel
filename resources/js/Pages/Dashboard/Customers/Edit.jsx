@@ -16,6 +16,8 @@ export default function Edit({ customer }) {
         id: customer.id,
         name: customer.name,
         phone: customer.phone,
+        identity_type: customer.identity_type || '',
+        identity_number: customer.identity_number || '',
         email: customer.email || '',
         address: customer.address || '',
         _method: "PUT",
@@ -72,6 +74,29 @@ export default function Edit({ customer }) {
                                         setData("phone", e.target.value)
                                     }
                                     value={data.phone}
+                                />
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                        Tipe Identitas
+                                    </label>
+                                    <select
+                                        value={data.identity_type}
+                                        onChange={(e) => setData("identity_type", e.target.value)}
+                                        className="w-full h-11 px-4 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all duration-200"
+                                    >
+                                        <option value="">Pilih tipe identitas</option>
+                                        <option value="KTP">KTP</option>
+                                        <option value="SIM">SIM</option>
+                                        <option value="Passport">Passport</option>
+                                    </select>
+                                </div>
+                                <Input
+                                    type="text"
+                                    label="Nomor Identitas"
+                                    placeholder="Nomor KTP / SIM / Passport"
+                                    errors={errors.identity_number}
+                                    onChange={(e) => setData("identity_number", e.target.value)}
+                                    value={data.identity_number}
                                 />
                                 <Input
                                     type="email"

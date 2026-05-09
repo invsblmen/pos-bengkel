@@ -84,6 +84,8 @@ class CustomerController extends Controller
             'phone'   => 'required|unique:customers',
             'email'   => 'nullable|email',
             'address' => 'nullable',
+            'identity_type' => 'nullable|in:KTP,SIM,Passport',
+            'identity_number' => 'nullable|string|unique:customers,identity_number',
         ]);
 
         // If GO bridge for customer store is enabled, proxy to Go backend
@@ -115,6 +117,8 @@ class CustomerController extends Controller
             'phone'   => $validated['phone'],
             'email'   => $validated['email'] ?? null,
             'address' => $validated['address'] ?? null,
+            'identity_type' => $validated['identity_type'] ?? null,
+            'identity_number' => $validated['identity_number'] ?? null,
         ]);
 
         $this->dispatchBroadcastSafely(
@@ -124,6 +128,8 @@ class CustomerController extends Controller
                 'phone' => $customer->phone,
                 'email' => $customer->email,
                 'address' => $customer->address,
+                'identity_type' => $customer->identity_type,
+                'identity_number' => $customer->identity_number,
             ])),
             'CustomerCreated'
         );
@@ -146,6 +152,8 @@ class CustomerController extends Controller
             'no_telp' => 'nullable|string',
             'email'   => 'nullable|email',
             'address' => 'nullable|string',
+            'identity_type' => 'nullable|in:KTP,SIM,Passport',
+            'identity_number' => 'nullable|string|unique:customers,identity_number',
         ]);
 
         // Accept either 'phone' or legacy 'no_telp'
@@ -187,6 +195,8 @@ class CustomerController extends Controller
                 'phone'   => $phone,
                 'email'   => $validated['email'] ?? null,
                 'address' => $validated['address'] ?? null,
+                'identity_type' => $validated['identity_type'] ?? null,
+                'identity_number' => $validated['identity_number'] ?? null,
             ]);
 
             $this->dispatchBroadcastSafely(
@@ -196,6 +206,8 @@ class CustomerController extends Controller
                     'phone' => $customer->phone,
                     'email' => $customer->email,
                     'address' => $customer->address,
+                    'identity_type' => $customer->identity_type,
+                    'identity_number' => $customer->identity_number,
                 ])),
                 'CustomerCreated'
             );
@@ -209,6 +221,8 @@ class CustomerController extends Controller
                     'phone'   => $customer->phone,
                     'email'   => $customer->email,
                     'address' => $customer->address,
+                    'identity_type' => $customer->identity_type,
+                    'identity_number' => $customer->identity_number,
                 ],
             ]);
         } catch (\Exception $e) {
@@ -284,6 +298,8 @@ class CustomerController extends Controller
             'phone'   => 'required|unique:customers,phone,' . $customer->id,
             'email'   => 'nullable|email',
             'address' => 'nullable',
+            'identity_type' => 'nullable|in:KTP,SIM,Passport',
+            'identity_number' => 'nullable|string|unique:customers,identity_number,' . $customer->id,
         ]);
 
         //update customer
@@ -292,6 +308,8 @@ class CustomerController extends Controller
             'phone'   => $validated['phone'],
             'email'   => $validated['email'] ?? null,
             'address' => $validated['address'] ?? null,
+            'identity_type' => $validated['identity_type'] ?? null,
+            'identity_number' => $validated['identity_number'] ?? null,
         ]);
 
         // Broadcast customer updated event
@@ -302,6 +320,8 @@ class CustomerController extends Controller
                 'phone' => $customer->phone,
                 'email' => $customer->email,
                 'address' => $customer->address,
+                'identity_type' => $customer->identity_type,
+                'identity_number' => $customer->identity_number,
             ])),
             'CustomerUpdated'
         );

@@ -12,6 +12,7 @@ import {
     IconPhone,
     IconMapPin,
     IconMail,
+    IconId,
     IconCar,
     IconEye,
     IconDots,
@@ -54,6 +55,16 @@ function CustomerCard({ customer }) {
                                 <IconPhone size={15} className="text-blue-600 dark:text-blue-400" />
                             </div>
                             <span className="text-sm text-slate-700 dark:text-slate-300 truncate font-medium">{customer.phone}</span>
+                        </div>
+                    )}
+                    {(customer.identity_type || customer.identity_number) && (
+                        <div className="flex items-center gap-2.5 min-w-0 group/item">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0 group-hover/item:bg-emerald-200 dark:group-hover/item:bg-emerald-900/50 transition-colors">
+                                <IconId size={15} className="text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <span className="text-sm text-slate-700 dark:text-slate-300 truncate font-medium">
+                                {[customer.identity_type, customer.identity_number].filter(Boolean).join(' • ')}
+                            </span>
                         </div>
                     )}
                     {customer.email && (
@@ -321,8 +332,15 @@ export default function Index({ customers }) {
                                                             {customer.name}
                                                         </p>
                                                         <p className="text-xs text-slate-500 dark:text-slate-400 md:hidden">
-                                                            {customer.phone || "No phone"}
+                                                            {[customer.phone, customer.identity_number]
+                                                                .filter(Boolean)
+                                                                .join(' • ') || "No contact"}
                                                         </p>
+                                                        {(customer.identity_type || customer.identity_number) && (
+                                                            <p className="text-xs text-slate-500 dark:text-slate-400 hidden md:block">
+                                                                {[customer.identity_type, customer.identity_number].filter(Boolean).join(' • ')}
+                                                            </p>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </Table.Td>
