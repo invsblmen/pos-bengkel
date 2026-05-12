@@ -83,6 +83,8 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::get('/whatsapp/logs', [WhatsAppLogController::class, 'index'])->middleware('permission:reports-access')->name('whatsapp.logs.index');
     Route::get('/whatsapp/queue-monitor', [WhatsAppLogController::class, 'queueMonitor'])->middleware('permission:reports-access')->name('whatsapp.queue-monitor.index');
     Route::get('/whatsapp/health/check', [WhatsAppLogController::class, 'healthCheck'])->middleware('permission:reports-access')->name('whatsapp.health.check');
+    Route::post('/whatsapp/worker/run-once', [WhatsAppLogController::class, 'runWorkerOnce'])->middleware('permission:reports-access')->name('whatsapp.worker.run-once');
+    Route::post('/whatsapp/worker/restart', [WhatsAppLogController::class, 'restartWorkers'])->middleware('permission:reports-access')->name('whatsapp.worker.restart');
     Route::post('/whatsapp/logs/outbound/{outbound}/retry', [WhatsAppLogController::class, 'retry'])->middleware('permission:reports-access')->name('whatsapp.logs.retry');
     Route::get('/whatsapp/messages', [WhatsAppMessageController::class, 'index'])->middleware('permission:reports-access')->name('whatsapp.messages.index');
     Route::post('/whatsapp/messages/broadcast', [WhatsAppMessageController::class, 'broadcast'])->middleware('permission:reports-access')->name('whatsapp.messages.broadcast');

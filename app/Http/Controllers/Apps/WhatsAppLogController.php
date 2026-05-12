@@ -242,6 +242,36 @@ class WhatsAppLogController extends Controller
         }
     }
 
+    public function runWorkerOnce(Request $request)
+    {
+        // Run a single iteration of the worker to process one job if available
+        try {
+            $queue = (string) config('whatsapp.notifications.queue', 'default');
+            // Use Artisan facade to run queue:work --once
+            
+            $exit = 
+                \Artisan::call('queue:work', [
+                    '--once' => true,
+                    '--queue' => $queue,
+                    '--tries' => 3,
+                ]);
+
+            return $this->jsonOrRedirect(['exit_code' => $exit], [], 'Worker dijalankan sekali.');
+        } catch (\Throwable $e) {
+            return $this->jsonOrRedirect(null, ['error' => $e->getMessage()], 'Gagal menjalankan worker.');
+        }
+    }
+
+    public function restartWorkers(Request $request)
+    {
+        try {
+            \Artisan::call('queue:restart');
+            return $this->jsonOrRedirect(null, [], 'Perintah restart worker dikirim. Worker akan restart saat siap.');
+        } catch (\Throwable $e) {
+            return $this->jsonOrRedirect(null, ['error' => $e->getMessage()], 'Gagal mengirim perintah restart.');
+        }
+    }
+
     private function healthCheckViaGo(Request $request): JsonResponse
     {
         $baseUrl = rtrim((string) config('whatsapp.go_backend.base_url', 'http://127.0.0.1:8081'), '/');

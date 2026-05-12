@@ -198,6 +198,65 @@ export default function QueueMonitor({ summary = {}, monitoring = {}, recentOutb
                         <IconRefresh size={16} className={refreshing ? "animate-spin" : ""} />
                         {refreshing ? "Memuat..." : "Refresh"}
                     </button>
+                    <button
+                        type="button"
+                        onClick={async () => {
+                            setRefreshing(true);
+                            try {
+                                const res = await fetch(route('whatsapp.worker.run-once'), {
+                                    method: 'POST',
+                                    headers: {
+                                        'X-Requested-With': 'XMLHttpRequest',
+                                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                                        'Accept': 'application/json',
+                                    },
+                                });
+                                if (res.ok) {
+                                    setToast({ message: 'Worker dijalankan sekali (--once).', tone: 'emerald' });
+                                    reloadPage();
+                                } else {
+                                    const j = await res.json().catch(() => ({}));
+                                    setToast({ message: j.message || 'Gagal menjalankan worker.', tone: 'red' });
+                                }
+                            } catch (e) {
+                                setToast({ message: 'Gagal menjalankan worker: ' + e.message, tone: 'red' });
+                            }
+                            setRefreshing(false);
+                        }}
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                    >
+                        Run worker sekali
+                    </button>
+                    <button
+                        type="button"
+                        onClick={async () => {
+                            if (!confirm('Kirim perintah restart ke worker yang dijalankan oleh supervisor?')) return;
+                            setRefreshing(true);
+                            try {
+                                const res = await fetch(route('whatsapp.worker.restart'), {
+                                    method: 'POST',
+                                    headers: {
+                                        'X-Requested-With': 'XMLHttpRequest',
+                                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                                        'Accept': 'application/json',
+                                    },
+                                });
+                                if (res.ok) {
+                                    setToast({ message: 'Perintah restart worker dikirim.', tone: 'emerald' });
+                                    reloadPage();
+                                } else {
+                                    const j = await res.json().catch(() => ({}));
+                                    setToast({ message: j.message || 'Gagal mengirim restart.', tone: 'red' });
+                                }
+                            } catch (e) {
+                                setToast({ message: 'Gagal mengirim restart: ' + e.message, tone: 'red' });
+                            }
+                            setRefreshing(false);
+                        }}
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                    >
+                        Restart worker
+                    </button>
                 </div>
             </div>
 
