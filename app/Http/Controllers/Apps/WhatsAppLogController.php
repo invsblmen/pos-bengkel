@@ -9,6 +9,7 @@ use App\Models\WhatsAppOutboundMessage;
 use App\Models\WhatsAppWebhookEvent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -92,6 +93,8 @@ class WhatsAppLogController extends Controller
                 'outbound_queued' => WhatsAppOutboundMessage::where('status', 'queued')->count(),
                 'outbound_sent' => WhatsAppOutboundMessage::where('status', 'sent')->count(),
                 'outbound_failed' => WhatsAppOutboundMessage::where('status', 'failed')->count(),
+                'queue_pending' => DB::table('jobs')->count(),
+                'queue_failed' => DB::table('failed_jobs')->count(),
                 'webhook_total' => WhatsAppWebhookEvent::count(),
                 'webhook_invalid_signature' => WhatsAppWebhookEvent::where('signature_valid', false)->count(),
             ],
