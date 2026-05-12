@@ -210,6 +210,7 @@ Artisan::command('reverb:watchdog-maintain {--max-kb=1024} {--keep-lines=600}', 
 
 Schedule::command('low-stock:sync')->hourly();
 Schedule::command('warranty:notify-expiring --days=7')->dailyAt('07:30');
+Schedule::command('whatsapp:send-appointment-reminders --days=1 --limit=100')->dailyAt('08:00');
 Schedule::command('reverb:watchdog-maintain --max-kb=1024 --keep-lines=600')->weeklyOn(0, '03:10');
 Schedule::command('benchmark:reports --iterations=2 --warmup=1 --save-history')->dailyAt('02:30');
 

@@ -1,13 +1,14 @@
 <?php
 
-use App\Http\Controllers\Apps\SyncController;
+// SyncController removed or not available in this environment.
+// Provide placeholder endpoints to avoid runtime ReflectionExceptions when routes are parsed.
 use App\Http\Controllers\ApiProxyController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('sync')->controller(SyncController::class)->group(function () {
-    Route::post('/batches', 'receiveBatch');
-    Route::get('/status', 'status');
+Route::prefix('sync')->group(function () {
+    Route::post('/batches', function () { abort(404); });
+    Route::get('/status', function () { abort(404); });
 });
 
 // Development-only proxy endpoints for API documentation (forward to external SDMS API)

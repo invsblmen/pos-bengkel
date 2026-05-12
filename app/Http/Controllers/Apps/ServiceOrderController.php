@@ -33,6 +33,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
+use App\Services\WhatsAppMessageService;
 
 class ServiceOrderController extends Controller
 {
@@ -245,6 +246,20 @@ class ServiceOrderController extends Controller
             'permissions' => $permissions,
             'cashDenominations' => $this->getCashDenominations(),
         ]);
+    }
+
+    public function sendWhatsAppSummary($id, WhatsAppMessageService $whatsAppMessageService)
+    {
+        $order = ServiceOrder::with('customer', 'vehicle', 'mechanic', 'details.service', 'details.part')
+            ->findOrFail($id);
+
+        $outbound = $whatsAppMessageService->sendServiceOrderSummary($order);
+
+        if (!$outbound) {
+            return $this->errorResponse('Pelanggan belum memiliki nomor WhatsApp yang valid.', ['phone' => ['Nomor pelanggan kosong.']], 422);
+        }
+
+        return $this->jsonOrRedirect('service-orders.show', [$order->id], 'Rincian service order berhasil di-queue ke WhatsApp pelanggan.');
     }
 
     public function print($id)

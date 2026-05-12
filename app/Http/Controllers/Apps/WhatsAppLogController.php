@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
+use Symfony\Component\Process\Process;
 
 class WhatsAppLogController extends Controller
 {
@@ -247,28 +248,67 @@ class WhatsAppLogController extends Controller
         // Run a single iteration of the worker to process one job if available
         try {
             $queue = (string) config('whatsapp.notifications.queue', 'default');
-            // Use Artisan facade to run queue:work --once
-            
-            $exit = 
-                \Artisan::call('queue:work', [
-                    '--once' => true,
-                    '--queue' => $queue,
-                    '--tries' => 3,
-                ]);
+            // Use Symfony Process to invoke the CLI php binary so the worker runs
+            // in the same environment as CLI and is not affected by web SAPI restrictions.
+            $php = PHP_BINARY;
+            $cmd = [$php, 'artisan', 'queue:work', '--once', "--queue={$queue}", '--tries=3'];
+            $process = new Process($cmd);
+            $process->setTimeout(120);
+            $process->run();
 
-            return $this->jsonOrRedirect(['exit_code' => $exit], [], 'Worker dijalankan sekali.');
+            $result = [
+                'exit_code' => $process->getExitCode(),
+                'output' => $process->getOutput(),
+                'error' => $process->getErrorOutput(),
+            ];
+
+            if (request()->expectsJson() || request()->ajax()) {
+                return response()->json(array_merge(['success' => true, 'message' => 'Worker dijalankan sekali.'], ['data' => $result]), 200);
+            }
+
+            return $this->jsonOrRedirect(null, [], 'Worker dijalankan sekali.', $result);
         } catch (\Throwable $e) {
-            return $this->jsonOrRedirect(null, ['error' => $e->getMessage()], 'Gagal menjalankan worker.');
+            if (request()->expectsJson() || request()->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal menjalankan worker.',
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
+
+            return $this->jsonOrRedirect(null, [], 'Gagal menjalankan worker.', ['error' => $e->getMessage()]);
         }
     }
 
     public function restartWorkers(Request $request)
     {
         try {
-            \Artisan::call('queue:restart');
-            return $this->jsonOrRedirect(null, [], 'Perintah restart worker dikirim. Worker akan restart saat siap.');
+            $php = PHP_BINARY;
+            $process = new Process([$php, 'artisan', 'queue:restart']);
+            $process->setTimeout(30);
+            $process->run();
+
+            $result = [
+                'exit_code' => $process->getExitCode(),
+                'output' => $process->getOutput(),
+                'error' => $process->getErrorOutput(),
+            ];
+
+            if (request()->expectsJson() || request()->ajax()) {
+                return response()->json(array_merge(['success' => true, 'message' => 'Perintah restart worker dikirim. Worker akan restart saat siap.'], ['data' => $result]), 200);
+            }
+
+            return $this->jsonOrRedirect(null, [], 'Perintah restart worker dikirim. Worker akan restart saat siap.', $result);
         } catch (\Throwable $e) {
-            return $this->jsonOrRedirect(null, ['error' => $e->getMessage()], 'Gagal mengirim perintah restart.');
+            if (request()->expectsJson() || request()->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal mengirim perintah restart.',
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
+
+            return $this->jsonOrRedirect(null, [], 'Gagal mengirim perintah restart.', ['error' => $e->getMessage()]);
         }
     }
 
