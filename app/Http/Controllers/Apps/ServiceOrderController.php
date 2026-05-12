@@ -262,15 +262,19 @@ class ServiceOrderController extends Controller
         return $this->jsonOrRedirect('service-orders.show', [$order->id], 'Rincian service order berhasil di-queue ke WhatsApp pelanggan.');
     }
 
-    public function print($id)
+    public function print(Request $request, $id)
     {
         $order = ServiceOrder::with('customer', 'vehicle', 'mechanic', 'details.service', 'details.part')
             ->findOrFail($id);
         $businessProfile = BusinessProfile::first();
+        $printMode = in_array($request->query('mode'), ['invoice', 'work_order', 'thermal80', 'thermal58'], true)
+            ? $request->query('mode')
+            : 'invoice';
 
         return inertia('Dashboard/ServiceOrders/Print', [
             'order' => $order,
             'businessProfile' => $businessProfile,
+            'printMode' => $printMode,
         ]);
     }
 

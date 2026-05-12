@@ -24,7 +24,7 @@ export default function Sidebar({ sidebarOpen }) {
         <div
             className={`
             ${sidebarOpen ? "w-[260px]" : "w-[80px]"}
-            hidden md:flex flex-col h-screen
+            hidden md:flex flex-col h-screen print:hidden
             border-r border-slate-200 dark:border-slate-800
             bg-white dark:bg-slate-900
             transition-all duration-300 ease-in-out

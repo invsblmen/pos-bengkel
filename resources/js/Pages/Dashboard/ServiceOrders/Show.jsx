@@ -6,6 +6,7 @@ import {
     IconArrowLeft,
     IconPencil,
     IconPrinter,
+    IconClipboardList,
     IconShieldCheck,
     IconUser,
     IconCar,
@@ -288,8 +289,11 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                                 <IconBrandWhatsapp size={16} />
                                 {sendingWhatsApp ? 'Mengirim...' : 'Kirim WhatsApp'}
                             </button>
-                            <Link href={route('service-orders.print', currentOrder.id)} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold">
-                                <IconPrinter size={16} /> Cetak
+                            <Link href={route('service-orders.print', { id: currentOrder.id, mode: 'invoice' })} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold">
+                                <IconPrinter size={16} /> Invoice
+                            </Link>
+                            <Link href={route('service-orders.print', { id: currentOrder.id, mode: 'work_order' })} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300">
+                                <IconClipboardList size={16} /> WO
                             </Link>
                             <Link href={route('service-orders.index')} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold">
                                 <IconArrowLeft size={16} /> Kembali

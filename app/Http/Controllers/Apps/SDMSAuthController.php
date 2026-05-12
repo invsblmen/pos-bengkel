@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Arr;
 use Inertia\Inertia;
 
@@ -117,9 +118,19 @@ class SDMSAuthController extends Controller
     public function deliveryOrders()
     {
         $sdms = session('sdms', null);
-        $defaultName = env('SDMS_DEFAULT_SUPPLIER_NAME', 'MPM Surabaya');
-        $default = Supplier::where('name', $defaultName)->first();
-        $defaultId = $default ? $default->id : null;
+        $defaultName = trim((string) env('SDMS_DEFAULT_SUPPLIER_NAME', 'MPM Surabaya'));
+
+        $default = Supplier::query()
+            ->whereRaw('LOWER(name) = ?', [strtolower($defaultName)], 'and')
+            ->first();
+
+        if (!$default && $defaultName !== '') {
+            $default = Supplier::create([
+                'name' => $defaultName,
+            ]);
+        }
+
+        $defaultId = $default?->id;
 
         return Inertia::render('Dashboard/SDMSDelivery', [
             'sdms' => $sdms,
@@ -175,7 +186,7 @@ class SDMSAuthController extends Controller
                 'part' => $part,
             ], 201);
         } catch (\Exception $e) {
-            \Log::error('Error creating sparepart:', ['error' => $e->getMessage()]);
+            Log::error('Error creating sparepart:', ['error' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal menambah sparepart: ' . $e->getMessage(),
@@ -247,7 +258,7 @@ class SDMSAuthController extends Controller
             ], 201);
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\DB::rollBack();
-            \Log::error('Error creating purchase from SPG:', ['error' => $e->getMessage()]);
+            Log::error('Error creating purchase from SPG:', ['error' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal membuat purchase order: ' . $e->getMessage(),
