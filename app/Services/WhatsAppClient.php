@@ -40,6 +40,37 @@ class WhatsAppClient
         ];
     }
 
+    /**
+     * @return array{is_on_whatsapp: bool, phone: string, normalized_phone: string, raw: array}
+     */
+    public function checkNumber(string $phone): array
+    {
+        $normalizedPhone = $this->normalizePhone($phone);
+        $deviceId = config('whatsapp.api.device_id');
+
+        $response = $this->request()
+            ->get('/user/check', [
+                'phone' => $normalizedPhone,
+                'device_id' => $deviceId,
+            ])
+            ->throw();
+
+        $json = $response->json();
+
+        if (!is_array($json) || ($json['code'] ?? null) !== 'SUCCESS') {
+            throw new RequestException($response);
+        }
+
+        $results = is_array($json['results'] ?? null) ? $json['results'] : [];
+
+        return [
+            'is_on_whatsapp' => (bool) ($results['is_on_whatsapp'] ?? false),
+            'phone' => $phone,
+            'normalized_phone' => $normalizedPhone,
+            'raw' => $json,
+        ];
+    }
+
     private function request()
     {
         $baseUrl = (string) config('whatsapp.api.base_url');
@@ -69,7 +100,7 @@ class WhatsAppClient
         return $request;
     }
 
-    private function normalizePhone(string $phone): string
+    public function normalizePhone(string $phone): string
     {
         $phone = trim($phone);
 
