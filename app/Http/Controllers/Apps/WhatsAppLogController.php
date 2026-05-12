@@ -245,38 +245,38 @@ class WhatsAppLogController extends Controller
 
     public function runWorkerOnce(Request $request)
     {
-        // Run a single iteration of the worker to process one job if available
+        // Start a single iteration of the worker in the background (non-blocking).
+        // This process will process one job if available without blocking the HTTP request.
         try {
             $queue = (string) config('whatsapp.notifications.queue', 'default');
-            // Use Symfony Process to invoke the CLI php binary so the worker runs
-            // in the same environment as CLI and is not affected by web SAPI restrictions.
             $php = PHP_BINARY;
             $cmd = [$php, 'artisan', 'queue:work', '--once', "--queue={$queue}", '--tries=3'];
             $process = new Process($cmd);
-            $process->setTimeout(120);
-            $process->run();
-
-            $result = [
-                'exit_code' => $process->getExitCode(),
-                'output' => $process->getOutput(),
-                'error' => $process->getErrorOutput(),
-            ];
+            $process->setTimeout(null); // No timeout; let process complete naturally
+            $process->start(); // Start async, do NOT wait
 
             if (request()->expectsJson() || request()->ajax()) {
-                return response()->json(array_merge(['success' => true, 'message' => 'Worker dijalankan sekali.'], ['data' => $result]), 200);
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Worker dimulai di background. Silahkan tunggu beberapa detik untuk melihat hasil.',
+                    'data' => [
+                        'process_pid' => $process->getPid(),
+                        'command' => implode(' ', $cmd),
+                    ],
+                ], 200);
             }
 
-            return $this->jsonOrRedirect(null, [], 'Worker dijalankan sekali.', $result);
+            return $this->jsonOrRedirect(null, [], 'Worker dimulai di background.');
         } catch (\Throwable $e) {
             if (request()->expectsJson() || request()->ajax()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Gagal menjalankan worker.',
+                    'message' => 'Gagal memulai worker.',
                     'error' => $e->getMessage(),
                 ], 500);
             }
 
-            return $this->jsonOrRedirect(null, [], 'Gagal menjalankan worker.', ['error' => $e->getMessage()]);
+            return $this->jsonOrRedirect(null, [], 'Gagal memulai worker.', ['error' => $e->getMessage()]);
         }
     }
 
@@ -285,20 +285,21 @@ class WhatsAppLogController extends Controller
         try {
             $php = PHP_BINARY;
             $process = new Process([$php, 'artisan', 'queue:restart']);
-            $process->setTimeout(30);
-            $process->run();
-
-            $result = [
-                'exit_code' => $process->getExitCode(),
-                'output' => $process->getOutput(),
-                'error' => $process->getErrorOutput(),
-            ];
+            $process->setTimeout(null);
+            $process->start(); // Start async, do NOT wait
 
             if (request()->expectsJson() || request()->ajax()) {
-                return response()->json(array_merge(['success' => true, 'message' => 'Perintah restart worker dikirim. Worker akan restart saat siap.'], ['data' => $result]), 200);
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Perintah restart broadcast dikirim. Worker akan restart saat siap.',
+                    'data' => [
+                        'process_pid' => $process->getPid(),
+                        'command' => 'php artisan queue:restart',
+                    ],
+                ], 200);
             }
 
-            return $this->jsonOrRedirect(null, [], 'Perintah restart worker dikirim. Worker akan restart saat siap.', $result);
+            return $this->jsonOrRedirect(null, [], 'Perintah restart broadcast dikirim. Worker akan restart saat siap.');
         } catch (\Throwable $e) {
             if (request()->expectsJson() || request()->ajax()) {
                 return response()->json([
