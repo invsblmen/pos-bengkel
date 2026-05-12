@@ -296,6 +296,13 @@ export default function Menu() {
                             icon: <IconBrandWhatsapp size={20} strokeWidth={1.5} />,
                             permissions: hasAnyPermission(["reports-access"]),
                         },
+                        {
+                            title: "Queue Monitor",
+                            href: route("whatsapp.queue-monitor.index"),
+                            active: url.startsWith("/dashboard/whatsapp/queue-monitor"),
+                            icon: <IconChartInfographic size={20} strokeWidth={1.5} />,
+                            permissions: hasAnyPermission(["reports-access"]),
+                        },
                     ],
                 },
             ],

@@ -30,4 +30,10 @@ return [
         'service_order_created' => env('WHATSAPP_NOTIFY_SERVICE_ORDER_CREATED', true),
         'service_order_updated' => env('WHATSAPP_NOTIFY_SERVICE_ORDER_UPDATED', false),
     ],
+
+    'monitoring' => [
+        'heartbeat_key' => env('WHATSAPP_QUEUE_HEARTBEAT_KEY', 'whatsapp:queue:heartbeat'),
+        'heartbeat_ttl_seconds' => (int) env('WHATSAPP_QUEUE_HEARTBEAT_TTL_SECONDS', 90),
+        'refresh_interval_seconds' => (int) env('WHATSAPP_QUEUE_REFRESH_INTERVAL_SECONDS', 15),
+    ],
 ];

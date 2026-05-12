@@ -7,8 +7,10 @@ use App\Events\WhatsAppOutboundUpdated;
 use App\Jobs\SendWhatsAppMessageJob;
 use App\Models\WhatsAppOutboundMessage;
 use App\Models\WhatsAppWebhookEvent;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -20,6 +22,8 @@ class WhatsAppLogController extends Controller
     use RespondsWithJsonOrRedirect;
     public function index(Request $request)
     {
+        $monitoring = $this->buildMonitoringSnapshot();
+
         $outboundQueryText = trim((string) $request->get('outbound_q', ''));
         $outboundStatus = (string) $request->get('outbound_status', 'all');
 
@@ -93,15 +97,55 @@ class WhatsAppLogController extends Controller
                 'outbound_queued' => WhatsAppOutboundMessage::where('status', 'queued')->count(),
                 'outbound_sent' => WhatsAppOutboundMessage::where('status', 'sent')->count(),
                 'outbound_failed' => WhatsAppOutboundMessage::where('status', 'failed')->count(),
-                'queue_pending' => DB::table('jobs')->count(),
-                'queue_failed' => DB::table('failed_jobs')->count(),
+                'queue_pending' => $monitoring['queue_pending'],
+                'queue_failed' => $monitoring['queue_failed'],
+                'queue_worker_active' => $monitoring['worker_active'],
+                'queue_worker_last_heartbeat' => $monitoring['worker_last_heartbeat'],
+                'queue_worker_age_seconds' => $monitoring['worker_age_seconds'],
                 'webhook_total' => WhatsAppWebhookEvent::count(),
                 'webhook_invalid_signature' => WhatsAppWebhookEvent::where('signature_valid', false)->count(),
             ],
+            'monitoring' => $monitoring,
             'outboundStatuses' => $outboundStatuses,
             'webhookEvents' => $webhookEvents,
             'outboundLogs' => $outboundLogs,
             'webhookLogs' => $webhookLogs,
+        ]);
+    }
+
+    public function queueMonitor()
+    {
+        $monitoring = $this->buildMonitoringSnapshot();
+
+        $recentOutbound = WhatsAppOutboundMessage::query()
+            ->latest()
+            ->limit(10)
+            ->get([
+                'id',
+                'event_type',
+                'phone',
+                'status',
+                'error_message',
+                'created_at',
+                'sent_at',
+                'failed_at',
+            ]);
+
+        return inertia('Dashboard/WhatsApp/QueueMonitor', [
+            'summary' => [
+                'outbound_total' => WhatsAppOutboundMessage::count(),
+                'outbound_queued' => WhatsAppOutboundMessage::where('status', 'queued')->count(),
+                'outbound_sent' => WhatsAppOutboundMessage::where('status', 'sent')->count(),
+                'outbound_failed' => WhatsAppOutboundMessage::where('status', 'failed')->count(),
+                'queue_pending' => $monitoring['queue_pending'],
+                'queue_failed' => $monitoring['queue_failed'],
+                'queue_worker_active' => $monitoring['worker_active'],
+                'queue_worker_last_heartbeat' => $monitoring['worker_last_heartbeat'],
+                'queue_worker_age_seconds' => $monitoring['worker_age_seconds'],
+            ],
+            'monitoring' => $monitoring,
+            'recentOutbound' => $recentOutbound,
+            'refreshIntervalSeconds' => (int) config('whatsapp.monitoring.refresh_interval_seconds', 15),
         ]);
     }
 
@@ -235,5 +279,29 @@ class WhatsAppLogController extends Controller
                 'target_url' => $baseUrl,
             ], 200);
         }
+    }
+
+    private function buildMonitoringSnapshot(): array
+    {
+        $heartbeatKey = (string) config('whatsapp.monitoring.heartbeat_key', 'whatsapp:queue:heartbeat');
+        $heartbeatTtl = max(30, (int) config('whatsapp.monitoring.heartbeat_ttl_seconds', 90));
+        $heartbeat = Cache::get($heartbeatKey);
+        $queuePending = DB::table('jobs')->count();
+        $queueFailed = DB::table('failed_jobs')->count();
+
+        $heartbeatTimestamp = is_array($heartbeat) ? (int) ($heartbeat['timestamp'] ?? 0) : 0;
+        $lastHeartbeatAt = $heartbeatTimestamp > 0 ? Carbon::createFromTimestamp($heartbeatTimestamp) : null;
+        $workerAgeSeconds = $lastHeartbeatAt ? now()->diffInSeconds($lastHeartbeatAt) : null;
+        $workerActive = $lastHeartbeatAt !== null && $workerAgeSeconds !== null && $workerAgeSeconds <= $heartbeatTtl;
+
+        return [
+            'heartbeat' => is_array($heartbeat) ? $heartbeat : null,
+            'worker_active' => $workerActive,
+            'worker_last_heartbeat' => $lastHeartbeatAt?->timezone(config('app.timezone'))->format('Y-m-d H:i:s'),
+            'worker_age_seconds' => $workerAgeSeconds,
+            'queue_pending' => $queuePending,
+            'queue_failed' => $queueFailed,
+            'heartbeat_ttl_seconds' => $heartbeatTtl,
+        ];
     }
 }

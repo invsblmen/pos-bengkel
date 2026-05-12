@@ -15,6 +15,8 @@ use App\Events\ServiceOrderDeleted;
 use App\Events\PartSaleCreated;
 use App\Events\PartSaleUpdated;
 use App\Events\PartSaleDeleted;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Carbon;
 
@@ -37,6 +39,9 @@ class AppServiceProvider extends ServiceProvider
 
         // Register event listeners for report cache invalidation
         $this->registerCacheInvalidationListeners();
+
+        // Keep a lightweight heartbeat for queue-worker monitoring.
+        $this->registerQueueHeartbeat();
 
         // Ensure all Carbon dates serialize to a stable local string without timezone shifts
         Carbon::serializeUsing(function ($carbon) {
@@ -78,5 +83,26 @@ class AppServiceProvider extends ServiceProvider
             [PartSaleCreated::class, PartSaleUpdated::class, PartSaleDeleted::class],
             [$listener, 'handlePartSaleEvent']
         );
+    }
+
+    private function registerQueueHeartbeat(): void
+    {
+        Queue::looping(function (): void {
+            if (!config('whatsapp.enabled')) {
+                return;
+            }
+
+            $heartbeatKey = (string) config('whatsapp.monitoring.heartbeat_key', 'whatsapp:queue:heartbeat');
+            $heartbeatTtl = max(30, (int) config('whatsapp.monitoring.heartbeat_ttl_seconds', 90));
+
+            Cache::put($heartbeatKey, [
+                'checked_at' => now()->toIso8601String(),
+                'timestamp' => now()->timestamp,
+                'pid' => function_exists('getmypid') ? getmypid() : null,
+                'host' => gethostname() ?: php_uname('n'),
+                'queue_connection' => (string) config('queue.default', 'database'),
+                'queue_name' => (string) config('whatsapp.notifications.queue', 'default'),
+            ], now()->addSeconds($heartbeatTtl));
+        });
     }
 }

@@ -28,6 +28,7 @@ use App\Http\Controllers\Apps\CashManagementController;
 use App\Http\Controllers\Apps\VoucherController;
 use App\Http\Controllers\Apps\DataImportController;
 use App\Http\Controllers\Apps\WhatsAppLogController;
+use App\Http\Controllers\Apps\WhatsAppMessageController;
 use App\Http\Controllers\Apps\WhatsAppGoController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
@@ -80,8 +81,12 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::post('/notifications/delete', [NotificationController::class, 'destroy'])->name('notifications.destroy');
     Route::get('/whatsapp/go', WhatsAppGoController::class)->middleware('permission:reports-access')->name('whatsapp.go.index');
     Route::get('/whatsapp/logs', [WhatsAppLogController::class, 'index'])->middleware('permission:reports-access')->name('whatsapp.logs.index');
+    Route::get('/whatsapp/queue-monitor', [WhatsAppLogController::class, 'queueMonitor'])->middleware('permission:reports-access')->name('whatsapp.queue-monitor.index');
     Route::get('/whatsapp/health/check', [WhatsAppLogController::class, 'healthCheck'])->middleware('permission:reports-access')->name('whatsapp.health.check');
     Route::post('/whatsapp/logs/outbound/{outbound}/retry', [WhatsAppLogController::class, 'retry'])->middleware('permission:reports-access')->name('whatsapp.logs.retry');
+    Route::get('/whatsapp/messages', [WhatsAppMessageController::class, 'index'])->middleware('permission:reports-access')->name('whatsapp.messages.index');
+    Route::post('/whatsapp/messages/broadcast', [WhatsAppMessageController::class, 'broadcast'])->middleware('permission:reports-access')->name('whatsapp.messages.broadcast');
+    Route::post('/whatsapp/messages/appointments/{appointment}/reminder', [WhatsAppMessageController::class, 'sendReminder'])->middleware('permission:reports-access')->name('whatsapp.messages.reminder');
 
     Route::get('/', [DashboardController::class, 'index'])->middleware(['auth', 'verified', 'permission:dashboard-access'])->name('dashboard');
     Route::get('/permissions', [PermissionController::class, 'index'])->middleware('permission:permissions-access')->name('permissions.index');
@@ -108,6 +113,7 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
         ->middlewareFor(['create', 'store'], 'permission:customers-create')
         ->middlewareFor(['edit', 'update'], 'permission:customers-edit')
         ->middlewareFor('destroy', 'permission:customers-delete');
+    Route::post('/customers/{customer}/whatsapp/check', [CustomerController::class, 'checkWhatsApp'])->middleware('permission:customers-access')->name('customers.whatsapp.check');
 
     // Vehicles Management
     Route::resource('vehicles', VehicleController::class)
@@ -308,6 +314,7 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::post('/service-orders/quick-intake', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'storeQuick'])->middleware('permission:service-orders-create')->name('service-orders.quick-intake.store');
     Route::get('/service-orders/{id}/print', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'print'])->middleware('permission:service-orders-access')->name('service-orders.print');
     Route::get('/service-orders/{id}', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'show'])->middleware('permission:service-orders-access')->name('service-orders.show');
+    Route::post('/service-orders/{id}/whatsapp/send', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'sendWhatsAppSummary'])->middleware('permission:service-orders-access')->name('service-orders.whatsapp.send');
     Route::get('/service-orders/{id}/edit', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'edit'])->middleware('permission:service-orders-update')->name('service-orders.edit');
     Route::post('/service-orders', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'store'])->middleware('permission:service-orders-create')->name('service-orders.store');
     Route::put('/service-orders/{id}', [\App\Http\Controllers\Apps\ServiceOrderController::class, 'update'])->middleware('permission:service-orders-update')->name('service-orders.update');
