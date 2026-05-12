@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Head, Link, router } from "@inertiajs/react";
 import { toDisplayDateTime } from "@/Utils/datetime";
 import {
@@ -37,6 +37,8 @@ function SummaryCard({ title, value, icon, tone = "slate", helper }) {
 export default function QueueMonitor({ summary = {}, monitoring = {}, recentOutbound = [], refreshIntervalSeconds = 15 }) {
     const [refreshing, setRefreshing] = useState(false);
     const [lastRefreshAt, setLastRefreshAt] = useState(null);
+    const [toast, setToast] = useState(null);
+    const prevWorkerActive = useRef(monitoring?.worker_active ?? false);
 
     const workerBadge = monitoring?.worker_active
         ? {
@@ -89,6 +91,56 @@ export default function QueueMonitor({ summary = {}, monitoring = {}, recentOutb
         return () => clearInterval(intervalId);
     }, [refreshIntervalSeconds]);
 
+    // Visual notification when worker becomes inactive
+    useEffect(() => {
+        const currentlyActive = !!monitoring?.worker_active;
+        const previouslyActive = !!prevWorkerActive.current;
+
+        if (previouslyActive && !currentlyActive) {
+            const message = "Worker queue terdeteksi tidak aktif. Periksa proses php artisan queue:work.";
+            setToast({ message, tone: "red" });
+
+            // Try browser notification
+            try {
+                if ("Notification" in window) {
+                    if (Notification.permission === "granted") {
+                        new Notification("WhatsApp Queue - Worker Down", { body: message });
+                    } else if (Notification.permission !== "denied") {
+                        Notification.requestPermission().then((perm) => {
+                            if (perm === "granted") new Notification("WhatsApp Queue - Worker Down", { body: message });
+                        });
+                    }
+                }
+            } catch (e) {
+                // ignore
+            }
+
+            // Short beep via WebAudio
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const o = ctx.createOscillator();
+                const g = ctx.createGain();
+                o.type = "sine";
+                o.frequency.value = 880;
+                g.gain.value = 0.03;
+                o.connect(g);
+                g.connect(ctx.destination);
+                o.start();
+                setTimeout(() => {
+                    o.stop();
+                    try { ctx.close(); } catch (e) {}
+                }, 250);
+            } catch (e) {
+                // ignore audio errors
+            }
+
+            // auto-hide toast
+            setTimeout(() => setToast(null), 10000);
+        }
+
+        prevWorkerActive.current = currentlyActive;
+    }, [monitoring?.worker_active]);
+
     useEffect(() => {
         setLastRefreshAt(new Date());
     }, []);
@@ -96,6 +148,25 @@ export default function QueueMonitor({ summary = {}, monitoring = {}, recentOutb
     return (
         <>
             <Head title="WhatsApp Queue Monitor" />
+
+            {toast ? (
+                <div className="fixed top-4 right-4 z-50 w-full max-w-sm">
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-3 shadow">
+                        <div className="flex items-start gap-3">
+                            <div className="mt-0.5">
+                                <IconAlertTriangle size={20} className="text-red-600" />
+                            </div>
+                            <div className="flex-1 text-sm text-red-800">
+                                <div className="font-semibold">Worker tidak aktif</div>
+                                <div className="mt-1 text-xs opacity-90">{toast.message}</div>
+                            </div>
+                            <div>
+                                <button onClick={() => setToast(null)} className="text-sm text-red-700 underline">Tutup</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
                 <div>
