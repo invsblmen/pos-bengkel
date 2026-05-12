@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
+use App\Services\WhatsAppMessageService;
 
 class CustomerController extends Controller
 {
@@ -167,7 +168,7 @@ class CustomerController extends Controller
         }
 
         // Ensure phone is unique
-        if (Customer::where('phone', $phone)->exists()) {
+        if (Customer::query()->where('phone', $phone)->exists()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Nomor telepon sudah terdaftar',
@@ -279,6 +280,41 @@ class CustomerController extends Controller
         return Inertia::render('Dashboard/Customers/Show', [
             'customer' => $customer,
         ]);
+    }
+
+    public function checkWhatsApp(Customer $customer, WhatsAppMessageService $whatsAppMessageService)
+    {
+        if (trim((string) $customer->phone) === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nomor pelanggan kosong.',
+            ], 422);
+        }
+
+        try {
+            $result = $whatsAppMessageService->checkCustomer($customer);
+
+            return response()->json([
+                'success' => true,
+                'customer_id' => $customer->id,
+                'customer_name' => $customer->name,
+                'phone' => $result['phone'],
+                'normalized_phone' => $result['normalized_phone'],
+                'is_on_whatsapp' => $result['is_on_whatsapp'],
+                'message' => $result['is_on_whatsapp']
+                    ? 'Nomor ini terdaftar sebagai pengguna WhatsApp.'
+                    : 'Nomor ini tidak terdaftar sebagai pengguna WhatsApp.',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('WhatsApp customer check failed: ' . $e->getMessage(), [
+                'customer_id' => $customer->id,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengecek nomor WhatsApp: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**

@@ -6,12 +6,14 @@ import {
     IconArrowLeft,
     IconPencil,
     IconPrinter,
+    IconClipboardList,
     IconShieldCheck,
     IconUser,
     IconCar,
     IconTool,
     IconClock,
     IconCurrencyDollar,
+    IconBrandWhatsapp,
 } from '@tabler/icons-react';
 import { toDisplayDateTime } from '@/Utils/datetime';
 import toast from 'react-hot-toast';
@@ -19,6 +21,7 @@ import toast from 'react-hot-toast';
 export default function Show({ order, warrantyRegistrations = {}, permissions = {}, cashDenominations = [] }) {
     const [liveOrder, setLiveOrder] = useState(order);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
 
     useEffect(() => {
         setLiveOrder(order);
@@ -119,6 +122,32 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                 preserveScroll: true,
                 onSuccess: () => toast.success('Klaim garansi berhasil dicatat'),
                 onError: (errors) => toast.error(errors?.error || 'Gagal mencatat klaim garansi'),
+            }
+        );
+    };
+
+    const handleSendWhatsAppSummary = () => {
+        if (!currentOrder?.customer?.phone) {
+            toast.error('Pelanggan belum memiliki nomor WhatsApp.');
+            return;
+        }
+
+        setSendingWhatsApp(true);
+
+        router.post(
+            route('service-orders.whatsapp.send', currentOrder.id),
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.success('Rincian service order berhasil di-queue ke WhatsApp.');
+                },
+                onError: (errors) => {
+                    toast.error(errors?.phone || errors?.error || 'Gagal mengirim rincian WhatsApp');
+                },
+                onFinish: () => {
+                    setSendingWhatsApp(false);
+                },
             }
         );
     };
@@ -251,8 +280,20 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                         <div className="flex flex-wrap items-center gap-2">
                             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadge.color}`}>{statusBadge.label}</span>
                             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${paymentBadge.color}`}>{paymentBadge.label}</span>
-                            <Link href={route('service-orders.print', currentOrder.id)} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold">
-                                <IconPrinter size={16} /> Cetak
+                            <button
+                                type="button"
+                                onClick={handleSendWhatsAppSummary}
+                                disabled={sendingWhatsApp || !currentOrder.customer?.phone}
+                                className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300"
+                            >
+                                <IconBrandWhatsapp size={16} />
+                                {sendingWhatsApp ? 'Mengirim...' : 'Kirim WhatsApp'}
+                            </button>
+                            <Link href={route('service-orders.print', { id: currentOrder.id, mode: 'invoice' })} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold">
+                                <IconPrinter size={16} /> Invoice
+                            </Link>
+                            <Link href={route('service-orders.print', { id: currentOrder.id, mode: 'work_order' })} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300">
+                                <IconClipboardList size={16} /> WO
                             </Link>
                             <Link href={route('service-orders.index')} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold">
                                 <IconArrowLeft size={16} /> Kembali

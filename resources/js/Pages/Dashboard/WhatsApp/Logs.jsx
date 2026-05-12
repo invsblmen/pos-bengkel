@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Head, router, usePage } from "@inertiajs/react";
+import { Head, Link, router, usePage } from "@inertiajs/react";
 import Pagination from "@/Components/Dashboard/Pagination";
 import { toDisplayDateTime } from "@/Utils/datetime";
 import { useRealtimeEvents } from "@/Hooks/useRealtimeEvents";
@@ -368,6 +368,13 @@ export default function Logs({ filters, summary, outboundStatuses, webhookEvents
                     <p className="text-sm text-slate-500">Pantau pengiriman outbound dan event webhook dari service Go.</p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Link
+                        href={route("whatsapp.messages.index")}
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                        <IconSend size={16} />
+                        Manajemen Pesan
+                    </Link>
                     <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-700 text-sm">
                         <IconBrandWhatsapp size={18} />
                         <span>Realtime-ready log dashboard</span>
@@ -477,9 +484,23 @@ export default function Logs({ filters, summary, outboundStatuses, webhookEvents
                 <SummaryCard title="Queued" value={summary?.outbound_queued} icon={<IconClockHour4 size={18} />} tone="amber" />
                 <SummaryCard title="Sent" value={summary?.outbound_sent} icon={<IconSend size={18} />} tone="emerald" />
                 <SummaryCard title="Failed" value={summary?.outbound_failed} icon={<IconAlertTriangle size={18} />} tone="red" />
+                <SummaryCard title="Queue Pending" value={summary?.queue_pending} icon={<IconClockHour4 size={18} />} tone="amber" />
+                <SummaryCard title="Queue Failed Jobs" value={summary?.queue_failed} icon={<IconShieldX size={18} />} tone="red" />
                 <SummaryCard title="Total Webhook" value={summary?.webhook_total} icon={<IconWebhook size={18} />} tone="slate" />
                 <SummaryCard title="Invalid Signature" value={summary?.webhook_invalid_signature} icon={<IconShieldX size={18} />} tone="red" />
             </div>
+
+            {(summary?.queue_pending ?? 0) > 0 && (
+                <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    Ada {summary.queue_pending} job WhatsApp yang masih antre di database queue. Pastikan proses <span className="font-semibold">php artisan queue:work</span> sedang berjalan di server.
+                </div>
+            )}
+
+            {(summary?.queue_failed ?? 0) > 0 && (
+                <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    Ada {summary.queue_failed} failed job di tabel <span className="font-semibold">failed_jobs</span>. Cek detailnya dengan <span className="font-semibold">php artisan queue:failed</span> lalu lakukan retry jika perlu.
+                </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
