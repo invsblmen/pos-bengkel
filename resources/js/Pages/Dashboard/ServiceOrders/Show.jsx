@@ -18,6 +18,14 @@ import {
 import { toDisplayDateTime } from '@/Utils/datetime';
 import toast from 'react-hot-toast';
 
+const getErrorMessage = (value, fallback) => {
+    if (Array.isArray(value)) {
+        return value[0] || fallback;
+    }
+
+    return value || fallback;
+};
+
 export default function Show({ order, warrantyRegistrations = {}, permissions = {}, cashDenominations = [] }) {
     const [liveOrder, setLiveOrder] = useState(order);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -143,7 +151,7 @@ export default function Show({ order, warrantyRegistrations = {}, permissions = 
                     toast.success('Rincian service order berhasil di-queue ke WhatsApp.');
                 },
                 onError: (errors) => {
-                    toast.error(errors?.phone || errors?.error || 'Gagal mengirim rincian WhatsApp');
+                    toast.error(getErrorMessage(errors?.phone, getErrorMessage(errors?.error, 'Gagal mengirim rincian WhatsApp')));
                 },
                 onFinish: () => {
                     setSendingWhatsApp(false);

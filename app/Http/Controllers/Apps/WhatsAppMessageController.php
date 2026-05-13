@@ -102,18 +102,24 @@ class WhatsAppMessageController extends Controller
         );
 
         $queued = 0;
+        $skipped = 0;
         foreach ($customerCollection as $customer) {
-            $outbound = $whatsAppMessageService->queueCustomerMessage(
-                $customer,
-                $message,
-                'whatsapp.promo'
-            );
+            try {
+                $outbound = $whatsAppMessageService->queueCustomerMessage(
+                    $customer,
+                    $message,
+                    'whatsapp.promo'
+                );
 
-            if ($outbound) {
-                $queued++;
+                if ($outbound) {
+                    $queued++;
+                }
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                $skipped++;
+                continue;
             }
         }
 
-        return $this->jsonOrRedirect('whatsapp.messages.index', [], "Broadcast promo berhasil di-queue ke {$queued} pelanggan.");
+        return $this->jsonOrRedirect('whatsapp.messages.index', [], "Broadcast promo berhasil di-queue ke {$queued} pelanggan" . ($skipped > 0 ? " dan {$skipped} nomor dilewati karena bukan WhatsApp." : "."));
     }
 }

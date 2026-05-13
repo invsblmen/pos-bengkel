@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\ValidationException;
 
 class WhatsAppMessageService
 {
@@ -129,7 +130,9 @@ class WhatsAppMessageService
 
             event(new WhatsAppOutboundUpdated($outbound));
 
-            return null;
+            throw ValidationException::withMessages([
+                'phone' => 'Nomor tujuan tidak terdaftar WhatsApp: ' . ($numberCheck['normalized_phone'] ?? $phone),
+            ]);
         }
 
         $outbound = WhatsAppOutboundMessage::create([
@@ -177,7 +180,9 @@ class WhatsAppMessageService
 
             event(new WhatsAppOutboundUpdated($outbound));
 
-            return null;
+            throw ValidationException::withMessages([
+                'phone' => 'Nomor tujuan tidak terdaftar WhatsApp: ' . ($numberCheck['normalized_phone'] ?? $phone),
+            ]);
         }
 
         $outbound = WhatsAppOutboundMessage::create([

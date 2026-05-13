@@ -15,6 +15,14 @@ import {
 import toast from "react-hot-toast";
 import { toDisplayDateTime } from "@/Utils/datetime";
 
+const getErrorMessage = (value, fallback) => {
+    if (Array.isArray(value)) {
+        return value[0] || fallback;
+    }
+
+    return value || fallback;
+};
+
 export default function Manage({ summary = {}, customers = [], appointments = [] }) {
     const [recipientMode, setRecipientMode] = useState("selected");
     const [headline, setHeadline] = useState("Promo servis berkala");
@@ -60,7 +68,7 @@ export default function Manage({ summary = {}, customers = [], appointments = []
                     toast.success("Reminder servis berhasil di-queue.");
                 },
                 onError: (errors) => {
-                    toast.error(errors?.phone || errors?.error || "Gagal mengirim reminder servis.");
+                    toast.error(getErrorMessage(errors?.phone, getErrorMessage(errors?.error, "Gagal mengirim reminder servis.")));
                 },
                 onFinish: () => {
                     setSendingReminderId(null);
@@ -90,7 +98,12 @@ export default function Manage({ summary = {}, customers = [], appointments = []
                     setSelectedCustomerIds([]);
                 },
                 onError: (errors) => {
-                    toast.error(errors?.customer_ids || errors?.body || errors?.headline || "Gagal mengirim broadcast promo.");
+                    toast.error(
+                        getErrorMessage(
+                            errors?.customer_ids,
+                            getErrorMessage(errors?.body, getErrorMessage(errors?.headline, "Gagal mengirim broadcast promo."))
+                        )
+                    );
                 },
                 onFinish: () => {
                     setBroadcasting(false);
