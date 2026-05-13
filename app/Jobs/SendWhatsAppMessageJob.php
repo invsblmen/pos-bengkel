@@ -27,6 +27,20 @@ class SendWhatsAppMessageJob implements ShouldQueue
         }
 
         try {
+            $numberCheck = $whatsAppClient->checkNumber($outbound->phone);
+
+            if (!($numberCheck['is_on_whatsapp'] ?? false)) {
+                $outbound->update([
+                    'status' => 'failed',
+                    'error_message' => 'Nomor tujuan tidak terdaftar WhatsApp: ' . ($numberCheck['normalized_phone'] ?? $outbound->phone),
+                    'failed_at' => now(),
+                ]);
+
+                event(new WhatsAppOutboundUpdated($outbound->fresh()));
+
+                return;
+            }
+
             $result = $whatsAppClient->sendText($outbound->phone, $outbound->message);
 
             $outbound->update([
