@@ -255,6 +255,8 @@ class WhatsAppLogController extends Controller
             $process->setTimeout(null); // No timeout; let process complete naturally
             $process->start(); // Start async, do NOT wait
 
+            $this->recordHeartbeat('run-once', $process->getPid());
+
             if (request()->expectsJson() || request()->ajax()) {
                 return response()->json([
                     'success' => true,
@@ -287,6 +289,8 @@ class WhatsAppLogController extends Controller
             $process = new Process([$php, 'artisan', 'queue:restart']);
             $process->setTimeout(null);
             $process->start(); // Start async, do NOT wait
+
+            $this->recordHeartbeat('restart-signal', $process->getPid());
 
             if (request()->expectsJson() || request()->ajax()) {
                 return response()->json([
@@ -350,6 +354,22 @@ class WhatsAppLogController extends Controller
                 'target_url' => $baseUrl,
             ], 200);
         }
+    }
+
+    private function recordHeartbeat(string $source, ?int $pid = null): void
+    {
+        $heartbeatKey = (string) config('whatsapp.monitoring.heartbeat_key', 'whatsapp:queue:heartbeat');
+        $heartbeatTtl = max(30, (int) config('whatsapp.monitoring.heartbeat_ttl_seconds', 90));
+
+        Cache::put($heartbeatKey, [
+            'checked_at' => now()->toIso8601String(),
+            'timestamp' => now()->timestamp,
+            'pid' => $pid ?? (function_exists('getmypid') ? getmypid() : null),
+            'host' => gethostname() ?: php_uname('n'),
+            'queue_connection' => (string) config('queue.default', 'database'),
+            'queue_name' => (string) config('whatsapp.notifications.queue', 'default'),
+            'source' => $source,
+        ], now()->addSeconds($heartbeatTtl));
     }
 
     private function buildMonitoringSnapshot(): array

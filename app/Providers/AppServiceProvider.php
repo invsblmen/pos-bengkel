@@ -88,10 +88,6 @@ class AppServiceProvider extends ServiceProvider
     private function registerQueueHeartbeat(): void
     {
         Queue::looping(function (): void {
-            if (!config('whatsapp.enabled')) {
-                return;
-            }
-
             $heartbeatKey = (string) config('whatsapp.monitoring.heartbeat_key', 'whatsapp:queue:heartbeat');
             $heartbeatTtl = max(30, (int) config('whatsapp.monitoring.heartbeat_ttl_seconds', 90));
 
