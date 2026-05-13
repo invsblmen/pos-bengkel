@@ -111,6 +111,27 @@ class WhatsAppMessageService
             return null;
         }
 
+        $numberCheck = $this->whatsAppClient->checkNumber($phone);
+
+        if (!($numberCheck['is_on_whatsapp'] ?? false)) {
+            $outbound = WhatsAppOutboundMessage::create([
+                'event_type' => $eventType,
+                'related_type' => $relatedType,
+                'related_id' => $relatedId,
+                'customer_id' => $customer->id,
+                'device_id' => config('whatsapp.api.device_id'),
+                'phone' => $phone,
+                'message' => $message,
+                'status' => 'failed',
+                'error_message' => 'Nomor tujuan tidak terdaftar WhatsApp: ' . ($numberCheck['normalized_phone'] ?? $phone),
+                'failed_at' => now(),
+            ]);
+
+            event(new WhatsAppOutboundUpdated($outbound));
+
+            return null;
+        }
+
         $outbound = WhatsAppOutboundMessage::create([
             'event_type' => $eventType,
             'related_type' => $relatedType,
@@ -135,6 +156,27 @@ class WhatsAppMessageService
         $phone = trim($phone);
 
         if ($phone === '') {
+            return null;
+        }
+
+        $numberCheck = $this->whatsAppClient->checkNumber($phone);
+
+        if (!($numberCheck['is_on_whatsapp'] ?? false)) {
+            $outbound = WhatsAppOutboundMessage::create([
+                'event_type' => $eventType,
+                'related_type' => $relatedType,
+                'related_id' => $relatedId,
+                'customer_id' => $customerId,
+                'device_id' => config('whatsapp.api.device_id'),
+                'phone' => $phone,
+                'message' => $message,
+                'status' => 'failed',
+                'error_message' => 'Nomor tujuan tidak terdaftar WhatsApp: ' . ($numberCheck['normalized_phone'] ?? $phone),
+                'failed_at' => now(),
+            ]);
+
+            event(new WhatsAppOutboundUpdated($outbound));
+
             return null;
         }
 
