@@ -12,6 +12,7 @@ const dashboardLayout = (page) => <DashboardLayout>{page}</DashboardLayout>;
 const dashboardLayoutExclusions = new Set([
     'Dashboard/ServiceOrders/Create',
     'Dashboard/ServiceOrders/Edit',
+    'Dashboard/ServiceOrders/Print',
 ]);
 
 createInertiaApp({

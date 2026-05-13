@@ -167,7 +167,7 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
         <>
             <Head title={`Cetak ${activePrintTitle} ${order?.order_number || ""}`} />
 
-            <div className="min-h-screen bg-slate-100 dark:bg-slate-950 py-8 px-4 print:min-h-0 print:bg-white print:p-0 print:text-[11px] print:leading-tight">
+            <div className={`service-order-print-page service-order-print-${activePrintMode} min-h-screen bg-slate-100 dark:bg-slate-950 py-8 px-4 print:min-h-0 print:bg-white print:p-0 print:text-[11px] print:leading-tight`}>
                 <div className="max-w-5xl mx-auto space-y-6 print:max-w-none print:mx-0 print:space-y-0">
                     {/* Action Bar */}
                     <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
@@ -273,10 +273,9 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
 
                     {activePrintMode === "work_order" && (
                         <div
-                            className="work-order-sheet mx-auto max-w-5xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xl print:shadow-none print:border-0 print:rounded-none print:max-w-none"
-                            style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}
+                            className="service-order-print-sheet work-order-sheet mx-auto max-w-5xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xl print:shadow-none print:border-0 print:rounded-none print:max-w-none"
                         >
-                            <div className="bg-gradient-to-r from-emerald-600 to-teal-700 px-6 py-6 text-white print:bg-transparent print:text-slate-900 print:px-0 print:py-0" style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}>
+                            <div className="bg-gradient-to-r from-emerald-600 to-teal-700 px-6 py-6 text-white print:bg-transparent print:text-slate-900 print:px-0 print:py-0">
                                 <div className="flex flex-wrap items-start justify-between gap-4 print:flex-nowrap print:gap-2">
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-2 mb-2 print:mb-1">
@@ -370,7 +369,7 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
                                                                 {index + 1}. {item.jobName}
                                                             </p>
                                                             <p className="text-xs text-slate-500 dark:text-slate-400 print:text-[10px]">
-                                                                {item.hasService ? "Instruksi servis" : item.hasPart ? "Sparepart terkait" : "Item kerja"} • Qty {item.qty}
+                                                                {item.hasService ? "Instruksi servis" : item.hasPart ? "Sparepart terkait" : "Item kerja"} - Qty {item.qty}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -412,7 +411,7 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
                     )}
 
                     {activePrintMode === "invoice" && (
-                        <div className="service-order-invoice bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xl print:shadow-none print:border-slate-300 print:rounded-none">
+                        <div className="service-order-print-sheet service-order-invoice bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xl print:shadow-none print:border-slate-300 print:rounded-none">
                             {/* Header */}
                             <div className="bg-gradient-to-r from-primary-500 to-primary-700 px-6 py-6 text-white print:bg-slate-100 print:text-slate-900 print:px-3 print:py-2">
                                 <div className="flex flex-wrap items-start justify-between gap-4 print:flex-nowrap print:gap-2">
@@ -884,6 +883,171 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
                     .service-order-work-order th {
                         padding-top: 2mm !important;
                         padding-bottom: 2mm !important;
+                    }
+
+                    .service-order-print-page,
+                    .service-order-print-page * {
+                        background: transparent !important;
+                        background-image: none !important;
+                        box-shadow: none !important;
+                        text-shadow: none !important;
+                        color: #111 !important;
+                        -webkit-print-color-adjust: economy !important;
+                        print-color-adjust: economy !important;
+                    }
+
+                    .service-order-print-page {
+                        background: #fff !important;
+                        font-family: Arial, Helvetica, sans-serif !important;
+                        font-size: 10pt !important;
+                        line-height: 1.22 !important;
+                    }
+
+                    .service-order-print-page svg {
+                        display: none !important;
+                    }
+
+                    .service-order-print-sheet {
+                        width: 100% !important;
+                        max-width: none !important;
+                        border: 0 !important;
+                        border-radius: 0 !important;
+                        overflow: visible !important;
+                    }
+
+                    .service-order-print-sheet > div {
+                        padding-left: 0 !important;
+                        padding-right: 0 !important;
+                    }
+
+                    .service-order-print-sheet > div:not(:last-child) {
+                        border-bottom: 0.25mm solid #777 !important;
+                    }
+
+                    .service-order-print-sheet .px-6,
+                    .service-order-print-sheet .px-4,
+                    .service-order-print-sheet .px-3 {
+                        padding-left: 0 !important;
+                        padding-right: 0 !important;
+                    }
+
+                    .service-order-print-sheet .py-6,
+                    .service-order-print-sheet .py-4 {
+                        padding-top: 3mm !important;
+                        padding-bottom: 3mm !important;
+                    }
+
+                    .service-order-print-sheet .py-3,
+                    .service-order-print-sheet .py-2,
+                    .service-order-print-sheet .py-1\.5 {
+                        padding-top: 1.4mm !important;
+                        padding-bottom: 1.4mm !important;
+                    }
+
+                    .service-order-print-sheet .p-6,
+                    .service-order-print-sheet .p-4,
+                    .service-order-print-sheet .p-3,
+                    .service-order-print-sheet .p-2,
+                    .service-order-print-sheet .print\:p-2\.5,
+                    .service-order-print-sheet .print\:p-2 {
+                        padding: 2mm !important;
+                    }
+
+                    .service-order-print-sheet .gap-6,
+                    .service-order-print-sheet .gap-4,
+                    .service-order-print-sheet .gap-3 {
+                        gap: 2.2mm !important;
+                    }
+
+                    .service-order-print-sheet .space-y-4 > :not([hidden]) ~ :not([hidden]),
+                    .service-order-print-sheet .space-y-3 > :not([hidden]) ~ :not([hidden]),
+                    .service-order-print-sheet .space-y-2 > :not([hidden]) ~ :not([hidden]),
+                    .service-order-print-sheet .space-y-1 > :not([hidden]) ~ :not([hidden]) {
+                        margin-top: 1.4mm !important;
+                    }
+
+                    .service-order-print-sheet .rounded-2xl,
+                    .service-order-print-sheet .rounded-xl,
+                    .service-order-print-sheet .rounded-lg,
+                    .service-order-print-sheet .rounded-full {
+                        border-radius: 0 !important;
+                    }
+
+                    .service-order-print-sheet .rounded-full,
+                    .service-order-print-sheet [class*="bg-"][class*="text-"] {
+                        border: 0.25mm solid #777 !important;
+                        padding: 0.6mm 1.5mm !important;
+                    }
+
+                    .service-order-print-sheet table {
+                        width: 100% !important;
+                        border-collapse: collapse !important;
+                        font-size: 9.2pt !important;
+                    }
+
+                    .service-order-print-sheet th,
+                    .service-order-print-sheet td {
+                        border-bottom: 0.2mm solid #cfcfcf !important;
+                        padding: 1.3mm 1.5mm !important;
+                        vertical-align: top !important;
+                    }
+
+                    .service-order-print-sheet thead th {
+                        border-bottom: 0.25mm solid #777 !important;
+                        font-size: 8.2pt !important;
+                        letter-spacing: 0.02em !important;
+                    }
+
+                    .service-order-print-sheet tfoot td {
+                        padding-top: 1mm !important;
+                        padding-bottom: 1mm !important;
+                    }
+
+                    .service-order-print-sheet .text-2xl {
+                        font-size: 15pt !important;
+                        line-height: 1.1 !important;
+                    }
+
+                    .service-order-print-sheet .text-xl,
+                    .service-order-print-sheet .text-lg {
+                        font-size: 11pt !important;
+                        line-height: 1.15 !important;
+                    }
+
+                    .service-order-print-sheet .text-base,
+                    .service-order-print-sheet .text-sm,
+                    .service-order-print-sheet .text-xs,
+                    .service-order-print-sheet .text-\[10px\] {
+                        font-size: 9pt !important;
+                        line-height: 1.2 !important;
+                    }
+
+                    .service-order-print-sheet .mb-4,
+                    .service-order-print-sheet .mb-3,
+                    .service-order-print-sheet .mb-2,
+                    .service-order-print-sheet .mt-4,
+                    .service-order-print-sheet .mt-3,
+                    .service-order-print-sheet .mt-2 {
+                        margin-top: 1.2mm !important;
+                        margin-bottom: 1.2mm !important;
+                    }
+
+                    .service-order-print-sheet img {
+                        filter: grayscale(1) contrast(1.15) !important;
+                    }
+
+                    .service-order-print-thermal80,
+                    .service-order-print-thermal58 {
+                        width: auto !important;
+                    }
+
+                    .service-order-print-thermal80 .thermal-receipt,
+                    .service-order-print-thermal58 .thermal-receipt,
+                    .service-order-print-thermal80 .thermal-receipt *,
+                    .service-order-print-thermal58 .thermal-receipt * {
+                        color: #000 !important;
+                        background: #fff !important;
+                        box-shadow: none !important;
                     }
                 }
             `}</style>
