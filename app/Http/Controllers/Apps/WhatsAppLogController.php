@@ -245,40 +245,57 @@ class WhatsAppLogController extends Controller
 
     public function runWorkerOnce(Request $request)
     {
-        // Start a single iteration of the worker in the background (non-blocking).
-        // This process will process one job if available without blocking the HTTP request.
+        // Start a persistent worker in the background (non-blocking).
+        // This keeps consuming queued jobs after the HTTP request finishes.
         try {
             $queue = (string) config('whatsapp.notifications.queue', 'default');
             $php = PHP_BINARY;
-            $cmd = [$php, 'artisan', 'queue:work', '--once', "--queue={$queue}", '--tries=3'];
-            $process = new Process($cmd);
-            $process->setTimeout(null); // No timeout; let process complete naturally
-            $process->start(); // Start async, do NOT wait
+            $artisan = base_path('artisan');
 
-            $this->recordHeartbeat('run-once', $process->getPid());
+            if (PHP_OS_FAMILY === 'Windows') {
+                $commandLine = sprintf(
+                    'cmd /c start "" /B "%s" "%s" queue:work --queue=%s --tries=3 --sleep=3',
+                    $php,
+                    $artisan,
+                    $queue
+                );
+                $process = Process::fromShellCommandline($commandLine, base_path());
+                $process->setTimeout(10);
+                $process->run();
+                $commandText = $commandLine;
+            } else {
+                $cmd = [$php, $artisan, 'queue:work', "--queue={$queue}", '--tries=3', '--sleep=3'];
+                $commandLine = sprintf('nohup "%s" "%s" queue:work --queue=%s --tries=3 --sleep=3 >/dev/null 2>&1 &', $php, $artisan, $queue);
+                $process = Process::fromShellCommandline($commandLine, base_path());
+                $process->setTimeout(10);
+                $process->run();
+                $commandText = implode(' ', $cmd);
+            }
+
+            $this->recordHeartbeat('run-worker', $process->getPid());
 
             if (request()->expectsJson() || request()->ajax()) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Worker dimulai di background. Silahkan tunggu beberapa detik untuk melihat hasil.',
+                    'message' => 'Worker background dimulai dan akan terus memproses antrean.',
                     'data' => [
                         'process_pid' => $process->getPid(),
-                        'command' => implode(' ', $cmd),
+                        'command' => $commandText,
                     ],
                 ], 200);
             }
 
-            return $this->jsonOrRedirect(null, [], 'Worker dimulai di background.');
+            return $this->jsonOrRedirect(null, [], 'Worker background dimulai dan akan terus memproses antrean.');
         } catch (\Throwable $e) {
             if (request()->expectsJson() || request()->ajax()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Gagal memulai worker.',
+                    'message' => 'Gagal memulai worker background.',
                     'error' => $e->getMessage(),
                 ], 500);
             }
 
-            return $this->jsonOrRedirect(null, [], 'Gagal memulai worker.', ['error' => $e->getMessage()]);
+            return $this->jsonOrRedirect(null, [], 'Gagal memulai worker background.', ['error' => $e->getMessage()]);
         }
     }
 
