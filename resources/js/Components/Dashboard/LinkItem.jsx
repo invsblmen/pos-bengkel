@@ -16,6 +16,8 @@ export default function LinkItem({
     title,
     disableWhenActive = false,
     sidebarOpen,
+    target,
+    rel,
     ...props
 }) {
     const { url } = usePage();
@@ -66,6 +68,8 @@ export default function LinkItem({
             return (
                 <a
                     href={href}
+                    target={target}
+                    rel={rel}
                     className={`${baseClasses} ${activeClasses} px-4 py-2.5 text-sm font-medium`}
                     onClick={handleClick}
                     title={shortcutIndex ? `${title} (Alt+${shortcutIndex})` : title}
@@ -97,6 +101,8 @@ export default function LinkItem({
         return (
             <Link
                 href={linkHref}
+                target={target}
+                rel={rel}
                 className={`${baseClasses} ${activeClasses} px-4 py-2.5 text-sm font-medium`}
                 onClick={handleClick}
                 title={shortcutIndex ? `${title} (Alt+${shortcutIndex})` : title}
@@ -130,6 +136,8 @@ export default function LinkItem({
         return (
             <a
                 href={href}
+                target={target}
+                rel={rel}
                 className={`
                 w-full flex justify-center py-3
                 transition-all duration-200
@@ -155,6 +163,8 @@ export default function LinkItem({
     return (
         <Link
             href={linkHref}
+            target={target}
+            rel={rel}
             className={`
                 w-full flex justify-center py-3
                 transition-all duration-200

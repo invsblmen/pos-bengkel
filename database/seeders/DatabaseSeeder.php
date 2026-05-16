@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             \Database\Seeders\AddPartPermissionsSeeder::class,
             \Database\Seeders\AddPartStockPermissionsSeeder::class,
             RoleSeeder::class,
+            FixVoucherPermissionForCashierSeeder::class,
             UserSeeder::class,
             PaymentSettingSeeder::class,
             BusinessProfileSeeder::class,

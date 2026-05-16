@@ -29,6 +29,7 @@ class RoleSeeder extends Seeder
             'part-sales-edit',
             'cash-management-access',
             'cash-management-manage',
+            'vouchers-access',
         ])->get();
         $cashierRole->givePermissionTo($cashierPermissions);
     }

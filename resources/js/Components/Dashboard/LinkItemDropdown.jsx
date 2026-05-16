@@ -41,14 +41,18 @@ export default function LinkItemDropdown({ icon, title, data, access, sidebarOpe
         const isItemActive = url === comparableHref;
         const isStaticOrExternal = isExternalSidebarHref(dataItem.href);
         const linkHref = isStaticOrExternal ? dataItem.href : comparableHref;
+        const target = dataItem.target;
+        const rel = dataItem.rel;
 
-        const LinkComponent = isStaticOrExternal ? 'a' : Link;
+        const LinkComponent = isStaticOrExternal || target === '_blank' ? 'a' : Link;
 
         if (sidebarOpen) {
             return (
                 <LinkComponent
                     key={i}
                     href={linkHref}
+                    target={target}
+                    rel={rel}
                     className={`${isItemActive && 'border-r-2 border-r-primary-500 bg-primary-50 text-primary-700 dark:border-r-primary-400 dark:bg-primary-950/50 dark:text-primary-400'} min-w-full flex items-center font-medium gap-x-3.5 px-5 py-3 hover:border-r-2 capitalize hover:cursor-pointer text-sm line-clamp-1 text-slate-600 hover:border-r-slate-700 hover:text-slate-900 dark:text-slate-400 dark:hover:border-r-slate-200 dark:hover:text-slate-100 border-l-[3px] border-transparent transition-all group`}
                     title={shortcutKey ? `${dataItem.title} (Alt+${shortcutKey})` : dataItem.title}
                     {...props}>
@@ -71,6 +75,8 @@ export default function LinkItemDropdown({ icon, title, data, access, sidebarOpe
             return (
                 <LinkComponent
                     href={linkHref}
+                    target={target}
+                    rel={rel}
                     className={`${isItemActive && 'border-r-2 border-r-primary-500 bg-primary-50 text-primary-700 dark:border-r-primary-400 dark:bg-primary-950/50 dark:text-primary-400'} min-w-full flex justify-center py-3 hover:border-r-2 hover:cursor-pointer text-slate-600 hover:border-r-slate-700 hover:text-slate-900 dark:text-slate-400 dark:hover:border-r-slate-200 dark:hover:text-slate-100 relative group transition-all`}
                     key={i}
                     title={shortcutKey ? `${dataItem.title} (Alt+${shortcutKey})` : dataItem.title}

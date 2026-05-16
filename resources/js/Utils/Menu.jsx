@@ -288,6 +288,8 @@ export default function Menu() {
                             active: url.startsWith("/dashboard/whatsapp/go"),
                             icon: <IconExternalLink size={20} strokeWidth={1.5} />,
                             permissions: hasAnyPermission(["reports-access"]),
+                            target: "_blank",
+                            rel: "noopener noreferrer",
                         },
                         {
                             title: "Log WhatsApp",

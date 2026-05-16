@@ -203,6 +203,8 @@ export default function Sidebar({ sidebarOpen }) {
                                             access={detail.permissions}
                                             disableWhenActive={detail.disableWhenActive}
                                             sidebarOpen={sidebarOpen}
+                                            target={detail.target}
+                                            rel={detail.rel}
                                         />
                                     );
                                 })}

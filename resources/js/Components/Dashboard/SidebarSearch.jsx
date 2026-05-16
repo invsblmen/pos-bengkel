@@ -20,6 +20,8 @@ export default function SidebarSearch({ sidebarOpen, menuItems, onItemClick }) {
                         title: detail.title,
                         href: detail.href,
                         section: section.title,
+                        target: detail.target,
+                        rel: detail.rel,
                     });
                 }
 
@@ -31,6 +33,8 @@ export default function SidebarSearch({ sidebarOpen, menuItems, onItemClick }) {
                                 title: sub.title,
                                 href: sub.href,
                                 section: section.title,
+                                target: sub.target,
+                                rel: sub.rel,
                             });
                         }
                     });
@@ -74,17 +78,33 @@ export default function SidebarSearch({ sidebarOpen, menuItems, onItemClick }) {
                     {searchResults.length > 0 ? (
                         <div className="py-1">
                             {searchResults.map((result, idx) => (
-                                <Link
-                                    key={idx}
-                                    href={result.href}
-                                    onClick={onItemClick}
-                                    className="flex flex-col px-3 py-2 text-sm hover:bg-primary-50 dark:hover:bg-primary-950/30 text-slate-700 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
-                                >
-                                    <span className="font-medium">{result.title}</span>
-                                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                                        {result.section}
-                                    </span>
-                                </Link>
+                                result.target === '_blank' ? (
+                                    <a
+                                        key={idx}
+                                        href={result.href}
+                                        target={result.target}
+                                        rel={result.rel}
+                                        onClick={onItemClick}
+                                        className="flex flex-col px-3 py-2 text-sm hover:bg-primary-50 dark:hover:bg-primary-950/30 text-slate-700 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
+                                    >
+                                        <span className="font-medium">{result.title}</span>
+                                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                                            {result.section}
+                                        </span>
+                                    </a>
+                                ) : (
+                                    <Link
+                                        key={idx}
+                                        href={result.href}
+                                        onClick={onItemClick}
+                                        className="flex flex-col px-3 py-2 text-sm hover:bg-primary-50 dark:hover:bg-primary-950/30 text-slate-700 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
+                                    >
+                                        <span className="font-medium">{result.title}</span>
+                                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                                            {result.section}
+                                        </span>
+                                    </Link>
+                                )
                             ))}
                         </div>
                     ) : (

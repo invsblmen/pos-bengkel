@@ -4,13 +4,14 @@ namespace App\Http\Controllers\Apps;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\Response;
 
 class WhatsAppGoController extends Controller
 {
-    public function __invoke(): Response|RedirectResponse
+    public function __invoke(Request $request): Response|RedirectResponse
     {
         $targetUrl = trim((string) config('whatsapp.go_dashboard_url'));
         $username = trim((string) config('whatsapp.api.username', ''));
@@ -30,6 +31,10 @@ class WhatsAppGoController extends Controller
 
         if ($username !== '') {
             $targetUrl = $this->injectBasicAuth($targetUrl, $username, $password);
+        }
+
+        if (! $request->header('X-Inertia')) {
+            return redirect()->away($targetUrl);
         }
 
         return Inertia::location($targetUrl);
