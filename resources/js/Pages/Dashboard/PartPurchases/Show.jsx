@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Head, router, Link } from '@inertiajs/react';
 import toast from 'react-hot-toast';
-import { IconArrowLeft, IconCalendar, IconTruck, IconUser, IconEdit, IconReceipt, IconPackage, IconCurrencyDollar, IconPrinter } from '@tabler/icons-react';
+import TransactionPaymentSection from '@/Components/TransactionPaymentSection';
+import PaymentReceiptModal from '@/Components/PaymentReceiptModal';
+import { IconArrowLeft, IconCalendar, IconTruck, IconUser, IconEdit, IconReceipt, IconPackage, IconCurrencyDollar, IconPrinter, IconCreditCard } from '@tabler/icons-react';
 import { toDisplayDate, todayLocalDate } from '@/Utils/datetime';
 
 const statusColors = {
@@ -18,16 +20,29 @@ const statusLabels = {
     cancelled: 'Cancelled',
 };
 
-export default function Show({ purchase }) {
+const getPaymentBadge = (status) => {
+    const badges = {
+        paid: { color: 'bg-green-100 text-green-700 border-green-200', label: '✓ Lunas' },
+        partial: { color: 'bg-blue-100 text-blue-700 border-blue-200', label: '◐ Sebagian' },
+        unpaid: { color: 'bg-gray-100 text-gray-700 border-gray-200', label: '○ Belum Bayar' },
+    };
+    return badges[status] || badges.unpaid;
+};
+
+export default function Show({ purchase, cashDenominations = [] }) {
     const [updating, setUpdating] = useState(false);
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [newStatus, setNewStatus] = useState(purchase.status);
     const [actualDeliveryDate, setActualDeliveryDate] = useState(purchase.actual_delivery_date || todayLocalDate());
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
 
     useEffect(() => {
         setNewStatus(purchase.status);
         setActualDeliveryDate(purchase.actual_delivery_date || todayLocalDate());
     }, [purchase.status, purchase.actual_delivery_date]);
+
+    const [livePurchase, setLivePurchase] = useState(purchase);
+    useEffect(() => { setLivePurchase(purchase); }, [purchase]);
 
     const formatCurrency = (value) => {
         return new Intl.NumberFormat('id-ID', {
@@ -72,6 +87,49 @@ export default function Show({ purchase }) {
                 },
             }
         );
+    };
+
+    const handlePaymentConfirm = (paymentData) => {
+        try {
+            const givenDenominations = Array.isArray(paymentData.payment_meta?.cash_breakdown)
+                ? paymentData.payment_meta.cash_breakdown.map(item => ({
+                    denomination_id: Number(item.denomination_id || 0),
+                    quantity: Number(item.quantity || 0),
+                  }))
+                : [];
+
+            const cashGivenTotal = Number(paymentData.payment_meta?.cash_given_total || paymentData.payment_meta?.cash_received_total || 0);
+            const amountToApply = Number(paymentData.paid_amount || 0);
+
+            const transformedData = {
+                payment_amount: Math.max(1, cashGivenTotal),
+                applied_amount: Math.max(0, amountToApply),
+                payment_method: paymentData.payment_method || 'cash',
+                transfer_destination: paymentData.transfer_destination || '',
+                payment_meta: Object.assign({}, paymentData.payment_meta || {}, { cash_given_total: cashGivenTotal }),
+                given_denominations: givenDenominations,
+            };
+
+            router.post(
+                route('part-purchases.update-payment', purchase.id),
+                transformedData,
+                {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        toast.success('Pembayaran berhasil dicatat');
+                        setShowPaymentModal(false);
+                        router.reload();
+                    },
+                    onError: (errors) => {
+                        const errorMessage = errors?.payment_amount?.[0] || errors?.error || JSON.stringify(errors) || 'Gagal mencatat pembayaran';
+                        toast.error(errorMessage);
+                    },
+                }
+            );
+        } catch (error) {
+            console.error('Payment handler error:', error);
+            toast.error('Terjadi kesalahan saat memproses pembayaran');
+        }
     };
 
 
@@ -206,6 +264,47 @@ export default function Show({ purchase }) {
                             </div>
                         </div>
 
+                        {/* Payment Status Card */}
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-800 p-6 hover:shadow-xl transition-all duration-200">
+                            <div className="grid md:grid-cols-3 gap-6">
+                                {/* Payment Status Badge */}
+                                <div className="flex flex-col items-start gap-4">
+                                    <div className="w-full">
+                                        <div className="text-sm text-slate-500 dark:text-slate-400 mb-2 font-medium">Status Pembayaran</div>
+                                        <div className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold border ${getPaymentBadge(purchase.payment_status).color}`}>
+                                            {getPaymentBadge(purchase.payment_status).label}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Payment Method */}
+                                <div className="flex flex-col items-start gap-2">
+                                    <div className="text-sm text-slate-500 dark:text-slate-400 font-medium">Metode Pembayaran</div>
+                                    <div className="text-base font-semibold text-slate-900 dark:text-white">
+                                        {purchase.payment_method ? (
+                                            <span className="capitalize">{purchase.payment_method}</span>
+                                        ) : (
+                                            <span className="text-slate-400 italic">-</span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Payment Amounts */}
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-800">
+                                        <span className="text-sm text-slate-500 dark:text-slate-400">Sudah Dibayar</span>
+                                        <span className="font-semibold text-green-600">{formatCurrency(purchase.paid_amount || 0)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-2">
+                                        <span className="text-sm text-slate-500 dark:text-slate-400">Sisa Pembayaran</span>
+                                        <span className={`font-semibold ${(purchase.remaining_amount || 0) > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                                            {formatCurrency(purchase.remaining_amount || 0)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Payment Summary & Notes */}
                         <div className="grid md:grid-cols-2 gap-6">
                             {/* Payment Breakdown */}
@@ -263,6 +362,21 @@ export default function Show({ purchase }) {
                                 )}
                             </div>
                         </div>
+
+                        { (livePurchase?.remaining_amount || 0) > 0 && purchase.status !== 'cancelled' && (
+                            <div>
+                                <TransactionPaymentSection
+                                    title="Pembayaran Pembelian"
+                                    paymentMethod={livePurchase.payment_method || 'cash'}
+                                    paidAmount={livePurchase.paid_amount || 0}
+                                    totalAmount={livePurchase.grand_total || livePurchase.total_amount}
+                                    transferDestination={livePurchase.transfer_destination || ''}
+                                    formatCurrency={formatCurrency}
+                                    onOpenPaymentModal={() => setShowPaymentModal(true)}
+                                    note="Tekan tombol terima pembayaran untuk mencatat pembayaran pembelian ini."
+                                />
+                            </div>
+                        )}
 
                         {/* Items */}
                         <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -379,6 +493,20 @@ export default function Show({ purchase }) {
                         </div>
                     </div>
                 )}
+            <PaymentReceiptModal
+                show={showPaymentModal}
+                onClose={() => setShowPaymentModal(false)}
+                onConfirm={handlePaymentConfirm}
+                totalAmount={livePurchase?.remaining_amount || 0}
+                cashDenominations={cashDenominations}
+                initialPayment={{
+                    payment_method: livePurchase?.payment_method || 'cash',
+                    transfer_destination: livePurchase?.transfer_destination || '',
+                    paid_amount: livePurchase?.remaining_amount || 0,
+                    payment_meta: livePurchase?.payment_meta || {},
+                }}
+                formatCurrency={formatCurrency}
+            />
             </div>
 
             {/* Print-Only Invoice Layout */}

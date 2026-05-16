@@ -16,6 +16,9 @@ use App\Models\User;
 use App\Notifications\PartPurchasePendingNotification;
 use App\Services\DiscountTaxService;
 use App\Support\DispatchesBroadcastSafely;
+use App\Models\CashDrawerDenomination;
+use App\Models\CashTransaction;
+use App\Models\CashTransactionItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -221,6 +224,7 @@ class PartPurchaseController extends Controller
 
         return inertia('Dashboard/PartPurchases/Show', [
             'purchase' => $purchase,
+            'cashDenominations' => $this->getCashDenominations(),
         ]);
     }
 
@@ -423,6 +427,261 @@ class PartPurchaseController extends Controller
             DB::rollBack();
             return $this->errorResponse('Failed to update status: ' . $e->getMessage(), ['error' => ['Failed to update status: ' . $e->getMessage()]], 422);
         }
+    }
+
+    public function updatePayment(Request $request, $id)
+    {
+        $purchase = PartPurchase::findOrFail($id);
+
+        $validated = $request->validate([
+            'payment_amount' => 'required|integer|min:1',
+            'applied_amount' => 'nullable|integer|min:0',
+            'payment_method' => 'nullable|in:cash,credit,mixed',
+            'transfer_destination' => 'nullable|in:qris,bni,bca,bri,edc_bri,transfer_bni,transfer_bca,transfer_bri',
+            'payment_meta' => 'nullable|array',
+            'given_denominations' => 'nullable|array',
+            'given_denominations.*.denomination_id' => 'required_with:given_denominations|exists:cash_denominations,id',
+            'given_denominations.*.quantity' => 'required_with:given_denominations|integer|min:0',
+        ]);
+
+        $paymentAmount = (int) $validated['payment_amount'];
+        $paymentMeta = is_array($validated['payment_meta'] ?? null) ? $validated['payment_meta'] : [];
+
+        $paymentState = clone $purchase;
+        $paymentState->payment_meta = $paymentMeta;
+        $settlementTotal = $paymentState->getPaymentSettlementTotal();
+        $remainingBeforePayment = max(0, $settlementTotal - (int) $purchase->paid_amount);
+
+        $appliedAmount = isset($validated['applied_amount'])
+            ? max(0, (int) $validated['applied_amount'])
+            : min($paymentAmount, $remainingBeforePayment);
+
+        $netPaymentAmount = min($appliedAmount, $remainingBeforePayment);
+
+        $givenRows = collect($validated['given_denominations'] ?? [])
+            ->map(fn ($row) => [
+                'denomination_id' => (int) ($row['denomination_id'] ?? 0),
+                'quantity' => (int) ($row['quantity'] ?? 0),
+            ])
+            ->filter(fn ($row) => $row['denomination_id'] > 0 && $row['quantity'] > 0)
+            ->values();
+
+        if ($givenRows->isNotEmpty()) {
+            $denominationValues = CashDenomination::query()
+                ->whereIn('id', $givenRows->pluck('denomination_id'))
+                ->pluck('value', 'id');
+
+            $givenTotal = (int) $givenRows->sum(function ($row) use ($denominationValues) {
+                return ((int) ($denominationValues[$row['denomination_id']] ?? 0)) * (int) $row['quantity'];
+            });
+
+            if ($givenTotal !== $paymentAmount) {
+                throw ValidationException::withMessages([
+                    'payment_amount' => ['Total pecahan uang yang diserahkan harus sama dengan jumlah uang yang dibayarkan.'],
+                ]);
+            }
+        }
+
+        DB::transaction(function () use ($purchase, $paymentAmount, $paymentMeta, $netPaymentAmount, $validated, $givenRows) {
+            $purchase->payment_meta = $paymentMeta ?: $purchase->payment_meta;
+
+            if ($givenRows->isNotEmpty()) {
+                $changeAmount = max(0, $paymentAmount - $netPaymentAmount);
+
+                $this->recordCashPaymentWithDenominations(
+                    $purchase,
+                    $netPaymentAmount,
+                    $changeAmount,
+                    $givenRows,
+                    (int) Auth::id()
+                );
+            } else {
+                $this->recordCashPaymentFromMeta($purchase, (int) Auth::id());
+            }
+
+            $purchase->paid_amount = (int) $purchase->paid_amount + $netPaymentAmount;
+            $purchase->payment_method = $validated['payment_method'] ?? $purchase->payment_method;
+            $purchase->transfer_destination = $validated['transfer_destination'] ?? $purchase->transfer_destination;
+            $purchase->applyPaymentSettlementStatus()->save();
+        });
+
+        return $this->jsonOrRedirect(null, [], 'Pembayaran berhasil dicatat');
+    }
+
+    private function recordCashPaymentWithDenominations(
+        PartPurchase $purchase,
+        int $netPaymentAmount,
+        int $changeAmount,
+        $givenRows,
+        int $userId
+    ): void {
+        $givenRows = collect($givenRows)->values();
+
+        $denominationValues = CashDenomination::query()
+            ->whereIn('id', $givenRows->pluck('denomination_id'))
+            ->pluck('value', 'id')
+            ->map(fn ($v) => (int) $v)
+            ->toArray();
+
+        $givenTotal = (int) $givenRows->sum(function ($row) use ($denominationValues) {
+            $denominationId = (int) $row['denomination_id'];
+            $value = (int) ($denominationValues[$denominationId] ?? 0);
+            return $value * (int) $row['quantity'];
+        });
+
+        $outgoingTransaction = CashTransaction::create([
+            'transaction_type' => 'expense',
+            'amount' => $givenTotal,
+            'source' => 'part-purchase-payment',
+            'description' => "Pembayaran cash pembelian {$purchase->purchase_number}",
+            'meta' => [
+                'part_purchase_id' => $purchase->id,
+                'purchase_number' => $purchase->purchase_number,
+                'net_payment_amount' => $netPaymentAmount,
+                'given_total' => $givenTotal,
+                'change_amount' => $changeAmount,
+            ],
+            'happened_at' => now(),
+            'created_by' => $userId,
+        ]);
+
+        foreach ($givenRows as $row) {
+            $denominationId = (int) $row['denomination_id'];
+            $quantity = (int) $row['quantity'];
+            $value = (int) ($denominationValues[$denominationId] ?? 0);
+
+            if ($quantity <= 0 || $value <= 0) {
+                continue;
+            }
+
+            $drawer = CashDrawerDenomination::firstOrCreate(
+                ['denomination_id' => $denominationId],
+                ['quantity' => 0]
+            );
+
+            $newQty = (int) $drawer->quantity - $quantity;
+            if ($newQty < 0) {
+                throw ValidationException::withMessages([
+                    'payment_amount' => ['Stok kas pecahan tidak mencukupi untuk pembayaran pembelian.'],
+                ]);
+            }
+
+            CashTransactionItem::create([
+                'cash_transaction_id' => $outgoingTransaction->id,
+                'denomination_id' => $denominationId,
+                'direction' => 'out',
+                'quantity' => $quantity,
+                'line_total' => $value * $quantity,
+            ]);
+
+            $drawer->update(['quantity' => $newQty]);
+        }
+
+        if ($changeAmount <= 0) {
+            return;
+        }
+
+        $availableByValue = CashDenomination::query()
+            ->where('is_active', true)
+            ->pluck('value', 'id')
+            ->mapWithKeys(fn ($value) => [(int) $value => 999999])
+            ->toArray();
+
+        $changeSuggestion = app()->make(\App\Services\CashChangeSuggestionService::class)
+            ->suggest($changeAmount, $availableByValue);
+
+        $effectiveChangeAmount = (int) $changeSuggestion['allocated_amount'];
+        if ($effectiveChangeAmount !== $changeAmount) {
+            throw ValidationException::withMessages([
+                'payment_amount' => ['Denominasi kas tidak mencukupi untuk membentuk kembalian pembelian.'],
+            ]);
+        }
+
+        $valueToId = CashDenomination::query()
+            ->pluck('id', 'value')
+            ->map(fn ($id) => (int) $id)
+            ->toArray();
+
+        $changeTransaction = CashTransaction::create([
+            'transaction_type' => 'income',
+            'amount' => $effectiveChangeAmount,
+            'source' => 'part-purchase-change',
+            'description' => "Kembalian cash pembelian {$purchase->purchase_number}",
+            'meta' => [
+                'part_purchase_id' => $purchase->id,
+                'purchase_number' => $purchase->purchase_number,
+                'requested_change_amount' => $changeAmount,
+                'allocated_change_amount' => $effectiveChangeAmount,
+            ],
+            'happened_at' => now(),
+            'created_by' => $userId,
+        ]);
+
+        foreach ($changeSuggestion['items'] as $item) {
+            $value = (int) ($item['value'] ?? 0);
+            $quantity = (int) ($item['quantity'] ?? 0);
+            $denominationId = (int) ($valueToId[$value] ?? 0);
+
+            if ($denominationId <= 0 || $quantity <= 0) {
+                continue;
+            }
+
+            CashTransactionItem::create([
+                'cash_transaction_id' => $changeTransaction->id,
+                'denomination_id' => $denominationId,
+                'direction' => 'in',
+                'quantity' => $quantity,
+                'line_total' => $value * $quantity,
+            ]);
+
+            $drawer = CashDrawerDenomination::firstOrCreate(
+                ['denomination_id' => $denominationId],
+                ['quantity' => 0]
+            );
+
+            $drawer->update(['quantity' => (int) $drawer->quantity + $quantity]);
+        }
+    }
+
+    private function recordCashPaymentFromMeta(PartPurchase $purchase, int $userId): void
+    {
+        $meta = $purchase->payment_meta ?? [];
+
+        if (is_string($meta)) {
+            $meta = json_decode($meta, true) ?: [];
+        }
+
+        if (!is_array($meta) || !in_array(($meta['payment_method'] ?? null), ['cash', 'mixed'], true)) {
+            return;
+        }
+
+        $givenRows = collect($meta['cash_breakdown'] ?? $meta['cash_given_breakdown'] ?? [])
+            ->map(fn ($row) => [
+                'denomination_id' => (int) ($row['denomination_id'] ?? 0),
+                'quantity' => (int) ($row['quantity'] ?? 0),
+            ])
+            ->filter(fn ($row) => $row['denomination_id'] > 0 && $row['quantity'] > 0)
+            ->values();
+
+        if ($givenRows->isEmpty()) {
+            return;
+        }
+
+        $givenTotal = max(0, (int) ($meta['cash_given_total'] ?? 0));
+        $changeAmount = max(0, (int) ($meta['cash_change_amount'] ?? $meta['cash_change'] ?? 0));
+        $netPaymentAmount = max(0, $givenTotal - $changeAmount);
+
+        if ($givenTotal <= 0 || $netPaymentAmount <= 0) {
+            return;
+        }
+
+        $this->recordCashPaymentWithDenominations(
+            $purchase,
+            $netPaymentAmount,
+            $changeAmount,
+            $givenRows,
+            $userId
+        );
     }
 
     private function notifyPendingPurchase(PartPurchase $purchase, string $context): void

@@ -248,6 +248,7 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::get('/part-purchases/{id}/print', [PartPurchaseController::class, 'print'])->middleware('permission:part-purchases-access')->name('part-purchases.print');
     Route::get('/part-purchases/{id}/edit', [PartPurchaseController::class, 'edit'])->middleware('permission:part-purchases-update')->name('part-purchases.edit');
     Route::put('/part-purchases/{id}', [PartPurchaseController::class, 'update'])->middleware('permission:part-purchases-update')->name('part-purchases.update');
+    Route::post('/part-purchases/{id}/update-payment', [PartPurchaseController::class, 'updatePayment'])->middleware('permission:part-purchases-update')->name('part-purchases.update-payment');
     Route::post('/part-purchases/{id}/update-status', [PartPurchaseController::class, 'updateStatus'])->middleware('permission:part-purchases-update')->name('part-purchases.update-status');
 
     // Part Sales Orders - DISABLED

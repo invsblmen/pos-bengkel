@@ -8,15 +8,15 @@ import { useRealtimeReportHistoryReload } from "@/Hooks/useRealtimeReportHistory
 export default function OutstandingPaymentsReport({ orders, summary }) {
     useRealtimeReportHistoryReload();
     const paidStatusColors = {
-        pending: "bg-yellow-100 text-yellow-700",
+        unpaid: "bg-yellow-100 text-yellow-700",
         partial: "bg-orange-100 text-orange-700",
-        overdue: "bg-red-100 text-red-700",
+        unknown: "bg-gray-100 text-gray-700",
     };
 
     const paidStatusLabels = {
-        pending: "Tertunda",
+        unpaid: "Belum Bayar",
         partial: "Sebagian",
-        overdue: "Terlambat",
+        unknown: "Tertunda",
     };
 
     return (
@@ -98,13 +98,13 @@ export default function OutstandingPaymentsReport({ orders, summary }) {
                                             Kendaraan
                                         </th>
                                         <th className="text-right py-3 px-4 font-semibold">
-                                            Total
+                                            Sisa Tagihan
                                         </th>
                                         <th className="text-center py-3 px-4 font-semibold">
                                             Status Pembayaran
                                         </th>
                                         <th className="text-center py-3 px-4 font-semibold">
-                                            Hari Tertunda
+                                            Umur Tunggakan
                                         </th>
                                         <th className="text-left py-3 px-4 font-semibold">
                                             Tanggal
@@ -114,16 +114,17 @@ export default function OutstandingPaymentsReport({ orders, summary }) {
                                 <tbody className="divide-y">
                                     {orders.data.length > 0 ? (
                                         orders.data.map((order) => {
-                                            let statusClass = paidStatusColors.pending;
-                                            let statusLabel = paidStatusLabels.pending;
-
-                                            if (order.days_outstanding > 30) {
-                                                statusClass = paidStatusColors.overdue;
-                                                statusLabel = paidStatusLabels.overdue;
-                                            } else if (order.days_outstanding > 7) {
-                                                statusClass = paidStatusColors.partial;
-                                                statusLabel = paidStatusLabels.partial;
-                                            }
+                                            const paymentStatus =
+                                                order.payment_status === "unpaid" ||
+                                                order.payment_status === "partial"
+                                                    ? order.payment_status
+                                                    : "unknown";
+                                            const statusClass =
+                                                paidStatusColors[paymentStatus] ||
+                                                paidStatusColors.unknown;
+                                            const statusLabel =
+                                                paidStatusLabels[paymentStatus] ||
+                                                paidStatusLabels.unknown;
 
                                             return (
                                                 <tr
@@ -149,7 +150,7 @@ export default function OutstandingPaymentsReport({ orders, summary }) {
                                                     </td>
                                                     <td className="py-3 px-4 text-right font-semibold">
                                                         Rp{" "}
-                                                        {order.total.toLocaleString(
+                                                        {order.outstanding_amount.toLocaleString(
                                                             "id-ID"
                                                         )}
                                                     </td>
