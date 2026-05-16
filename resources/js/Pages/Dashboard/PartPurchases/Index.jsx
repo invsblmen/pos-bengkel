@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Head, router, Link } from '@inertiajs/react';
 import Pagination from '@/Components/Dashboard/Pagination';
-import { IconFilter, IconSearch, IconX, IconCirclePlus, IconEye, IconDatabaseOff, IconEdit, IconReceipt, IconTruck, IconCalendar, IconPackage, IconLayoutGrid, IconList } from '@tabler/icons-react';
+import { IconFilter, IconSearch, IconX, IconCirclePlus, IconEye, IconDatabaseOff, IconEdit, IconReceipt, IconTruck, IconCalendar, IconPackage, IconLayoutGrid, IconList, IconCreditCard } from '@tabler/icons-react';
 import { toDisplayDate } from '@/Utils/datetime';
 
 const defaultFilters = { q: '', supplier_id: '', status: '', date_from: '', date_to: '' };
@@ -26,6 +26,18 @@ const statusLabels = {
     ordered: 'Ordered',
     received: 'Received',
     cancelled: 'Cancelled',
+};
+
+const paymentStatusColors = {
+    paid: 'bg-green-100 text-green-700 border-green-200',
+    partial: 'bg-blue-100 text-blue-700 border-blue-200',
+    unpaid: 'bg-gray-100 text-gray-700 border-gray-200',
+};
+
+const paymentStatusLabels = {
+    paid: '✓ Lunas',
+    partial: '◐ Sebagian',
+    unpaid: '○ Belum Bayar',
 };
 
 export default function Index({ purchases, suppliers, filters }) {
@@ -320,6 +332,21 @@ export default function Index({ purchases, suppliers, filters }) {
                                                 {formatCurrency(p.total_amount)}
                                             </div>
                                         </div>
+
+                                        {/* Payment Status */}
+                                        <div className="space-y-2">
+                                            <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold">Status Pembayaran</div>
+                                            <div className="flex items-center justify-between">
+                                                <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold border ${paymentStatusColors[p.payment_status] || paymentStatusColors.unpaid}`}>
+                                                    {paymentStatusLabels[p.payment_status] || 'Belum Bayar'}
+                                                </span>
+                                                {(p.remaining_amount || 0) > 0 && (
+                                                    <div className="text-xs text-orange-600 dark:text-orange-400 font-semibold">
+                                                        Sisa: {formatCurrency(p.remaining_amount || 0)}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {/* Card Footer */}
@@ -360,6 +387,7 @@ export default function Index({ purchases, suppliers, filters }) {
                                                 <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Item</th>
                                                 <th className="px-6 py-4 text-right text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Total</th>
                                                 <th className="px-6 py-4 text-center text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Status</th>
+                                                <th className="px-6 py-4 text-center text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Pembayaran</th>
                                                 <th className="px-6 py-4 text-center text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Aksi</th>
                                             </tr>
                                         </thead>
@@ -389,6 +417,18 @@ export default function Index({ purchases, suppliers, filters }) {
                                                         <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold border ${statusColors[p.status] || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
                                                             {statusLabels[p.status] || p.status}
                                                         </span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-col items-center gap-2">
+                                                            <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold border ${paymentStatusColors[p.payment_status] || paymentStatusColors.unpaid}`}>
+                                                                {paymentStatusLabels[p.payment_status] || 'Belum Bayar'}
+                                                            </span>
+                                                            {(p.remaining_amount || 0) > 0 && (
+                                                                <div className="text-xs text-orange-600 dark:text-orange-400 font-semibold">
+                                                                    Sisa: {formatCurrency(p.remaining_amount || 0)}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                     <td className="px-6 py-4">
                                                         <div className="flex items-center justify-center gap-2">

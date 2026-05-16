@@ -480,24 +480,28 @@ class ServiceReportController extends Controller
         $serviceDateExpression = $this->serviceOrderEventAtExpression('service_orders');
 
         // Build query - include completed orders
-        $query = ServiceOrder::where('status', 'completed')
-            ->whereRaw("{$serviceDateExpression} BETWEEN ? AND ?", [$startDate, $endDate]);
+        $baseQuery = ServiceOrder::query()
+            ->where('status', 'completed')
+            ->whereRaw("{$serviceDateExpression} BETWEEN ? AND ?", [$startDate, $endDate])
+            ->selectRaw("{$serviceDateExpression} as event_at, total, labor_cost, material_cost");
+
+        $query = DB::query()->fromSub($baseQuery, 'service_order_rows');
 
         // Group by period
         if ($period === 'daily') {
-            $data = $query->selectRaw("DATE({$serviceDateExpression}) as date, COUNT(*) as count, SUM(total) as revenue, SUM(labor_cost) as labor_cost, SUM(material_cost) as material_cost")
-                ->groupByRaw("DATE({$serviceDateExpression})")
+            $data = $query->selectRaw('DATE(event_at) as date, COUNT(*) as count, COALESCE(SUM(COALESCE(total, 0)), 0) as revenue, COALESCE(SUM(COALESCE(labor_cost, 0)), 0) as labor_cost, COALESCE(SUM(COALESCE(material_cost, 0)), 0) as material_cost')
+                ->groupByRaw('DATE(event_at)')
                 ->orderBy('date')
                 ->get();
         } elseif ($period === 'weekly') {
-            $data = $query->selectRaw("YEAR({$serviceDateExpression}) as year, WEEK({$serviceDateExpression}) as week, COUNT(*) as count, SUM(total) as revenue, SUM(labor_cost) as labor_cost, SUM(material_cost) as material_cost")
-                ->groupByRaw("YEAR({$serviceDateExpression}), WEEK({$serviceDateExpression})")
+            $data = $query->selectRaw('YEAR(event_at) as year, WEEK(event_at) as week, COUNT(*) as count, COALESCE(SUM(COALESCE(total, 0)), 0) as revenue, COALESCE(SUM(COALESCE(labor_cost, 0)), 0) as labor_cost, COALESCE(SUM(COALESCE(material_cost, 0)), 0) as material_cost')
+                ->groupByRaw('YEAR(event_at), WEEK(event_at)')
                 ->orderBy('year')
                 ->orderBy('week')
                 ->get();
         } else { // monthly
-            $data = $query->selectRaw("YEAR({$serviceDateExpression}) as year, MONTH({$serviceDateExpression}) as month, COUNT(*) as count, SUM(total) as revenue, SUM(labor_cost) as labor_cost, SUM(material_cost) as material_cost")
-                ->groupByRaw("YEAR({$serviceDateExpression}), MONTH({$serviceDateExpression})")
+            $data = $query->selectRaw('YEAR(event_at) as year, MONTH(event_at) as month, COUNT(*) as count, COALESCE(SUM(COALESCE(total, 0)), 0) as revenue, COALESCE(SUM(COALESCE(labor_cost, 0)), 0) as labor_cost, COALESCE(SUM(COALESCE(material_cost, 0)), 0) as material_cost')
+                ->groupByRaw('YEAR(event_at), MONTH(event_at)')
                 ->orderBy('year')
                 ->orderBy('month')
                 ->get();
@@ -745,9 +749,17 @@ class ServiceReportController extends Controller
      */
     public function outstandingPayments(Request $request)
     {
-        // Outstanding = completed but not paid yet
-        $orders = ServiceOrder::with('customer', 'vehicle')
+        $outstandingAmountExpression = 'GREATEST(COALESCE(grand_total, total, 0) - COALESCE(paid_amount, 0), 0)';
+
+        // Outstanding = completed orders that still have remaining balance
+        $baseOutstandingQuery = ServiceOrder::query()
             ->where('status', 'completed')
+            ->whereRaw("{$outstandingAmountExpression} > 0");
+
+        $orders = (clone $baseOutstandingQuery)
+            ->with('customer', 'vehicle')
+            ->select('service_orders.*')
+            ->selectRaw("{$outstandingAmountExpression} as outstanding_amount")
             ->orderByDesc('created_at')
             ->paginate(20);
 
@@ -761,6 +773,11 @@ class ServiceReportController extends Controller
                 'customer_name' => $order->customer?->name,
                 'vehicle_plate' => $order->vehicle?->plate_number,
                 'total' => $order->total,
+                'grand_total' => $order->grand_total,
+                'paid_amount' => (int) ($order->paid_amount ?? 0),
+                'remaining_amount' => (int) ($order->remaining_amount ?? 0),
+                'outstanding_amount' => (int) ($order->outstanding_amount ?? 0),
+                'payment_status' => ((int) ($order->paid_amount ?? 0) > 0) ? 'partial' : 'unpaid',
                 'labor_cost' => $order->labor_cost ?? 0,
                 'material_cost' => $order->material_cost ?? 0,
                 'status' => $order->status,
@@ -769,8 +786,8 @@ class ServiceReportController extends Controller
             ];
         });
 
-        $outstandingSummary = ServiceOrder::where('status', 'completed')
-            ->selectRaw('COALESCE(SUM(total), 0) as total_outstanding, COUNT(*) as count_outstanding')
+        $outstandingSummary = (clone $baseOutstandingQuery)
+            ->selectRaw("COALESCE(SUM({$outstandingAmountExpression}), 0) as total_outstanding, COUNT(*) as count_outstanding")
             ->first();
 
         return inertia('Dashboard/Reports/OutstandingPayments', [
