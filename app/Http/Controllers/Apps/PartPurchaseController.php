@@ -1,5 +1,4 @@
-﻿<?php
-
+<?php
 namespace App\Http\Controllers\Apps;
 
 use App\Events\PartPurchaseCreated;
