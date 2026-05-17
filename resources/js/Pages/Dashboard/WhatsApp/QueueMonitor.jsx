@@ -40,6 +40,8 @@ export default function QueueMonitor({ summary = {}, monitoring = {}, recentOutb
     const [toast, setToast] = useState(null);
     const prevWorkerActive = useRef(monitoring?.worker_active ?? false);
 
+    const getCsrfToken = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
     const workerBadge = monitoring?.worker_active
         ? {
             label: "Worker Aktif",
@@ -203,12 +205,13 @@ export default function QueueMonitor({ summary = {}, monitoring = {}, recentOutb
                         onClick={async () => {
                             setRefreshing(true);
                             try {
+                                const csrfToken = getCsrfToken();
                                 const res = await fetch(route('whatsapp.worker.run-once'), {
                                     method: 'POST',
                                     headers: {
                                         'X-Requested-With': 'XMLHttpRequest',
-                                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
                                         'Accept': 'application/json',
+                                        ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
                                     },
                                 });
                                 if (res.ok) {
@@ -233,12 +236,13 @@ export default function QueueMonitor({ summary = {}, monitoring = {}, recentOutb
                             if (!confirm('Kirim perintah restart ke worker yang dijalankan oleh supervisor?')) return;
                             setRefreshing(true);
                             try {
+                                const csrfToken = getCsrfToken();
                                 const res = await fetch(route('whatsapp.worker.restart'), {
                                     method: 'POST',
                                     headers: {
                                         'X-Requested-With': 'XMLHttpRequest',
-                                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
                                         'Accept': 'application/json',
+                                        ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
                                     },
                                 });
                                 if (res.ok) {
