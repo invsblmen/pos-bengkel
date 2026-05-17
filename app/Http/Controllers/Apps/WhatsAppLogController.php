@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
@@ -272,7 +273,32 @@ class WhatsAppLogController extends Controller
                 $commandText = implode(' ', $cmd);
             }
 
-            $this->recordHeartbeat('run-worker', $process->getPid());
+            $pid = $process->getPid();
+
+            // Verify the spawned process actually exists before recording heartbeat
+            if ($this->isPidAlive($pid)) {
+                $this->recordHeartbeat('run-worker', $pid);
+            } else {
+                Log::warning('Attempted to start queue worker but process not found', [
+                    'pid' => $pid,
+                    'command' => $commandText,
+                    'output' => $process->getOutput(),
+                    'error' => $process->getErrorOutput(),
+                ]);
+
+                if (request()->expectsJson() || request()->ajax()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Gagal memulai worker background (process tidak muncul). Lihat log untuk detail.',
+                        'data' => [
+                            'process_pid' => $pid,
+                            'command' => $commandText,
+                        ],
+                    ], 500);
+                }
+
+                return $this->jsonOrRedirect(null, [], 'Gagal memulai worker background (process tidak muncul).');
+            }
 
             if (request()->expectsJson() || request()->ajax()) {
                 return response()->json([
@@ -296,6 +322,34 @@ class WhatsAppLogController extends Controller
             }
 
             return $this->jsonOrRedirect(null, [], 'Gagal memulai worker background.', ['error' => $e->getMessage()]);
+        }
+    }
+
+    private function isPidAlive(?int $pid): bool
+    {
+        if (empty($pid)) {
+            return false;
+        }
+
+        try {
+            if (PHP_OS_FAMILY === 'Windows') {
+                $process = Process::fromShellCommandline(sprintf('powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"ProcessId=%d\" | Select-Object -ExpandProperty ProcessId"', $pid), base_path());
+                $process->setTimeout(5);
+                $process->run();
+                return trim($process->getOutput()) !== '';
+            }
+
+            if (function_exists('posix_kill')) {
+                return posix_kill($pid, 0);
+            }
+
+            $process = Process::fromShellCommandline(sprintf('ps -p %d -o pid=', $pid), base_path());
+            $process->setTimeout(5);
+            $process->run();
+            return trim($process->getOutput()) !== '';
+        } catch (\Throwable $e) {
+            Log::debug('isPidAlive check failed', ['pid' => $pid, 'error' => $e->getMessage()]);
+            return false;
         }
     }
 
