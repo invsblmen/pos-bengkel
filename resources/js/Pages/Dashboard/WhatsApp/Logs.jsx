@@ -42,6 +42,7 @@ function SummaryCard({ title, value, icon, tone = "slate" }) {
 export default function Logs({ filters, summary, outboundStatuses, webhookEvents, outboundLogs, webhookLogs }) {
     const { props } = usePage();
     const flash = props?.flash || {};
+    const monitoring = props?.monitoring || {};
     const [serviceHealth, setServiceHealth] = useState({
         status: "unknown",
         message: "Belum dicek",
@@ -64,6 +65,8 @@ export default function Logs({ filters, summary, outboundStatuses, webhookEvents
     const fallbackPollingRef = useRef(null);
     const previousServiceHealthStatusRef = useRef("unknown");
     const toastTimeoutRef = useRef(null);
+    const prevWorkerActive = useRef(monitoring?.worker_active ?? false);
+    const [workerToast, setWorkerToast] = useState(null);
 
     const playDownAlertBeep = useCallback(() => {
         try {
@@ -315,6 +318,56 @@ export default function Logs({ filters, summary, outboundStatuses, webhookEvents
         previousServiceHealthStatusRef.current = currentStatus;
     }, [serviceHealth.status, playDownAlertBeep]);
 
+    // Visual notification when worker becomes inactive (align with QueueMonitor)
+    useEffect(() => {
+        const currentlyActive = !!monitoring?.worker_active;
+        const previouslyActive = !!prevWorkerActive.current;
+
+        if (previouslyActive && !currentlyActive) {
+            const message = "Worker queue terdeteksi tidak aktif. Periksa proses php artisan queue:work.";
+            setWorkerToast({ message, tone: "red" });
+
+            // Try browser notification
+            try {
+                if ("Notification" in window) {
+                    if (Notification.permission === "granted") {
+                        new Notification("WhatsApp Queue - Worker Down", { body: message });
+                    } else if (Notification.permission !== "denied") {
+                        Notification.requestPermission().then((perm) => {
+                            if (perm === "granted") new Notification("WhatsApp Queue - Worker Down", { body: message });
+                        });
+                    }
+                }
+            } catch (e) {
+                // ignore
+            }
+
+            // Short beep via WebAudio
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const o = ctx.createOscillator();
+                const g = ctx.createGain();
+                o.type = "sine";
+                o.frequency.value = 880;
+                g.gain.value = 0.03;
+                o.connect(g);
+                g.connect(ctx.destination);
+                o.start();
+                setTimeout(() => {
+                    o.stop();
+                    try { ctx.close(); } catch (e) {}
+                }, 250);
+            } catch (e) {
+                // ignore audio errors
+            }
+
+            // auto-hide toast
+            setTimeout(() => setWorkerToast(null), 10000);
+        }
+
+        prevWorkerActive.current = currentlyActive;
+    }, [monitoring?.worker_active]);
+
     useEffect(() => {
         return () => {
             if (toastTimeoutRef.current) {
@@ -348,6 +401,18 @@ export default function Logs({ filters, summary, outboundStatuses, webhookEvents
 
     const activeServiceHealthBadge = serviceHealthBadge[serviceHealth.status] || serviceHealthBadge.unknown;
 
+    const workerBadge = monitoring?.worker_active
+        ? {
+            label: "Worker Aktif",
+            className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+            dotClassName: "bg-emerald-500",
+        }
+        : {
+            label: "Worker Tidak Aktif",
+            className: "border-red-200 bg-red-50 text-red-700",
+            dotClassName: "bg-red-500",
+        };
+
     const toastClassName = healthToast?.tone === "success"
         ? "border-emerald-200 bg-emerald-50 text-emerald-700"
         : "border-red-200 bg-red-50 text-red-700";
@@ -359,6 +424,12 @@ export default function Logs({ filters, summary, outboundStatuses, webhookEvents
             {healthToast && (
                 <div className={`fixed top-5 right-5 z-50 rounded-xl border px-4 py-3 text-sm shadow-lg ${toastClassName}`}>
                     {healthToast.message}
+                </div>
+            )}
+
+            {workerToast && (
+                <div className="fixed top-5 right-5 z-50 rounded-xl border px-4 py-3 text-sm shadow-lg border-red-200 bg-red-50 text-red-700">
+                    {workerToast.message}
                 </div>
             )}
 
@@ -386,6 +457,10 @@ export default function Logs({ filters, summary, outboundStatuses, webhookEvents
                     <div className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${activeServiceHealthBadge.className}`}>
                         <span className={`h-2 w-2 rounded-full ${activeServiceHealthBadge.dotClassName}`}></span>
                         <span>{activeServiceHealthBadge.label}</span>
+                    </div>
+                    <div className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${workerBadge.className}`}>
+                        <span className={`h-2 w-2 rounded-full ${workerBadge.dotClassName}`}></span>
+                        <span>{workerBadge.label}</span>
                     </div>
                     <button
                         type="button"

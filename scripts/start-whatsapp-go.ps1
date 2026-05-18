@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$goProjectRoot = Join-Path $projectRoot 'go-whatsapp-web-multidevice-main'
+$goProjectRoot = Join-Path $projectRoot 'go-whatsapp-web-multidevice'
 $srcDir = Join-Path $goProjectRoot 'src'
 $logDir = Join-Path $projectRoot 'storage\logs'
 $logPath = Join-Path $logDir 'whatsapp-go-start.log'

@@ -39,6 +39,7 @@ export default function QueueMonitor({ summary = {}, monitoring = {}, recentOutb
     const [lastRefreshAt, setLastRefreshAt] = useState(null);
     const [toast, setToast] = useState(null);
     const prevWorkerActive = useRef(monitoring?.worker_active ?? false);
+    const refreshTimeoutRef = useRef(null);
 
     const getCsrfToken = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
@@ -88,9 +89,25 @@ export default function QueueMonitor({ summary = {}, monitoring = {}, recentOutb
         });
     };
 
+    const reloadPageAfterWorkerAction = () => {
+        if (refreshTimeoutRef.current) {
+            clearTimeout(refreshTimeoutRef.current);
+        }
+
+        refreshTimeoutRef.current = setTimeout(() => {
+            reloadPage();
+        }, 2500);
+    };
+
     useEffect(() => {
         const intervalId = setInterval(reloadPage, Math.max(5, refreshIntervalSeconds) * 1000);
-        return () => clearInterval(intervalId);
+        return () => {
+            clearInterval(intervalId);
+
+            if (refreshTimeoutRef.current) {
+                clearTimeout(refreshTimeoutRef.current);
+            }
+        };
     }, [refreshIntervalSeconds]);
 
     // Visual notification when worker becomes inactive
@@ -216,7 +233,7 @@ export default function QueueMonitor({ summary = {}, monitoring = {}, recentOutb
                                 });
                                 if (res.ok) {
                                     setToast({ message: 'Worker dijalankan sekali (--once).', tone: 'emerald' });
-                                    reloadPage();
+                                    reloadPageAfterWorkerAction();
                                 } else {
                                     const j = await res.json().catch(() => ({}));
                                     setToast({ message: j.message || 'Gagal menjalankan worker.', tone: 'red' });
@@ -247,7 +264,7 @@ export default function QueueMonitor({ summary = {}, monitoring = {}, recentOutb
                                 });
                                 if (res.ok) {
                                     setToast({ message: 'Perintah restart worker dikirim.', tone: 'emerald' });
-                                    reloadPage();
+                                    reloadPageAfterWorkerAction();
                                 } else {
                                     const j = await res.json().catch(() => ({}));
                                     setToast({ message: j.message || 'Gagal mengirim restart.', tone: 'red' });

@@ -21,7 +21,7 @@ Status audit dokumen root (2026-04-12):
 
 Status audit subfolder penting (2026-04-12):
 - go-backend/README: aligned + guardrail arsitektur ditambahkan.
-- go-whatsapp-web-multidevice-main/*.md: tidak terkait langsung dengan arah migrasi GO local vs Laravel hosting POS inti, sehingga tidak diubah pada pass ini.
+- go-whatsapp-web-multidevice/*.md: tidak terkait langsung dengan arah migrasi GO local vs Laravel hosting POS inti, sehingga tidak diubah pada pass ini.
 
 Status audit lanjutan (2026-04-12, pass-2):
 - Tidak ditemukan konflik wording tambahan pada dokumen non-root yang relevan migrasi inti.

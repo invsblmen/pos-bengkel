@@ -218,7 +218,7 @@ Untuk menjalankan WhatsApp Go dengan aman dari Windows PowerShell:
 scripts\start-whatsapp-go.ps1
 ```
 
-Script tersebut akan mengecek port 3000 terlebih dahulu, menghindari double start, lalu menjalankan service dari folder `go-whatsapp-web-multidevice-main\src`.
+Script tersebut akan mengecek port 3000 terlebih dahulu, menghindari double start, lalu menjalankan service dari folder `go-whatsapp-web-multidevice\src`.
 
 Untuk menghentikan dan mengecek statusnya:
 
@@ -263,7 +263,7 @@ php artisan config:clear
 
 ### 2) Konfigurasi Basic Auth di Service Go
 
-Pada file `go-whatsapp-web-multidevice-main/src/.env`, gunakan format multi-user berikut:
+Pada file `go-whatsapp-web-multidevice/src/.env`, gunakan format multi-user berikut:
 
 ```env
 APP_BASIC_AUTH=kemal:secret,toni:password,userName:secretPassword

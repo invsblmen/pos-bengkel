@@ -250,38 +250,28 @@ class WhatsAppLogController extends Controller
         // This keeps consuming queued jobs after the HTTP request finishes.
         try {
             $queue = (string) config('whatsapp.notifications.queue', 'default');
-            $php = PHP_BINARY;
+            $php = $this->resolvePhpCliExecutable();
             $artisan = base_path('artisan');
 
-            if (PHP_OS_FAMILY === 'Windows') {
-                $commandLine = sprintf(
-                    'cmd /c start "" /B "%s" "%s" queue:work --queue=%s --tries=3 --sleep=3',
-                    $php,
-                    $artisan,
-                    $queue
-                );
-                $process = Process::fromShellCommandline($commandLine, base_path());
-                $process->setTimeout(10);
-                $process->run();
-                $commandText = $commandLine;
-            } else {
-                $cmd = [$php, $artisan, 'queue:work', "--queue={$queue}", '--tries=3', '--sleep=3'];
-                $commandLine = sprintf('nohup "%s" "%s" queue:work --queue=%s --tries=3 --sleep=3 >/dev/null 2>&1 &', $php, $artisan, $queue);
-                $process = Process::fromShellCommandline($commandLine, base_path());
-                $process->setTimeout(10);
-                $process->run();
-                $commandText = implode(' ', $cmd);
-            }
+            $commandText = sprintf('"%s" "%s" queue:work --queue=%s --tries=3 --sleep=3', $php, $artisan, $queue);
+
+            $process = Process::fromShellCommandline($commandText, base_path());
+            $process->disableOutput();
+            $process->setTimeout(null);
+            $process->start();
 
             $pid = $process->getPid();
 
+            $processRunning = $process->isRunning();
+
             // Verify the spawned process actually exists before recording heartbeat
-            if ($this->isPidAlive($pid)) {
+            if ($this->isPidAlive($pid) || $processRunning) {
                 $this->recordHeartbeat('run-worker', $pid);
             } else {
                 Log::warning('Attempted to start queue worker but process not found', [
                     'pid' => $pid,
                     'command' => $commandText,
+                    'running' => $processRunning,
                     'output' => $process->getOutput(),
                     'error' => $process->getErrorOutput(),
                 ]);
@@ -356,8 +346,10 @@ class WhatsAppLogController extends Controller
     public function restartWorkers(Request $request)
     {
         try {
-            $php = PHP_BINARY;
-            $process = new Process([$php, 'artisan', 'queue:restart']);
+            $php = $this->resolvePhpCliExecutable();
+            $commandText = sprintf('"%s" "%s" queue:restart', $php, base_path('artisan'));
+            $process = Process::fromShellCommandline($commandText, base_path());
+            $process->disableOutput();
             $process->setTimeout(null);
             $process->start(); // Start async, do NOT wait
 
@@ -369,7 +361,7 @@ class WhatsAppLogController extends Controller
                     'message' => 'Perintah restart broadcast dikirim. Worker akan restart saat siap.',
                     'data' => [
                         'process_pid' => $process->getPid(),
-                        'command' => 'php artisan queue:restart',
+                        'command' => $commandText,
                     ],
                 ], 200);
             }
@@ -386,6 +378,28 @@ class WhatsAppLogController extends Controller
 
             return $this->jsonOrRedirect(null, [], 'Gagal mengirim perintah restart.', ['error' => $e->getMessage()]);
         }
+    }
+
+    private function resolvePhpCliExecutable(): string
+    {
+        $phpBinary = PHP_BINARY;
+
+        if (PHP_OS_FAMILY === 'Windows' && str_contains(strtolower($phpBinary), 'php-cgi')) {
+            $phpFolder = dirname($phpBinary);
+            $wrapper = dirname($phpFolder) . DIRECTORY_SEPARATOR . basename($phpFolder) . '.bat';
+
+            if (is_file($wrapper)) {
+                return $wrapper;
+            }
+
+            $genericWrapper = dirname($phpFolder) . DIRECTORY_SEPARATOR . 'php.bat';
+
+            if (is_file($genericWrapper)) {
+                return $genericWrapper;
+            }
+        }
+
+        return $phpBinary;
     }
 
     private function healthCheckViaGo(Request $request): JsonResponse
