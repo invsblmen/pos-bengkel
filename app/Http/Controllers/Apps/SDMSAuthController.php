@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Apps;
 
 use App\Http\Controllers\Controller;
+use App\Models\Part;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -203,7 +204,7 @@ class SDMSAuthController extends Controller
         $validated = $request->validate([
             'supplier_id' => 'required|exists:suppliers,id',
             'items' => 'required|array|min:1',
-            'items.*.part_id' => 'required|exists:parts,id',
+            'items.*.part_id' => 'required|string',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.unit_price' => 'required|integer|min:0',
             'notes' => 'nullable|string',
@@ -212,9 +213,44 @@ class SDMSAuthController extends Controller
         try {
             \Illuminate\Support\Facades\DB::beginTransaction();
 
+            $resolvedItems = [];
+
+            foreach ($validated['items'] as $index => $item) {
+                $identifier = trim((string) ($item['part_id'] ?? ''));
+                $part = null;
+
+                if ($identifier !== '') {
+                    if (ctype_digit($identifier)) {
+                        $part = Part::query()->whereKey((int) $identifier)->first();
+                    }
+
+                    if (!$part) {
+                        $part = Part::query()->where('part_number', $identifier)->first();
+                    }
+                }
+
+                if (!$part) {
+                    \Illuminate\Support\Facades\DB::rollBack();
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Part tidak ditemukan: ' . $identifier,
+                        'errors' => [
+                            "items.$index.part_id" => ['Part tidak ditemukan'],
+                        ],
+                    ], 422);
+                }
+
+                $resolvedItems[] = [
+                    'part_id' => $part->id,
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $item['unit_price'],
+                ];
+            }
+
             // Calculate total amount
             $totalAmount = 0;
-            foreach ($validated['items'] as $item) {
+            foreach ($resolvedItems as $item) {
                 $totalAmount += $item['quantity'] * $item['unit_price'];
             }
 
@@ -228,7 +264,7 @@ class SDMSAuthController extends Controller
             ]);
 
             // Create purchase details
-            foreach ($validated['items'] as $item) {
+            foreach ($resolvedItems as $item) {
                 $subtotal = $item['quantity'] * $item['unit_price'];
                 \App\Models\PartPurchaseDetail::create([
                     'part_purchase_id' => $purchase->id,
