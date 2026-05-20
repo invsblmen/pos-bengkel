@@ -46,6 +46,12 @@ Route::get('/part/orderitemdo', function (Request $request) {
     return $controller->proxy($request, 'api/part/orderitemdo');
 })->middleware('web');
 
+// Proxy specific DeliveryOrderItem endpoint so frontend can call local /api/part/deliveryorderitem
+Route::get('/part/deliveryorderitem', function (Request $request) {
+    $controller = app(\App\Http\Controllers\ApiProxyController::class);
+    return $controller->proxy($request, 'api/part/deliveryorderitem');
+})->middleware('web');
+
 // Proxy SPG item endpoint so frontend can call local /api/part/goodPartDetail/getpartspg
 Route::get('/part/goodPartDetail/getpartspg', function (Request $request) {
     $controller = app(\App\Http\Controllers\ApiProxyController::class);

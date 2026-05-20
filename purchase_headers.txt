@@ -1,0 +1,11 @@
+HTTP/1.1 302 Found
+Host: 127.0.0.1:8000
+Connection: close
+X-Powered-By: PHP/8.4.21
+Cache-Control: no-cache, private
+Date: Wed, 20 May 2026 09:30:57 GMT
+Location: http://127.0.0.1:8000/login
+Content-Type: text/html; charset=utf-8
+Access-Control-Allow-Origin: *
+Set-Cookie: pos_bengkel_session=eyJpdiI6ImlVN2xxd2M3cG15b3lJS01RRkdNa3c9PSIsInZhbHVlIjoiWWwvWVg4RElsVWt0QTg0NjdjWkErNytpelAveXVFL1lxSXFacXZwUmRCa1Vxbm5JWHV1emx6RWpEanJSd2JMcG1EZ3VBQXVjbzlhOWx4VXFmd2VkVjl6UkEreXF3dFBaVXA2MndJZEIvbmxaN1Jwd0duVmJSQmZscmVmSXFLYUYiLCJtYWMiOiJiMWQxN2QzMGJmZTEwNjFkNjNkYmY0NjdkYmQ3MTliMGJiODdkNTI1NzkyZjcxY2UxMWNhNjE5MDRmNzM3NGU1IiwidGFnIjoiIn0%3D; expires=Wed, 20 May 2026 11:30:57 GMT; Max-Age=7200; path=/; httponly; samesite=lax
+

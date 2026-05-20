@@ -8,6 +8,17 @@ import { formatBusinessSocials, getCompactBusinessSocialDisplay, getGoogleBusine
 export default function Print({ purchase, businessProfile }) {
     const [printMode, setPrintMode] = useState('invoice');
 
+    const extractReferenceFromNotes = (notes = '') => {
+        const text = String(notes || '');
+        const billingMatch = text.match(/Billing\s+([^|\n]+)/i);
+        const psMatch = text.match(/\bPS\s+([^|\n]+)/i);
+
+        return {
+            billingNumber: billingMatch?.[1]?.trim() || '',
+            psNumber: psMatch?.[1]?.trim() || '',
+        };
+    };
+
     const formatCurrency = (value = 0) =>
         new Intl.NumberFormat('id-ID', {
             style: 'currency',
@@ -28,6 +39,7 @@ export default function Print({ purchase, businessProfile }) {
     const businessSocials = formatBusinessSocials(businessProfile);
     const compactSocialInfo = getCompactBusinessSocialDisplay(businessProfile);
     const googleBusinessQrUrl = getGoogleBusinessQrUrl(businessProfile?.google_my_business, 108);
+    const purchaseReferences = extractReferenceFromNotes(purchase?.notes);
 
     const thermalPayload = useMemo(() => ({
         invoice: purchase?.purchase_number,
@@ -181,6 +193,12 @@ export default function Print({ purchase, businessProfile }) {
                                     {purchase?.actual_delivery_date && (
                                         <p className="text-sm text-slate-700 dark:text-slate-300">Aktual: {toDisplayDateTime(purchase.actual_delivery_date)}</p>
                                     )}
+                                    {(purchaseReferences.billingNumber || purchaseReferences.psNumber) && (
+                                        <div className="mt-3 rounded-lg border border-cyan-200 bg-cyan-50 p-3 text-sm text-cyan-900 dark:border-cyan-900/40 dark:bg-cyan-950/20 dark:text-cyan-100">
+                                            {purchaseReferences.billingNumber && <div>Billing: {purchaseReferences.billingNumber}</div>}
+                                            {purchaseReferences.psNumber && <div>PS: {purchaseReferences.psNumber}</div>}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -271,6 +289,12 @@ export default function Print({ purchase, businessProfile }) {
                                 <div className="px-6 py-4 print:px-4 print:py-2 text-sm print:text-xs text-slate-700 dark:text-slate-300 border-t border-slate-100 dark:border-slate-800">
                                     <p className="font-semibold mb-1">Catatan</p>
                                     <p className="whitespace-pre-line">{purchase.notes}</p>
+                                    {(purchaseReferences.billingNumber || purchaseReferences.psNumber) && (
+                                        <div className="mt-2 text-xs text-cyan-700 dark:text-cyan-300">
+                                            {purchaseReferences.billingNumber && <div>Billing: {purchaseReferences.billingNumber}</div>}
+                                            {purchaseReferences.psNumber && <div>PS: {purchaseReferences.psNumber}</div>}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

@@ -29,6 +29,17 @@ const getPaymentBadge = (status) => {
     return badges[status] || badges.unpaid;
 };
 
+const extractReferenceFromNotes = (notes = '') => {
+    const text = String(notes || '');
+    const billingMatch = text.match(/Billing\s+([^|\n]+)/i);
+    const psMatch = text.match(/\bPS\s+([^|\n]+)/i);
+
+    return {
+        billingNumber: billingMatch?.[1]?.trim() || '',
+        psNumber: psMatch?.[1]?.trim() || '',
+    };
+};
+
 export default function Show({ purchase, cashDenominations = [] }) {
     const [updating, setUpdating] = useState(false);
     const [showStatusModal, setShowStatusModal] = useState(false);
@@ -54,6 +65,7 @@ export default function Show({ purchase, cashDenominations = [] }) {
 
     const formatDate = (dateString) => (dateString ? toDisplayDate(dateString) : '-');
     const roundingAdjustment = Number(purchase.rounding_adjustment || 0);
+    const purchaseReferences = extractReferenceFromNotes(purchase.notes);
 
     const canChangeStatus = () => {
         return purchase.status !== 'cancelled' && purchase.status !== 'received';
@@ -353,6 +365,12 @@ export default function Show({ purchase, cashDenominations = [] }) {
                             {/* Notes */}
                             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-800 p-6 hover:shadow-xl transition-all duration-200">
                                 <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Notes</h2>
+                                {(purchaseReferences.billingNumber || purchaseReferences.psNumber) && (
+                                    <div className="mb-4 rounded-lg border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-900 dark:border-cyan-900/40 dark:bg-cyan-950/20 dark:text-cyan-100">
+                                        {purchaseReferences.billingNumber && <div>Billing: {purchaseReferences.billingNumber}</div>}
+                                        {purchaseReferences.psNumber && <div>PS: {purchaseReferences.psNumber}</div>}
+                                    </div>
+                                )}
                                 {purchase.notes ? (
                                     <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
                                         <p className="text-sm text-slate-700 dark:text-slate-300">{purchase.notes}</p>

@@ -1,0 +1,34 @@
+{
+  "supplier_id": 12,
+  "items": [
+    {
+      "part_id": "42711K59A12",
+      "quantity": 2,
+      "unit_price": 308000,
+      "subtotal": 616000,
+      "line_total": 616000,
+      "discount_type": "fixed",
+      "discount_value": 0,
+      "margin_type": "percent",
+      "margin_value": 0,
+      "promo_discount_type": "none",
+      "promo_discount_value": 0
+    },
+    {
+      "part_id": "44711K59A12",
+      "quantity": 2,
+      "unit_price": 274000,
+      "subtotal": 548000,
+      "line_total": 548000,
+      "discount_type": "fixed",
+      "discount_value": 0,
+      "margin_type": "percent",
+      "margin_value": 0,
+      "promo_discount_type": "none",
+      "promo_discount_value": 0
+    }
+  ],
+  "discount_type": "none",
+  "discount_value": 0,
+  "notes": "SPG fa7da501-8b85-4157-b97e-0f24dab7983e | Billing fa7da501-8b85-4157-b97e-0f24dab7983e | PS PS-TEST-001"
+}
