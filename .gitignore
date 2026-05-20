@@ -34,3 +34,7 @@ go-frontend/dist/
 # Frontend migration backups (archive-only)
 go-frontend-vite-backup/
 go-frontend-vite-legacy-*/
+
+# GoWA (go-whatsapp-web-multidevice) artifacts
+go-whatsapp-web-multidevice/src/storages/
+go-whatsapp-web-multidevice/src/*.exe
