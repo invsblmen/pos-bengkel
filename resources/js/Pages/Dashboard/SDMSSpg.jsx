@@ -37,6 +37,31 @@ const extractDetailText = (item, keys) => {
     return value === null || value === undefined ? '' : value;
 };
 
+const findDeepDetailText = (source, keys) => {
+    if (!source || typeof source !== 'object') return '';
+
+    const visited = new WeakSet();
+    const walk = (node) => {
+        if (!node || typeof node !== 'object' || visited.has(node)) return '';
+        visited.add(node);
+
+        const direct = extractDetailText(node, keys);
+        if (direct) return direct;
+
+        for (const key of Object.keys(node)) {
+            const child = node[key];
+            if (child && typeof child === 'object') {
+                const nested = walk(child);
+                if (nested) return nested;
+            }
+        }
+
+        return '';
+    };
+
+    return walk(source);
+};
+
 const extractShipmentPartNumber = (item) =>
     extractDetailText(item, ['numberPart', 'number_part', 'partNumber', 'part_number', 'partNo', 'part_no', 'PartNo', 'codePart', 'code_part', 'code', 'partCode', 'part_code']);
 
@@ -113,7 +138,77 @@ const getCompareItemQtyRejected = (item) => parseFloat(getCompareItemValue(item,
 const getCompareItemDelta = (item) => parseFloat(getCompareItemValue(item, ['delta', 'selisih', 'difference', 'variance']) || 0);
 const getCompareItemPartNumber = (item) => getCompareItemValue(item, ['numberPart', 'number_part', 'partNumber', 'part_number', 'idproduct', 'product_id']);
 const getCompareItemPartName = (item) => getCompareItemValue(item, ['name', 'partName', 'part_name', 'description', 'desc']);
+const getCompareItemUnitPrice = (item) => parseInt(getCompareItemValue(item, ['unitPrice', 'unit_price', 'price', 'costPrice', 'cost_price', 'purchasePrice', 'purchase_price', 'buyPrice', 'buy_price']) || 0, 10);
+const getCompareItemDiscountType = (item) => getCompareItemValue(item, ['discountType', 'discount_type', 'itemDiscountType', 'item_discount_type']) || 'none';
+const getCompareItemDiscountValue = (item) => parseFloat(getCompareItemValue(item, ['discountValue', 'discount_value', 'discount', 'discountAmount', 'discount_amount']) || 0);
+const getComparePurchaseDiscountType = (source) => getCompareItemValue(source, ['discountType', 'discount_type', 'transactionDiscountType', 'transaction_discount_type', 'overallDiscountType', 'overall_discount_type']) || 'none';
+const getComparePurchaseDiscountValue = (source) => parseFloat(getCompareItemValue(source, ['discountValue', 'discount_value', 'transactionDiscountValue', 'transaction_discount_value', 'overallDiscountValue', 'overall_discount_value']) || 0);
 const getCompareItemDescription = (item) => getCompareItemValue(item, ['description', 'status', 'mismatchStatus', 'result']);
+const getOrderItemPartNumber = (item) => findDeepDetailText(item, ['numberPart', 'number_part', 'partNumber', 'part_number']);
+const getOrderItemQty = (item) => parseFloat(findDeepDetailText(item, ['qty', 'quantity']) || 0);
+const getOrderItemLineTotal = (item) => {
+    const qty = getOrderItemQty(item) || 0;
+    const rawAmount = parseInt(findDeepDetailText(item, ['amount', 'totalamount', 'total_amount', 'grandTotal', 'grand_total', 'lineTotal', 'line_total', 'subtotal', 'final_amount']) || 0, 10);
+
+    // If `amount` appears to be a per-unit price (common in SDMS responses), compute line total
+    if (qty > 0 && Object.prototype.hasOwnProperty.call(item, 'amount')) {
+        const perItemDiscount = parseInt(findDeepDetailText(item, ['discdtlitemamount', 'discdtllineamount']) || 0, 10);
+        // If discdtlitemamount is a per-item discount, use it; if only line discount present, divide by qty
+        let perItemDisc = 0;
+        if (Object.prototype.hasOwnProperty.call(item, 'discdtlitemamount')) {
+            perItemDisc = parseInt(findDeepDetailText(item, ['discdtlitemamount']) || 0, 10);
+        } else if (Object.prototype.hasOwnProperty.call(item, 'discdtllineamount')) {
+            const lineDisc = parseInt(findDeepDetailText(item, ['discdtllineamount']) || 0, 10);
+            perItemDisc = qty ? Math.round(lineDisc / qty) : 0;
+        }
+
+        return Math.round((rawAmount - perItemDisc) * qty);
+    }
+
+    return parseInt(rawAmount || 0, 10);
+};
+
+const getOrderItemUnitPrice = (item) => {
+    // Prefer explicit unit price fields, then fall back to `amount` which in SDMS is often per-unit
+    const explicitUnitPrice = parseInt(findDeepDetailText(item, ['unitPrice', 'unit_price', 'price', 'costPrice', 'cost_price', 'purchasePrice', 'purchase_price', 'buyPrice', 'buy_price']) || 0, 10);
+    if (explicitUnitPrice > 0) return explicitUnitPrice;
+
+    const amount = parseInt(findDeepDetailText(item, ['amount']) || 0, 10);
+    if (amount > 0) return amount;
+
+    const qty = getOrderItemQty(item) || 0;
+    const lineTotal = parseInt(findDeepDetailText(item, ['totalamount', 'total_amount', 'subtotal', 'lineTotal', 'line_total', 'final_amount']) || 0, 10);
+    if (qty > 0 && lineTotal > 0) return Math.round(lineTotal / qty);
+
+    return 0;
+};
+
+const getOrderItemLineDiscount = (item) => {
+    const qty = getOrderItemQty(item) || 0;
+    const lineDisc = parseInt(findDeepDetailText(item, ['discdtllineamount', 'discountlinetotal', 'discountLineAmount', 'discount_line_amount']) || 0, 10);
+    const itemDisc = parseInt(findDeepDetailText(item, ['discdtlitemamount', 'cashdiscamount']) || 0, 10);
+
+    if (lineDisc > 0) return lineDisc;
+    if (itemDisc > 0 && qty > 0) return Math.round(itemDisc * qty);
+    return 0;
+};
+const getOrderItemOverallDiscount = (source) => parseInt(findDeepDetailText(source, ['discount', 'Discount', 'discountAmount', 'discount_amount']) || 0, 10);
+const extractDeliveryReference = (payload) => {
+    const list = unwrapList(payload);
+    const first = Array.isArray(list) && list.length > 0 ? list[0] : null;
+    const source = (payload && typeof payload === 'object' && !Array.isArray(payload))
+        ? (payload.Result && typeof payload.Result === 'object' && !Array.isArray(payload.Result)
+            ? payload.Result
+            : payload.data && typeof payload.data === 'object' && !Array.isArray(payload.data)
+                ? payload.data
+                : payload)
+        : {};
+
+    return {
+        billingNumber: findDeepDetailText(source, ['billingnumber', 'billingNumber', 'billing_number', 'billingNo', 'billing_no']) || findDeepDetailText(first, ['billingnumber', 'billingNumber', 'billing_number', 'billingNo', 'billing_no']),
+        psNumber: findDeepDetailText(source, ['psnumber', 'psNumber', 'ps_number']) || findDeepDetailText(first, ['psnumber', 'psNumber', 'ps_number']),
+    };
+};
 
 export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
     const [idBilling, setIdBilling] = useState(initialIdBilling ?? '');
@@ -126,6 +221,10 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
     const [suratJalan, setSuratJalan] = useState('');
     const [draftRows, setDraftRows] = useState([]);
     const [query, setQuery] = useState('');
+    const [purchaseItems, setPurchaseItems] = useState([]);
+    const [purchaseResponse, setPurchaseResponse] = useState(null);
+    const [purchaseReference, setPurchaseReference] = useState({ billingNumber: '', psNumber: '' });
+    const [createdPurchase, setCreatedPurchase] = useState(null);
 
     const normalizeIdBilling = (value) => (value ?? '').toString().trim();
 
@@ -144,9 +243,19 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
         setItemsError(null);
 
         try {
-            const [detailResult, itemsResult] = await Promise.allSettled([
-                axios.get('/api/part/ShipmentPackageNonMulia', { params: { idbilling: billingId } }),
-                axios.get('/api/part/goodPartDetail/getpartspg', { params: { idbilling: billingId } }),
+            const headers = sdms
+                ? {
+                      Authorization: `Bearer ${sdms.access_token ?? sdms.id_token}`,
+                      username: sdms.username,
+                      idInternal: sdms.idInternal,
+                  }
+                : {};
+
+            const [detailResult, itemsResult, orderResult, deliveryResult] = await Promise.allSettled([
+                axios.get('/api/part/ShipmentPackageNonMulia', { params: { idbilling: billingId }, headers }),
+                axios.get('/api/part/goodPartDetail/getpartspg', { params: { idbilling: billingId }, headers }),
+                axios.get('/api/part/orderitemdo', { params: { fill: billingId }, headers }),
+                axios.get('/api/part/deliveryorderitem', { params: { page: 1, size: 1000, filterData: JSON.stringify({ idbilling: billingId }) }, headers }),
             ]);
 
             if (detailResult.status === 'fulfilled') {
@@ -172,6 +281,22 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                 setItems([]);
                 setDraftRows([]);
                 setItemsError(itemsResult.reason?.response?.data?.message || itemsResult.reason?.message || 'Gagal memuat item SPG.');
+            }
+
+            if (orderResult.status === 'fulfilled') {
+                const orderPayload = orderResult.value.data;
+                const list = unwrapList(orderPayload);
+                setPurchaseItems(list);
+                setPurchaseResponse(orderPayload || null);
+            } else {
+                setPurchaseItems([]);
+                setPurchaseResponse(null);
+            }
+
+            if (deliveryResult.status === 'fulfilled') {
+                setPurchaseReference(extractDeliveryReference(deliveryResult.value.data));
+            } else {
+                setPurchaseReference({ billingNumber: '', psNumber: '' });
             }
         } finally {
             setLoading(false);
@@ -262,9 +387,15 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
         }
     };
 
-    const allPartsAdded = receivedParts.length > 0 && receivedParts.every((part) => addedParts[getCompareItemPartNumber(part)]);
+    const purchaseSourceItems = purchaseItems;
+    const allPartsAdded = purchaseSourceItems.length > 0 && purchaseSourceItems.every((part) => addedParts[getCompareItemPartNumber(part) || getOrderItemPartNumber(part)]);
 
     const handleLanjutKePembelian = async () => {
+        if (!purchaseItems.length) {
+            alert('Data harga pembelian belum dimuat dari orderitemdo. Muat SPG ulang terlebih dahulu.');
+            return;
+        }
+
         if (!allPartsAdded) {
             alert('Semua sparepart harus ditambahkan terlebih dahulu.');
             return;
@@ -278,24 +409,67 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                 return;
             }
 
-            // Map receivedParts to purchase items
-            const items = receivedParts.map((part) => ({
-                part_id: part.part_id || getCompareItemPartNumber(part), // will need part lookup
-                quantity: parseInt(getCompareItemQtyReceive(part)) || 1,
-                unit_price: 0, // default 0, can be updated later
-            }));
+            // Map order item detail response to purchase items
+            const items = purchaseSourceItems.map((part) => {
+                const partNumber = getOrderItemPartNumber(part) || getCompareItemPartNumber(part) || part.part_id || '';
+                const qty = Number(getOrderItemQty(part) || getCompareItemQtyReceive(part) || 1);
+                const lineDiscount = getOrderItemLineDiscount(part);
+                const unitPrice = getOrderItemUnitPrice(part) || getCompareItemUnitPrice(part) || 0;
+                const lineTotal = getOrderItemLineTotal(part) || (unitPrice * qty);
+
+                return {
+                    part_id: part.part_id || partNumber,
+                    quantity: qty,
+                    unit_price: unitPrice,
+                    subtotal: lineTotal,
+                    line_total: lineTotal,
+                    discount_type: lineDiscount > 0 ? 'fixed' : getCompareItemDiscountType(part),
+                    discount_value: lineDiscount > 0 ? lineDiscount : getCompareItemDiscountValue(part),
+                    margin_type: 'percent',
+                    margin_value: 0,
+                    promo_discount_type: 'none',
+                    promo_discount_value: 0,
+                };
+            });
+
+            const invalidPriceItems = items.filter((item) => Number(item.unit_price || 0) <= 0);
+            if (invalidPriceItems.length > 0) {
+                const invalidLabels = invalidPriceItems.map((item) => item.part_id).filter(Boolean).join(', ');
+                alert(`Masih ada harga 0 pada item berikut: ${invalidLabels || 'beberapa item'}. Cek respons orderitemdo.`);
+                return;
+            }
+
+            const sourceForTransactionDiscount = purchaseResponse || compareResult || submitResult || detail || {};
+            const orderDiscountValue = getOrderItemOverallDiscount(sourceForTransactionDiscount);
+            const purchaseNotes = [
+                `SPG ${idBilling}`,
+                `Billing ${purchaseReference.billingNumber || idBilling}`,
+                purchaseReference.psNumber ? `PS ${purchaseReference.psNumber}` : null,
+                suratJalan ? `Surat Jalan ${suratJalan}` : null,
+            ].filter(Boolean).join(' | ');
 
             // Call create purchase endpoint
+            const headers = sdms
+                ? {
+                      Authorization: `Bearer ${sdms.access_token ?? sdms.id_token}`,
+                      username: sdms.username,
+                      idInternal: sdms.idInternal,
+                  }
+                : {};
+
             const response = await axios.post('/api/spg/part-purchase', {
                 supplier_id: vendorId,
                 items: items,
-                notes: `SPG ${idBilling} - Surat Jalan ${suratJalan}`,
-            });
+                discount_type: orderDiscountValue > 0 ? 'fixed' : getComparePurchaseDiscountType(sourceForTransactionDiscount),
+                discount_value: orderDiscountValue > 0 ? orderDiscountValue : getComparePurchaseDiscountValue(sourceForTransactionDiscount),
+                notes: purchaseNotes,
+            }, { headers });
 
             if (response.data && response.data.success) {
-                alert(`Purchase Order berhasil dibuat: ${response.data.purchase_number}`);
+                const purchase = response.data.purchase || null;
+                setCreatedPurchase(purchase);
                 // Optionally redirect atau navigate ke purchase page
-                // Untuk sekarang, reset state
+                // Untuk sekarang, reset state except keep createdPurchase for display
                 setShowReceivedList(false);
                 setReceivedParts([]);
                 setAddedParts({});
@@ -794,6 +968,21 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                                     </div>
                                 </div>
 
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-950">
+                                        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Billing Number</div>
+                                        <div className="mt-1 break-all font-semibold text-slate-900 dark:text-white">
+                                            {purchaseReference.billingNumber || extractShipmentLabel(detail, ['billingnumber', 'billingNumber', 'billing_number']) || '-'}
+                                        </div>
+                                    </div>
+                                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-950">
+                                        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">PS Number</div>
+                                        <div className="mt-1 break-all font-semibold text-slate-900 dark:text-white">
+                                            {purchaseReference.psNumber || extractShipmentLabel(detail, ['psnumber', 'psNumber', 'ps_number']) || '-'}
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-left text-sm">
@@ -853,6 +1042,16 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                                         {createPurchaseLoading ? 'Membuat Purchase Order...' : '✓ Lanjut Ke Pembelian Sparepart'}
                                     </button>
                                 )}
+                            </div>
+                        )}
+
+                        {createdPurchase && (
+                            <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                                <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Purchase Order Created</p>
+                                <div className="mt-2 text-sm text-slate-900 dark:text-slate-200">
+                                    <div><strong>Number:</strong> {createdPurchase.purchase_number || createdPurchase.purchase_number}</div>
+                                    <div className="mt-1"><strong>Notes:</strong> {createdPurchase.notes || '-'}</div>
+                                </div>
                             </div>
                         )}
 
