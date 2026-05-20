@@ -128,7 +128,7 @@ class PartPurchaseDetail extends Model
      */
     public function calculateSellingPrice()
     {
-        $costPerUnit = $this->unit_price ?? 0;
+        $costPerUnit = $this->getUnitCostPrice();
 
         if ($this->margin_type === 'percent') {
             // Percentage margin: selling_price = cost + (cost * margin / 100)
@@ -147,9 +147,31 @@ class PartPurchaseDetail extends Model
     public function getRemainingQuantity()
     {
         $outbound = PartStockMovement::where('part_purchase_detail_id', $this->id)
-            ->where('movement_type', 'outbound')
-            ->sum('quantity');
+            ->where('type', 'out')
+            ->sum('qty');
 
-        return max(0, $this->quantity - ($outbound ?? 0));
+        $returned = PartStockMovement::where('part_purchase_detail_id', $this->id)
+            ->where('type', 'in')
+            ->sum('qty');
+
+        return max(0, (int) $this->quantity - (int) $outbound + (int) $returned);
+    }
+
+    /**
+     * Unit cost after supplier/item discount, used as HPP for FIFO.
+     */
+    public function getUnitCostPrice(): int
+    {
+        $quantity = max(1, (int) ($this->quantity ?? 1));
+
+        if ((int) ($this->final_amount ?? 0) > 0) {
+            return (int) round(((int) $this->final_amount) / $quantity);
+        }
+
+        return (int) DiscountTaxService::calculateAmountWithDiscount(
+            (int) ($this->unit_price ?? 0),
+            $this->discount_type ?? 'none',
+            $this->discount_value ?? 0
+        );
     }
 }

@@ -11,7 +11,8 @@ class ServiceOrderDetail extends Model
     use HasFactory;
 
     protected $fillable = [
-        'service_order_id', 'service_id', 'part_id', 'qty', 'price', 'notes', 'amount',
+        'service_order_id', 'service_id', 'part_id', 'source_purchase_detail_id',
+        'cost_price', 'selling_price', 'qty', 'price', 'notes', 'amount',
         'base_amount', 'auto_discount_amount', 'auto_discount_notes',
         'discount_type', 'discount_value', 'discount_amount', 'final_amount',
         'incentive_percentage', 'incentive_amount'
@@ -19,6 +20,8 @@ class ServiceOrderDetail extends Model
 
     protected $casts = [
         'amount' => 'integer',
+        'cost_price' => 'integer',
+        'selling_price' => 'integer',
         'base_amount' => 'integer',
         'auto_discount_amount' => 'integer',
         'discount_amount' => 'integer',
@@ -40,6 +43,11 @@ class ServiceOrderDetail extends Model
     public function part()
     {
         return $this->belongsTo(Part::class);
+    }
+
+    public function sourcePurchaseDetail()
+    {
+        return $this->belongsTo(PartPurchaseDetail::class, 'source_purchase_detail_id');
     }
 
     /**

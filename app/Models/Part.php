@@ -73,6 +73,11 @@ class Part extends Model
         return $this->hasMany(PartPurchase::class);
     }
 
+    public function purchaseDetails()
+    {
+        return $this->hasMany(PartPurchaseDetail::class);
+    }
+
     public function lowStockAlert()
     {
         return $this->hasOne(LowStockAlert::class);
@@ -83,14 +88,13 @@ class Part extends Model
      */
     public function getCurrentCostPrice()
     {
-        $purchase = $this->purchases()
-            ->whereHas('movements', function ($query) {
-                $query->where('remaining_qty', '>', 0);
-            })
+        $purchaseDetail = $this->purchaseDetails()
+            ->whereHas('partPurchase', fn ($query) => $query->where('status', 'received'))
             ->orderBy('created_at', 'asc')
-            ->first();
+            ->get()
+            ->first(fn ($detail) => $detail->getRemainingQuantity() > 0);
 
-        return $purchase ? $purchase->unit_cost : 0;
+        return $purchaseDetail ? $purchaseDetail->getUnitCostPrice() : (int) ($this->buy_price ?? 0);
     }
 
     /**
@@ -98,24 +102,17 @@ class Part extends Model
      */
     public function getSellingPrice($purchase = null)
     {
-        if (!$purchase) {
-            $purchase = $this->purchases()
-                ->where('status', 'received')
+        $purchaseDetail = $purchase instanceof PartPurchaseDetail
+            ? $purchase
+            : $this->purchaseDetails()
+                ->whereHas('partPurchase', fn ($query) => $query->where('status', 'received'))
                 ->orderBy('created_at', 'asc')
-                ->first();
-        }
+                ->get()
+                ->first(fn ($detail) => $detail->getRemainingQuantity() > 0);
 
-        if (!$purchase) {
-            return 0;
-        }
-
-        $costPrice = $purchase->unit_cost;
-
-        if ($purchase->margin_type === 'percent') {
-            return $costPrice + ($costPrice * $purchase->margin_value / 100);
-        } else {
-            return $costPrice + $purchase->margin_value;
-        }
+        return $purchaseDetail
+            ? (int) ($purchaseDetail->selling_price ?: $purchaseDetail->calculateSellingPrice())
+            : (int) ($this->sell_price ?? 0);
     }
 
     public function scopeActive($query)

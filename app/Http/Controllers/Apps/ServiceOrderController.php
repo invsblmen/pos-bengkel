@@ -19,6 +19,7 @@ use App\Models\ServiceOrderStatusHistory;
 use App\Models\Voucher;
 use App\Services\CashChangeSuggestionService;
 use App\Services\DiscountTaxService;
+use App\Services\FIFOCostingService;
 use App\Services\VoucherService;
 use App\Services\WarrantyRegistrationService;
 use App\Services\WorkshopPricingService;
@@ -595,10 +596,25 @@ class ServiceOrderController extends Controller
         }
 
         // Delete old items and create new ones
+        if ($order->status === 'completed') {
+            FIFOCostingService::releaseStockForReference(
+                ServiceOrder::class,
+                (int) $order->id,
+                "Revisi Service Order: {$order->order_number}",
+                Auth::id()
+            );
+            $this->warrantyRegistrationService->removeByServiceOrder($order->id);
+        }
+
         $order->details()->delete();
 
         $this->calculateServiceOrderCosts($order, $request->items);
         $this->applyVoucherToServiceOrder($order, $request->voucher_code);
+
+        if ($order->status === 'completed') {
+            $this->deductPartsFromInventory($order);
+            $this->syncWarrantyRegistrationsForFinalizedOrder($order);
+        }
 
         $this->dispatchBroadcastSafely(
             fn () => ServiceOrderUpdated::dispatch($order->load(['customer', 'vehicle', 'mechanic', 'details.service', 'details.part'])->toArray()),
@@ -673,6 +689,18 @@ class ServiceOrderController extends Controller
         }
 
         if ($oldStatus === 'completed' && $request->status !== 'completed') {
+            FIFOCostingService::releaseStockForReference(
+                ServiceOrder::class,
+                (int) $order->id,
+                "Pembatalan penyelesaian Service Order: {$order->order_number}",
+                Auth::id()
+            );
+            $order->details()
+                ->whereNotNull('part_id')
+                ->update([
+                    'source_purchase_detail_id' => null,
+                    'cost_price' => 0,
+                ]);
             $this->warrantyRegistrationService->removeByServiceOrder($order->id);
         }
 
@@ -1049,6 +1077,9 @@ class ServiceOrderController extends Controller
                         'service_order_id' => $order->id,
                         'service_id' => null,
                         'part_id' => $part['part_id'] ?? null,
+                        'source_purchase_detail_id' => null,
+                        'cost_price' => 0,
+                        'selling_price' => $partPrice,
                         'qty' => $partQty,
                         'price' => $partPrice,
                         'amount' => $partAmount,
@@ -1117,25 +1148,32 @@ class ServiceOrderController extends Controller
      */
     private function deductPartsFromInventory($order)
     {
+        $order->loadMissing('details.part');
+
         foreach ($order->details as $detail) {
             if ($detail->part_id) {
-                $part = \App\Models\Part::find($detail->part_id);
-                if ($part) {
-                    // Deduct from inventory
-                    $part->stock -= $detail->qty;
-                    $part->save();
+                if ((int) ($detail->source_purchase_detail_id ?? 0) > 0) {
+                    continue;
+                }
 
-                    // Record stock movement
-                    \App\Models\PartStockMovement::create([
-                        'part_id' => $part->id,
-                        'type' => 'out',
-                        'qty' => $detail->qty,
-                        'before_stock' => $part->stock + $detail->qty,
-                        'after_stock' => $part->stock,
-                        'reference_type' => ServiceOrder::class,
-                        'reference_id' => $order->id,
-                        'notes' => "Service Order: {$order->order_number}",
-                        'created_by' => Auth::id(),
+                $part = $detail->part ?: \App\Models\Part::find($detail->part_id);
+                if ($part) {
+                    $pricing = FIFOCostingService::consumeStock(
+                        $part,
+                        (int) $detail->qty,
+                        ServiceOrder::class,
+                        (int) $order->id,
+                        "Service Order: {$order->order_number}",
+                        Auth::id(),
+                        null,
+                        $detail,
+                        (int) $detail->price
+                    );
+
+                    $detail->update([
+                        'source_purchase_detail_id' => $pricing['source_purchase_detail_id'],
+                        'cost_price' => $pricing['cost_price'],
+                        'selling_price' => (int) $detail->price,
                     ]);
                 }
             }

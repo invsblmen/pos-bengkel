@@ -386,21 +386,18 @@ class PartPurchaseController extends Controller
                     $beforeStock = $part->stock;
                     $afterStock = $beforeStock + $detail->quantity;
 
-                    // Calculate buy price after discount
-                    $priceAfterDiscount = DiscountTaxService::calculateAmountWithDiscount(
-                        $detail->unit_price,
-                        $detail->discount_type ?? 'none',
-                        $detail->discount_value ?? 0
-                    );
+                    $priceAfterDiscount = $detail->getUnitCostPrice();
 
-                    // Update part stock and buy_price
+                    // Update stock and reference prices. Actual HPP still follows purchase batches/FIFO.
                     $part->stock = $afterStock;
                     $part->buy_price = $priceAfterDiscount;
+                    $part->sell_price = (int) ($detail->selling_price ?: $part->sell_price ?: 0);
                     $part->save();
 
                     // Create stock movement
                     PartStockMovement::create([
                         'part_id' => $part->id,
+                        'part_purchase_detail_id' => $detail->id,
                         'type' => 'purchase',
                         'qty' => $detail->quantity,
                         'before_stock' => $beforeStock,

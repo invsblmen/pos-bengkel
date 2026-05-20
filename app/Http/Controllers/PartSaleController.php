@@ -16,12 +16,12 @@ use App\Models\Customer;
 use App\Models\Service;
 use App\Models\ServiceOrder;
 use App\Models\WarrantyRegistration;
-use App\Models\PartStockMovement;
 use App\Models\User;
 use App\Models\Voucher;
 use App\Notifications\PartSaleOrderReadyNotification;
 use App\Services\CashChangeSuggestionService;
 use App\Services\DiscountTaxService;
+use App\Services\FIFOCostingService;
 use App\Services\VoucherService;
 use App\Services\WarrantyRegistrationService;
 use App\Support\DispatchesBroadcastSafely;
@@ -493,60 +493,19 @@ class PartSaleController extends Controller
                 }
                 $warrantyData = $this->buildWarrantyData($item, $request->sale_date, $part);
 
-                // Reserve stock based on unified status flow
-                $reservedQty = 0;
-                if (in_array($status, ['confirmed', 'ready_to_notify', 'waiting_pickup', 'completed'], true)) {
-                    $beforeStock = $part->stock;
-                    $afterStock = max(0, $beforeStock - $item['quantity']);
-                    $part->update(['stock' => $afterStock]);
-                    $reservedQty = $item['quantity'];
-
-                    PartStockMovement::create([
-                        'part_id' => $part->id,
-                        'reference_type' => PartSale::class,
-                        'reference_id' => $sale->id,
-                        'type' => 'out',
-                        'qty' => $item['quantity'],
-                        'before_stock' => $beforeStock,
-                        'after_stock' => $afterStock,
-                        'unit_price' => $item['unit_price'],
-                        'notes' => "Penjualan #{$sale->sale_number}",
-                        'created_by' => Auth::id(),
-                    ]);
-                } elseif ($status === 'waiting_stock' && $part->stock >= $item['quantity']) {
-                    // Full reserve for this line if stock available now; else wait for incoming stock
-                    $beforeStock = $part->stock;
-                    $afterStock = max(0, $beforeStock - $item['quantity']);
-                    $part->update(['stock' => $afterStock]);
-                    $reservedQty = $item['quantity'];
-
-                    PartStockMovement::create([
-                        'part_id' => $part->id,
-                        'reference_type' => PartSale::class,
-                        'reference_id' => $sale->id,
-                        'type' => 'out',
-                        'qty' => $item['quantity'],
-                        'before_stock' => $beforeStock,
-                        'after_stock' => $afterStock,
-                        'unit_price' => $item['unit_price'],
-                        'notes' => "Reservasi Pesanan #{$sale->sale_number}",
-                        'created_by' => Auth::id(),
-                    ]);
-                }
-
                 // Create detail
                 $detail = PartSaleDetail::create([
                     'part_sale_id' => $sale->id,
                     'part_id' => $part->id,
                     'quantity' => $item['quantity'],
-                    'reserved_quantity' => $reservedQty,
+                    'reserved_quantity' => 0,
                     'unit_price' => $item['unit_price'],
                     'subtotal' => $subtotal,
                     'discount_type' => $discountType,
                     'discount_value' => $discountValue,
                     'discount_amount' => $discountAmount,
                     'final_amount' => $finalAmount,
-                    'cost_price' => $part->buy_price ?? 0,
+                    'cost_price' => 0,
                     'selling_price' => $item['unit_price'],
                     'warranty_period_days' => $warrantyData['warranty_period_days'],
                     'warranty_start_date' => $warrantyData['warranty_start_date'],
@@ -554,6 +513,47 @@ class PartSaleController extends Controller
                     'warranty_claimed_at' => null,
                     'warranty_claim_notes' => null,
                 ]);
+
+                // Reserve stock based on FIFO batches after the detail exists.
+                if (in_array($status, ['confirmed', 'ready_to_notify', 'waiting_pickup', 'completed'], true)) {
+                    $pricing = FIFOCostingService::consumeStock(
+                        $part,
+                        (int) $item['quantity'],
+                        PartSale::class,
+                        (int) $sale->id,
+                        "Penjualan #{$sale->sale_number}",
+                        Auth::id(),
+                        $detail,
+                        null,
+                        (int) $item['unit_price']
+                    );
+                    $detail->update([
+                        'reserved_quantity' => (int) $item['quantity'],
+                        'source_purchase_detail_id' => $pricing['source_purchase_detail_id'],
+                        'cost_price' => $pricing['cost_price'],
+                    ]);
+                } elseif ($status === 'waiting_stock' && (int) $part->stock >= (int) $item['quantity']) {
+                    try {
+                        $pricing = FIFOCostingService::consumeStock(
+                            $part,
+                            (int) $item['quantity'],
+                            PartSale::class,
+                            (int) $sale->id,
+                            "Reservasi Pesanan #{$sale->sale_number}",
+                            Auth::id(),
+                            $detail,
+                            null,
+                            (int) $item['unit_price']
+                        );
+                        $detail->update([
+                            'reserved_quantity' => (int) $item['quantity'],
+                            'source_purchase_detail_id' => $pricing['source_purchase_detail_id'],
+                            'cost_price' => $pricing['cost_price'],
+                        ]);
+                    } catch (ValidationException $exception) {
+                        // Keep the order waiting; stock may be manually corrected or received later.
+                    }
+                }
 
                 $this->warrantyRegistrationService->registerFromPartSaleDetail($sale, $detail, $part);
 
@@ -796,7 +796,7 @@ class PartSaleController extends Controller
                     'discount_value' => $discountValue,
                     'discount_amount' => $discountAmount,
                     'final_amount' => $finalAmount,
-                    'cost_price' => $part?->buy_price ?? 0,
+                    'cost_price' => 0,
                     'selling_price' => $item['unit_price'],
                     'warranty_period_days' => $warrantyData['warranty_period_days'],
                     'warranty_start_date' => $warrantyData['warranty_start_date'],
@@ -1215,26 +1215,27 @@ class PartSaleController extends Controller
             }
 
             if ((int) $part->stock >= $need) {
-                $beforeStock = (int) $part->stock;
-                $afterStock = max(0, $beforeStock - $need);
+                try {
+                    $pricing = FIFOCostingService::consumeStock(
+                        $part,
+                        $need,
+                        PartSale::class,
+                        (int) $sale->id,
+                        "Reservasi Pesanan #{$sale->sale_number}",
+                        Auth::id() ?? $sale->created_by,
+                        $detail,
+                        null,
+                        (int) $detail->unit_price
+                    );
 
-                $part->update(['stock' => $afterStock]);
-                $detail->update([
-                    'reserved_quantity' => ((int) ($detail->reserved_quantity ?? 0)) + $need,
-                ]);
-
-                PartStockMovement::create([
-                    'part_id' => $part->id,
-                    'reference_type' => PartSale::class,
-                    'reference_id' => $sale->id,
-                    'type' => 'out',
-                    'qty' => $need,
-                    'before_stock' => $beforeStock,
-                    'after_stock' => $afterStock,
-                    'unit_price' => $detail->unit_price,
-                    'notes' => "Reservasi Pesanan #{$sale->sale_number}",
-                    'created_by' => Auth::id() ?? $sale->created_by,
-                ]);
+                    $detail->update([
+                        'reserved_quantity' => ((int) ($detail->reserved_quantity ?? 0)) + $need,
+                        'source_purchase_detail_id' => $detail->source_purchase_detail_id ?: $pricing['source_purchase_detail_id'],
+                        'cost_price' => $pricing['cost_price'] ?: $detail->cost_price,
+                    ]);
+                } catch (ValidationException $exception) {
+                    $allReserved = false;
+                }
             } else {
                 $allReserved = false;
             }
@@ -1279,23 +1280,22 @@ class PartSaleController extends Controller
                 ]);
             }
 
-            $beforeStock = (int) $part->stock;
-            $afterStock = max(0, $beforeStock - $need);
+            $pricing = FIFOCostingService::consumeStock(
+                $part,
+                $need,
+                PartSale::class,
+                (int) $sale->id,
+                $notePrefix,
+                Auth::id() ?? $sale->created_by,
+                $detail,
+                null,
+                (int) $detail->unit_price
+            );
 
-            $part->update(['stock' => $afterStock]);
-            $detail->update(['reserved_quantity' => ((int) ($detail->reserved_quantity ?? 0)) + $need]);
-
-            PartStockMovement::create([
-                'part_id' => $part->id,
-                'reference_type' => PartSale::class,
-                'reference_id' => $sale->id,
-                'type' => 'out',
-                'qty' => $need,
-                'before_stock' => $beforeStock,
-                'after_stock' => $afterStock,
-                'unit_price' => $detail->unit_price,
-                'notes' => $notePrefix,
-                'created_by' => Auth::id() ?? $sale->created_by,
+            $detail->update([
+                'reserved_quantity' => ((int) ($detail->reserved_quantity ?? 0)) + $need,
+                'source_purchase_detail_id' => $detail->source_purchase_detail_id ?: $pricing['source_purchase_detail_id'],
+                'cost_price' => $pricing['cost_price'] ?: $detail->cost_price,
             ]);
         }
     }
@@ -1312,24 +1312,14 @@ class PartSaleController extends Controller
                 continue;
             }
 
-            $beforeStock = (int) $part->stock;
-            $afterStock = $beforeStock + $reserved;
-
-            $part->update(['stock' => $afterStock]);
+            FIFOCostingService::releaseStockForReference(
+                PartSale::class,
+                (int) $sale->id,
+                $notePrefix,
+                Auth::id() ?? $sale->created_by,
+                (int) $detail->id
+            );
             $detail->update(['reserved_quantity' => 0]);
-
-            PartStockMovement::create([
-                'part_id' => $part->id,
-                'reference_type' => PartSale::class,
-                'reference_id' => $sale->id,
-                'type' => 'in',
-                'qty' => $reserved,
-                'before_stock' => $beforeStock,
-                'after_stock' => $afterStock,
-                'unit_price' => $detail->unit_price,
-                'notes' => $notePrefix,
-                'created_by' => Auth::id() ?? $sale->created_by,
-            ]);
         }
     }
 
