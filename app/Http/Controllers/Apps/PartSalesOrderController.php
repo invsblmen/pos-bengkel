@@ -11,6 +11,7 @@ use App\Models\Part;
 use App\Models\PartStockMovement;
 use App\Support\DispatchesBroadcastSafely;
 use App\Services\DiscountTaxService;
+use App\Services\FIFOCostingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -158,6 +159,7 @@ class PartSalesOrderController extends Controller
         DB::beginTransaction();
         try {
             if ($newStatus === 'fulfilled' && $oldStatus !== 'fulfilled') {
+                // Pre-check stock availability
                 foreach ($order->details as $detail) {
                     $part = $detail->part;
                     if ($part->stock < $detail->quantity) {
@@ -167,55 +169,35 @@ class PartSalesOrderController extends Controller
                     }
                 }
 
+                // Consume stock using FIFO to record batch-level costing
                 foreach ($order->details as $detail) {
                     $part = $detail->part;
-                    $beforeStock = $part->stock;
-                    $afterStock = $beforeStock - $detail->quantity;
+                    $pricing = FIFOCostingService::consumeStock(
+                        $part,
+                        (int) $detail->quantity,
+                        PartSalesOrder::class,
+                        (int) $order->id,
+                        "Sales order to {$order->customer->name} - {$order->order_number}",
+                        Auth::id(),
+                        null,
+                        null,
+                        (int) $detail->unit_price,
+                        'sales_order'
+                    );
 
-                    $part->stock = $afterStock;
-                    $part->save();
-
-                    PartStockMovement::create([
-                        'part_id' => $part->id,
-                        'type' => 'sales_order',
-                        'qty' => -$detail->quantity,
-                        'before_stock' => $beforeStock,
-                        'after_stock' => $afterStock,
-                        'unit_price' => $detail->unit_price,
-                        'customer_id' => $order->customer_id,
-                        'reference_type' => 'App\\Models\\PartSalesOrder',
-                        'reference_id' => $order->id,
-                        'notes' => "Sales order to {$order->customer->name} - {$order->order_number}",
-                        'created_by' => Auth::id(),
-                    ]);
+                    // Optionally use $pricing for logging or reports
                 }
 
                 $order->actual_delivery_date = $validated['actual_delivery_date'] ?? now();
             }
 
             if ($oldStatus === 'fulfilled' && $newStatus !== 'fulfilled') {
-                foreach ($order->details as $detail) {
-                    $part = $detail->part;
-                    $beforeStock = $part->stock;
-                    $afterStock = $beforeStock + $detail->quantity;
-
-                    $part->stock = $afterStock;
-                    $part->save();
-
-                    PartStockMovement::create([
-                        'part_id' => $part->id,
-                        'type' => 'sales_order_reversal',
-                        'qty' => $detail->quantity,
-                        'before_stock' => $beforeStock,
-                        'after_stock' => $afterStock,
-                        'unit_price' => $detail->unit_price,
-                        'customer_id' => $order->customer_id,
-                        'reference_type' => 'App\\Models\\PartSalesOrder',
-                        'reference_id' => $order->id,
-                        'notes' => "Reversal - {$order->order_number} status changed from fulfilled to {$newStatus}",
-                        'created_by' => Auth::id(),
-                    ]);
-                }
+                FIFOCostingService::releaseStockForReference(
+                    PartSalesOrder::class,
+                    (int) $order->id,
+                    "Reversal - {$order->order_number} status changed from fulfilled to {$newStatus}",
+                    Auth::id()
+                );
             }
 
             $order->status = $newStatus;

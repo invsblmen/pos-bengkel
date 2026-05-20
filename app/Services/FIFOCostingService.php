@@ -8,23 +8,29 @@ use App\Models\PartSaleDetail;
 use App\Models\PartStockMovement;
 use App\Models\ServiceOrderDetail;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\DB;
 
 class FIFOCostingService
 {
     /**
      * Allocate stock from the oldest received purchase batches.
      */
-    public static function allocateStock(int $partId, int $quantityNeeded): array
+    public static function allocateStock(int $partId, int $quantityNeeded, bool $useLock = false): array
     {
         $allocations = [];
         $remainingQty = max(0, $quantityNeeded);
 
-        $purchaseDetails = PartPurchaseDetail::query()
+        $query = PartPurchaseDetail::query()
             ->where('part_id', $partId)
             ->whereHas('partPurchase', fn ($query) => $query->where('status', 'received'))
             ->orderBy('created_at')
-            ->orderBy('id')
-            ->get();
+            ->orderBy('id');
+
+        if ($useLock) {
+            $purchaseDetails = $query->lockForUpdate()->get();
+        } else {
+            $purchaseDetails = $query->get();
+        }
 
         foreach ($purchaseDetails as $detail) {
             if ($remainingQty <= 0) {
@@ -95,56 +101,62 @@ class FIFOCostingService
         ?int $createdBy = null,
         ?PartSaleDetail $saleDetail = null,
         ?ServiceOrderDetail $serviceOrderDetail = null,
-        ?int $fallbackUnitPrice = null
+        ?int $fallbackUnitPrice = null,
+        string $movementType = 'out'
     ): array {
-        if ((int) $part->stock < $quantity) {
-            throw ValidationException::withMessages([
-                'items' => ["Stock {$part->name} tidak mencukupi. Tersedia: {$part->stock}, diminta: {$quantity}"],
-            ]);
-        }
+        return DB::transaction(function () use ($part, $quantity, $referenceType, $referenceId, $notes, $createdBy, $saleDetail, $serviceOrderDetail, $fallbackUnitPrice, $movementType) {
+            // Lock part row to avoid concurrent oversell
+            $lockedPart = Part::where('id', $part->id)->lockForUpdate()->first();
 
-        $fifoResult = self::allocateStock((int) $part->id, $quantity);
-        if (!$fifoResult['success']) {
-            throw ValidationException::withMessages(['items' => [$fifoResult['message']]]);
-        }
+            if ((int) $lockedPart->stock < $quantity) {
+                throw ValidationException::withMessages([
+                    'items' => ["Stock {$lockedPart->name} tidak mencukupi. Tersedia: {$lockedPart->stock}, diminta: {$quantity}"],
+                ]);
+            }
 
-        $beforeStock = (int) $part->stock;
-        $runningStock = $beforeStock;
+            $fifoResult = self::allocateStock((int) $lockedPart->id, $quantity, true);
+            if (!$fifoResult['success']) {
+                throw ValidationException::withMessages(['items' => [$fifoResult['message']]]);
+            }
 
-        foreach ($fifoResult['allocations'] as $allocation) {
-            $allocatedQty = (int) $allocation['quantity'];
-            $afterStock = max(0, $runningStock - $allocatedQty);
+            $beforeStock = (int) $lockedPart->stock;
+            $runningStock = $beforeStock;
 
-            PartStockMovement::create([
-                'part_id' => $part->id,
-                'part_purchase_detail_id' => $allocation['purchase_detail_id'],
-                'part_sale_detail_id' => $saleDetail?->id,
-                'service_order_detail_id' => $serviceOrderDetail?->id,
-                'reference_type' => $referenceType,
-                'reference_id' => $referenceId,
-                'type' => 'out',
-                'qty' => $allocatedQty,
-                'before_stock' => $runningStock,
-                'after_stock' => $afterStock,
-                'unit_price' => $fallbackUnitPrice ?? $allocation['selling_price'],
-                'notes' => $notes,
-                'created_by' => $createdBy,
-            ]);
+            foreach ($fifoResult['allocations'] as $allocation) {
+                $allocatedQty = (int) $allocation['quantity'];
+                $afterStock = max(0, $runningStock - $allocatedQty);
 
-            $runningStock = $afterStock;
-        }
+                PartStockMovement::create([
+                    'part_id' => $lockedPart->id,
+                    'part_purchase_detail_id' => $allocation['purchase_detail_id'],
+                    'part_sale_detail_id' => $saleDetail?->id,
+                    'service_order_detail_id' => $serviceOrderDetail?->id,
+                    'reference_type' => $referenceType,
+                    'reference_id' => $referenceId,
+                    'type' => $movementType,
+                    'qty' => $allocatedQty,
+                    'before_stock' => $runningStock,
+                    'after_stock' => $afterStock,
+                    'unit_price' => $fallbackUnitPrice ?? $allocation['selling_price'],
+                    'notes' => $notes,
+                    'created_by' => $createdBy,
+                ]);
 
-        $part->update(['stock' => $runningStock]);
+                $runningStock = $afterStock;
+            }
 
-        $prices = self::calculateWeightedPrices($fifoResult['allocations']);
+            $lockedPart->update(['stock' => $runningStock]);
 
-        return [
-            ...$prices,
-            'source_purchase_detail_id' => $fifoResult['allocations'][0]['purchase_detail_id'] ?? null,
-            'allocations' => $fifoResult['allocations'],
-            'before_stock' => $beforeStock,
-            'after_stock' => $runningStock,
-        ];
+            $prices = self::calculateWeightedPrices($fifoResult['allocations']);
+
+            return [
+                ...$prices,
+                'source_purchase_detail_id' => $fifoResult['allocations'][0]['purchase_detail_id'] ?? null,
+                'allocations' => $fifoResult['allocations'],
+                'before_stock' => $beforeStock,
+                'after_stock' => $runningStock,
+            ];
+        });
     }
 
     /**

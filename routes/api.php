@@ -72,6 +72,7 @@ Route::post('/part/ShipmentReceipt', function (Request $request) {
 
 // SPG local endpoints (no proxy, direct local processing)
 Route::post('/spg/sparepart', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'storeSparepartFromSPG'])->middleware(['web', 'auth']);
+Route::post('/spg/existing-parts', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'checkExistingSparepartsFromSPG'])->middleware(['web', 'auth']);
 Route::post('/spg/part-purchase', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'storePartPurchaseFromSPG'])->middleware(['web', 'auth']);
 
 // Generic proxy: /api/docs-proxy/{path} -> forwards to {SDMS_API_BASE}/{path}

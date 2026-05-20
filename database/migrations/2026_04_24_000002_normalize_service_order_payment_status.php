@@ -15,12 +15,16 @@ return new class extends Migration
                 'remaining_amount' => 0,
             ]);
 
-        DB::statement("ALTER TABLE service_orders MODIFY COLUMN status ENUM('pending', 'in_progress', 'completed', 'cancelled') NOT NULL DEFAULT 'pending'");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE service_orders MODIFY COLUMN status ENUM('pending', 'in_progress', 'completed', 'cancelled') NOT NULL DEFAULT 'pending'");
+        }
     }
 
     public function down(): void
     {
-        DB::statement("ALTER TABLE service_orders MODIFY COLUMN status ENUM('pending', 'in_progress', 'completed', 'paid', 'cancelled') NOT NULL DEFAULT 'pending'");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE service_orders MODIFY COLUMN status ENUM('pending', 'in_progress', 'completed', 'paid', 'cancelled') NOT NULL DEFAULT 'pending'");
+        }
 
         DB::table('service_orders')
             ->where('status', 'completed')

@@ -10,6 +10,8 @@ use App\Models\PartPurchase;
 use App\Models\CashDenomination;
 use App\Models\CashDrawerDenomination;
 use App\Models\CashTransaction;
+use Spatie\Permission\Models\Permission;
+use Illuminate\Support\Facades\DB;
 
 class PartPurchasePaymentTest extends TestCase
 {
@@ -18,16 +20,24 @@ class PartPurchasePaymentTest extends TestCase
     public function test_cash_payment_records_outgoing_and_change_incoming()
     {
         $user = User::factory()->create();
+        Permission::firstOrCreate(['name' => 'part-purchases-update']);
+        $user->givePermissionTo('part-purchases-update');
         $this->actingAs($user);
 
         $supplier = Supplier::create(['name' => 'Test Supplier']);
 
-        // Create denominations and drawer stock
-        $d100 = CashDenomination::create(['value' => 100000, 'is_active' => true]);
-        $d25 = CashDenomination::create(['value' => 25000, 'is_active' => true]);
+        // Create denominations and drawer stock (use existing seeded denominations if present)
+        $d100 = CashDenomination::firstOrCreate(['value' => 100000], ['is_active' => true]);
+        $d25 = CashDenomination::firstOrCreate(['value' => 25000], ['is_active' => true]);
 
-        CashDrawerDenomination::create(['denomination_id' => $d100->id, 'quantity' => 10]);
-        CashDrawerDenomination::create(['denomination_id' => $d25->id, 'quantity' => 10]);
+        DB::table('cash_drawer_denominations')->updateOrInsert(
+            ['denomination_id' => $d100->id],
+            ['quantity' => 10, 'updated_at' => now(), 'created_at' => now()]
+        );
+        DB::table('cash_drawer_denominations')->updateOrInsert(
+            ['denomination_id' => $d25->id],
+            ['quantity' => 10, 'updated_at' => now(), 'created_at' => now()]
+        );
 
         // Create a purchase with grand_total 75000
         $purchase = PartPurchase::create([
@@ -56,7 +66,7 @@ class PartPurchasePaymentTest extends TestCase
             ],
         ];
 
-        $this->post(route('part-purchases.update-payment', $purchase->id), $payload)
+        $this->postJson(route('part-purchases.update-payment', $purchase->id), $payload)
             ->assertStatus(200);
 
         $purchase->refresh();

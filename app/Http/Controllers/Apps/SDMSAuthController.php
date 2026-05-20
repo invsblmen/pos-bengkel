@@ -197,6 +197,35 @@ class SDMSAuthController extends Controller
     }
 
     /**
+     * Check which received parts already exist in master sparepart
+     * POST /api/spg/existing-parts
+     */
+    public function checkExistingSparepartsFromSPG(Request $request)
+    {
+        $validated = $request->validate([
+            'part_numbers' => 'required|array|min:1',
+            'part_numbers.*' => 'required|string',
+        ]);
+
+        $partNumbers = collect($validated['part_numbers'])
+            ->map(fn ($partNumber) => trim((string) $partNumber))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $existingParts = Part::query()
+            ->whereIn('part_number', $partNumbers->all(), 'and', false)
+            ->get(['id', 'part_number', 'name'])
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'part_numbers' => $existingParts->pluck('part_number')->values(),
+            'parts' => $existingParts,
+        ]);
+    }
+
+    /**
      * Create a PartPurchase from SPG received items
      * POST /api/spg/part-purchase
      */

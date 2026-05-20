@@ -210,6 +210,8 @@ const extractDeliveryReference = (payload) => {
     };
 };
 
+const normalizePartNumber = (value) => (value ?? '').toString().trim();
+
 export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
     const [idBilling, setIdBilling] = useState(initialIdBilling ?? '');
     const [selectedSupplierId, setSelectedSupplierId] = useState(initialSupplierId ?? '');
@@ -225,6 +227,7 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
     const [purchaseResponse, setPurchaseResponse] = useState(null);
     const [purchaseReference, setPurchaseReference] = useState({ billingNumber: '', psNumber: '' });
     const [createdPurchase, setCreatedPurchase] = useState(null);
+    const [existingParts, setExistingParts] = useState({});
 
     const normalizeIdBilling = (value) => (value ?? '').toString().trim();
 
@@ -241,6 +244,11 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
         setLoading(true);
         setDetailError(null);
         setItemsError(null);
+        setAddedParts({});
+        setExistingParts({});
+        setReceivedParts([]);
+        setShowReceivedList(false);
+        setCreatedPurchase(null);
 
         try {
             const headers = sdms
@@ -355,6 +363,35 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
         setShowAddModal(true);
     };
 
+    const loadExistingSpareparts = async (parts = []) => {
+        const partNumbers = parts
+            .map((part) => normalizePartNumber(getCompareItemPartNumber(part)))
+            .filter(Boolean);
+
+        if (partNumbers.length === 0) {
+            setExistingParts({});
+            return;
+        }
+
+        try {
+            const response = await axios.post('/api/spg/existing-parts', { part_numbers: partNumbers });
+            const matchedPartNumbers = Array.isArray(response.data?.part_numbers) ? response.data.part_numbers : [];
+
+            setExistingParts(
+                matchedPartNumbers.reduce((accumulator, partNumber) => {
+                    const key = normalizePartNumber(partNumber);
+                    if (key) {
+                        accumulator[key] = true;
+                    }
+                    return accumulator;
+                }, {})
+            );
+        } catch (err) {
+            console.error(err);
+            setExistingParts({});
+        }
+    };
+
     const handleAddPartLocal = async () => {
         setCreateSpareLoading(true);
         try {
@@ -375,20 +412,44 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                 status: 'active',
             });
             // Mark part as added in local state
-            setAddedParts((prev) => ({ ...prev, [modalPart.numberPart]: true }));
+            const normalizedPartNumber = normalizePartNumber(modalPart.numberPart);
+            setAddedParts((prev) => ({ ...prev, [normalizedPartNumber]: true }));
+            setExistingParts((prev) => ({ ...prev, [normalizedPartNumber]: true }));
             setShowAddModal(false);
             setModalPart({ numberPart: '', name: '' });
             alert('Sparepart berhasil ditambahkan!');
         } catch (err) {
             console.error(err);
-            alert('Gagal menambah sparepart: ' + (err?.response?.data?.message || err.message || 'Unknown'));
+            const normalizedPartNumber = normalizePartNumber(modalPart.numberPart);
+            const errorMessage = err?.response?.data?.message || err.message || 'Unknown';
+
+            if (String(errorMessage).toLowerCase().includes('unique') || String(errorMessage).toLowerCase().includes('already')) {
+                setAddedParts((prev) => ({ ...prev, [normalizedPartNumber]: true }));
+                setExistingParts((prev) => ({ ...prev, [normalizedPartNumber]: true }));
+                setShowAddModal(false);
+                setModalPart({ numberPart: '', name: '' });
+                alert('Sparepart sudah ada di data sparepart. Item ini ditandai sebagai sudah tersedia.');
+                return;
+            }
+
+            alert('Gagal menambah sparepart: ' + errorMessage);
         } finally {
             setCreateSpareLoading(false);
         }
     };
 
     const purchaseSourceItems = purchaseItems;
-    const allPartsAdded = purchaseSourceItems.length > 0 && purchaseSourceItems.every((part) => addedParts[getCompareItemPartNumber(part) || getOrderItemPartNumber(part)]);
+    const isPartCovered = (part) => {
+        const partNumber = normalizePartNumber(getCompareItemPartNumber(part) || getOrderItemPartNumber(part));
+
+        if (!partNumber) {
+            return false;
+        }
+
+        return Boolean(addedParts[partNumber] || existingParts[partNumber]);
+    };
+
+    const allPartsAdded = purchaseSourceItems.length > 0 && purchaseSourceItems.every((part) => isPartCovered(part));
 
     const handleLanjutKePembelian = async () => {
         if (!purchaseItems.length) {
@@ -575,6 +636,7 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
             setSubmitResult(response.data || null);
             const received = (response.data && Array.isArray(response.data.partDalamPS)) ? response.data.partDalamPS : (itemsToSend || []);
             setReceivedParts(received);
+            await loadExistingSpareparts(received);
             setShowReceivedList(true);
             alert('Submit SPG berhasil. Received list ditampilkan.');
         } catch (err) {
@@ -962,9 +1024,9 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                                     </div>
                                     <div className="text-right">
                                         <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                                            {Object.keys(addedParts).length}/{receivedParts.length}
+                                            {receivedParts.filter((part) => isPartCovered(part)).length}/{receivedParts.length}
                                         </div>
-                                        <div className="text-[10px] text-slate-500">Added</div>
+                                        <div className="text-[10px] text-slate-500">Covered</div>
                                     </div>
                                 </div>
 
@@ -1001,7 +1063,8 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                                                     const partName = getCompareItemPartName(part);
                                                     const qtyReceive = getCompareItemQtyReceive(part);
                                                     const qtyRejected = getCompareItemQtyRejected(part);
-                                                    const isAdded = addedParts[partNum];
+                                                    const normalizedPartNumber = normalizePartNumber(partNum);
+                                                    const isAdded = Boolean(addedParts[normalizedPartNumber] || existingParts[normalizedPartNumber]);
 
                                                     return (
                                                         <tr key={idx} className="transition hover:bg-slate-50 dark:hover:bg-slate-900">
@@ -1013,7 +1076,7 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                                                                 {isAdded ? (
                                                                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                                                                         <IconCheck size={14} />
-                                                                        Added
+                                                                        Sudah Ada
                                                                     </span>
                                                                 ) : (
                                                                     <button

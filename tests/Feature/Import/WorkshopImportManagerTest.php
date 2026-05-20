@@ -3,13 +3,12 @@
 namespace Tests\Feature\Import;
 
 use App\Services\Import\WorkshopImportManager;
-use Mockery;
-use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class WorkshopImportManagerTest extends TestCase
 {
-    use MockeryPHPUnitIntegration;
+    use RefreshDatabase;
 
     public function test_vehicle_dataset_marks_customer_phone_as_optional(): void
     {
@@ -25,34 +24,12 @@ class WorkshopImportManagerTest extends TestCase
 
     public function test_vehicle_import_uses_customer_identity_number_when_name_is_duplicate(): void
     {
-        $matchedCustomer = (object) ['id' => 99];
-
-        $customerQuery = Mockery::mock();
-        $customerQuery->shouldReceive('first')->once()->andReturn($matchedCustomer);
-
-        $customerModel = Mockery::mock('alias:App\Models\Customer');
-        $customerModel->shouldReceive('where')
-            ->once()
-            ->with('identity_number', '3273010000000001')
-            ->andReturn($customerQuery);
-
-        $vehicleQuery = Mockery::mock();
-        $vehicleQuery->shouldReceive('first')->once()->andReturnNull();
-
-        $vehicleModel = Mockery::mock('alias:App\Models\Vehicle');
-        $vehicleModel->shouldReceive('where')
-            ->once()
-            ->with('plate_number', 'D1234AB')
-            ->andReturn($vehicleQuery);
-        $vehicleModel->shouldReceive('create')
-            ->once()
-            ->with(Mockery::on(function (array $payload) use ($matchedCustomer): bool {
-                return $payload['customer_id'] === $matchedCustomer->id
-                    && $payload['plate_number'] === 'D1234AB'
-                    && $payload['brand'] === 'Honda'
-                    && $payload['model'] === 'Beat';
-            }))
-            ->andReturnTrue();
+        // Create a real customer in the test DB so Eloquent queries resolve normally
+        $matchedCustomer = \App\Models\Customer::create([
+            'name' => 'Budi Santoso',
+            'identity_number' => '3273010000000001',
+            'phone' => '081234567890',
+        ]);
 
         $manager = new WorkshopImportManager();
         $method = new \ReflectionMethod($manager, 'importVehicle');
@@ -73,14 +50,9 @@ class WorkshopImportManagerTest extends TestCase
 
     public function test_vehicle_import_rejects_ambiguous_customer_name(): void
     {
-        $nameQuery = Mockery::mock();
-        $nameQuery->shouldReceive('count')->once()->andReturn(2);
-
-        $customerModel = Mockery::mock('alias:App\Models\Customer');
-        $customerModel->shouldReceive('where')
-            ->once()
-            ->with('name', 'Budi Santoso')
-            ->andReturn($nameQuery);
+        // Create two customers with the same name to simulate ambiguity
+        \App\Models\Customer::create(["name" => 'Budi Santoso', 'phone' => '081111111111']);
+        \App\Models\Customer::create(["name" => 'Budi Santoso', 'phone' => '082222222222']);
 
         $manager = new WorkshopImportManager();
         $method = new \ReflectionMethod($manager, 'importVehicle');

@@ -134,16 +134,7 @@ class PartSaleController extends Controller
                     throw ValidationException::withMessages(['items' => ["Stok tidak mencukupi untuk {$part->name}"]]);
                 }
 
-                // Allocate stock using FIFO
-                $fifoResult = FIFOCostingService::allocateStock($part->id, $qty);
-
-                if (!$fifoResult['success']) {
-                    throw ValidationException::withMessages(['items' => [$fifoResult['message']]]);
-                }
-
-                // Calculate weighted average cost and selling price from FIFO allocations
-                $prices = FIFOCostingService::calculateWeightedPrices($fifoResult['allocations']);
-
+                // Create sale detail first, then consume stock atomically (FIFO)
                 $detail = $sale->details()->create([
                     'part_id' => $part->id,
                     'quantity' => $qty,
@@ -151,20 +142,34 @@ class PartSaleController extends Controller
                     'subtotal' => $subtotal,
                     'discount_type' => $item['discount_type'] ?? 'none',
                     'discount_value' => $item['discount_value'] ?? 0,
-                    'source_purchase_detail_id' => $fifoResult['allocations'][0]['purchase_detail_id'] ?? null,
-                    'cost_price' => $prices['cost_price'],
-                    'selling_price' => $prices['selling_price'],
+                    'source_purchase_detail_id' => null,
+                    'cost_price' => 0,
+                    'selling_price' => 0,
                 ]);
 
                 // Calculate final amount for item discount
                 $detail->calculateFinalAmount()->save();
 
-                // Create stock movements for FIFO allocations
-                FIFOCostingService::createStockMovements($detail, $fifoResult['allocations']);
+                // Consume stock using FIFO (creates stock movements and updates part->stock)
+                $pricing = FIFOCostingService::consumeStock(
+                    $part,
+                    $qty,
+                    PartSale::class,
+                    $sale->id,
+                    "Part sale {$sale->invoice}",
+                    Auth::id(),
+                    $detail,
+                    null,
+                    (int) $unitPrice,
+                    'out'
+                );
 
-                $before = $part->stock;
-                $part->stock = max(0, $part->stock - $qty);
-                $part->save();
+                // Update detail with costing info from FIFO allocation
+                $detail->update([
+                    'source_purchase_detail_id' => $pricing['source_purchase_detail_id'] ?? null,
+                    'cost_price' => $pricing['cost_price'] ?? 0,
+                    'selling_price' => $pricing['selling_price'] ?? $detail->selling_price,
+                ]);
 
                 // Use final_amount (after item discount) for total calculation
                 $total += $detail->final_amount ?? $subtotal;
