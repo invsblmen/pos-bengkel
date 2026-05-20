@@ -10,7 +10,6 @@ import {
     IconUser,
     IconTool,
     IconCalendar,
-    IconInfoCircle,
 } from "@tabler/icons-react";
 import ThermalReceipt, { ThermalReceipt58mm } from "@/Components/Receipt/ThermalReceipt";
 import { toDisplayDateTime } from "@/Utils/datetime";
@@ -127,12 +126,15 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
             };
         });
     }, [order?.details]);
+    const serviceWorkOrderItems = workOrderItems.filter((item) => item.hasService || (!item.hasService && !item.hasPart));
+    const partWorkOrderItems = workOrderItems.filter((item) => item.hasPart);
 
     const activePrintMode = printModeMeta[printMode] ? printMode : "invoice";
     const activePrintTitle = printModeMeta[activePrintMode].title;
     const workOrderNote =
         businessProfile?.receipt_note_service_order ||
         "Work order ini dipakai sebagai panduan pengerjaan mekanik berdasarkan keluhan dan permintaan konsumen.";
+    const hasWorkOrderSideInfo = Boolean(order?.maintenance_type || order?.next_service_km);
 
     const thermalPayload = useMemo(() => {
         return {
@@ -298,7 +300,7 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
                                 </div>
                             </div>
 
-                            <div className="grid gap-4 px-6 py-6 border-b border-slate-100 dark:border-slate-800 print:gap-2 print:px-0 print:py-2.5 print:grid-cols-[1.05fr_1fr_0.95fr] md:grid-cols-[1.05fr_1fr_0.95fr]">
+                            <div className="grid gap-4 px-6 py-6 border-b border-slate-100 dark:border-slate-800 print:gap-2 print:px-0 print:py-2.5 print:grid-cols-[1fr_1fr_1fr_1.2fr] md:grid-cols-[1fr_1fr_1fr_1.2fr]">
                                 <div className="space-y-3 print:space-y-1.5">
                                     <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">
                                         <IconUser size={16} className="print:w-3.5 print:h-3.5" />
@@ -331,17 +333,20 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
                                     <p className="text-sm text-slate-600 dark:text-slate-400 print:text-xs">Mulai: {formatDateTime(order?.estimated_start_at)}</p>
                                     <p className="text-sm text-slate-600 dark:text-slate-400 print:text-xs">Selesai: {formatDateTime(order?.estimated_finish_at)}</p>
                                 </div>
+
+                                <div className="space-y-3 print:space-y-1.5">
+                                    <div className="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                                        <span>Permintaan Konsumen</span>
+                                    </div>
+                                    <p className="whitespace-pre-line text-sm leading-5 text-slate-700 dark:text-slate-300 print:text-xs print:leading-tight">
+                                        {order?.notes || "Tidak ada catatan keluhan."}
+                                    </p>
+                                </div>
                             </div>
 
-                            <div className="grid gap-4 md:grid-cols-[1fr_0.98fr] print:grid-cols-[1fr_0.98fr] px-6 py-6 print:px-0 print:py-2.5">
+                            <div className={`grid gap-4 ${hasWorkOrderSideInfo ? "md:grid-cols-[1fr_0.98fr] print:grid-cols-[1fr_0.98fr]" : ""} px-6 py-6 print:px-0 print:py-2.5`}>
+                                {hasWorkOrderSideInfo && (
                                 <div className="space-y-4 print:space-y-2">
-                                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 print:p-2.5">
-                                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Keluhan / Permintaan Konsumen</p>
-                                        <p className="whitespace-pre-line text-sm leading-6 text-slate-700 dark:text-slate-300 print:text-xs print:leading-tight">
-                                            {order?.notes || "Tidak ada catatan keluhan."}
-                                        </p>
-                                    </div>
-
                                     {order?.maintenance_type && (
                                         <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 print:p-2.5">
                                             <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Jenis Pekerjaan</p>
@@ -356,35 +361,60 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
                                         </div>
                                     )}
                                 </div>
+                                )}
 
                                 <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 print:p-2.5">
                                     <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">Daftar Pekerjaan</p>
-                                    <div className="space-y-3 print:space-y-2">
-                                        {workOrderItems.length > 0 ? (
-                                            workOrderItems.map((item, index) => (
-                                                <div key={item.key} className="rounded-lg bg-slate-50 dark:bg-slate-800/60 p-3 print:p-2">
-                                                    <div className="flex items-start justify-between gap-3">
-                                                        <div>
+                                    <div className="grid gap-3 md:grid-cols-2 print:grid-cols-2 print:gap-2">
+                                        <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3 print:p-2">
+                                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 print:text-[10px]">Layanan</p>
+                                            <div className="space-y-2 print:space-y-1.5">
+                                                {serviceWorkOrderItems.length > 0 ? (
+                                                    serviceWorkOrderItems.map((item, index) => (
+                                                        <div key={item.key} className="rounded-md bg-white dark:bg-slate-900/40 p-2 print:p-1.5">
                                                             <p className="text-sm font-semibold text-slate-900 dark:text-white print:text-xs">
                                                                 {index + 1}. {item.jobName}
                                                             </p>
-                                                            <p className="text-xs text-slate-500 dark:text-slate-400 print:text-[10px]">
-                                                                {item.hasService ? "Instruksi servis" : item.hasPart ? "Sparepart terkait" : "Item kerja"} - Qty {item.qty}
-                                                            </p>
+                                                            <p className="text-xs text-slate-500 dark:text-slate-400 print:text-[10px]">Qty {item.qty}</p>
+                                                            {item.notes.length > 0 && (
+                                                                <ul className="mt-1 space-y-1 text-xs text-slate-600 dark:text-slate-300 print:text-[10px]">
+                                                                    {item.notes.map((note) => (
+                                                                        <li key={note} className="whitespace-pre-line">- {note}</li>
+                                                                    ))}
+                                                                </ul>
+                                                            )}
                                                         </div>
-                                                    </div>
-                                                    {item.notes.length > 0 && (
-                                                        <ul className="mt-2 space-y-1 text-xs text-slate-600 dark:text-slate-300 print:text-[10px]">
-                                                            {item.notes.map((note) => (
-                                                                <li key={note} className="whitespace-pre-line">- {note}</li>
-                                                            ))}
-                                                        </ul>
-                                                    )}
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <p className="text-sm text-slate-500 dark:text-slate-400 print:text-xs">Belum ada item pekerjaan yang ditentukan.</p>
-                                        )}
+                                                    ))
+                                                ) : (
+                                                    <p className="text-sm text-slate-500 dark:text-slate-400 print:text-xs">Belum ada layanan.</p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3 print:p-2">
+                                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 print:text-[10px]">Sparepart</p>
+                                            <div className="space-y-2 print:space-y-1.5">
+                                                {partWorkOrderItems.length > 0 ? (
+                                                    partWorkOrderItems.map((item, index) => (
+                                                        <div key={item.key} className="rounded-md bg-white dark:bg-slate-900/40 p-2 print:p-1.5">
+                                                            <p className="text-sm font-semibold text-slate-900 dark:text-white print:text-xs">
+                                                                {index + 1}. {item.jobName}
+                                                            </p>
+                                                            <p className="text-xs text-slate-500 dark:text-slate-400 print:text-[10px]">Qty {item.qty}</p>
+                                                            {item.notes.length > 0 && (
+                                                                <ul className="mt-1 space-y-1 text-xs text-slate-600 dark:text-slate-300 print:text-[10px]">
+                                                                    {item.notes.map((note) => (
+                                                                        <li key={note} className="whitespace-pre-line">- {note}</li>
+                                                                    ))}
+                                                                </ul>
+                                                            )}
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <p className="text-sm text-slate-500 dark:text-slate-400 print:text-xs">Belum ada sparepart.</p>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -455,7 +485,7 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
                             </div>
 
                             {/* Info Grid */}
-                            <div className="grid md:grid-cols-3 print:grid-cols-[1fr_1fr_1.2fr] gap-6 px-6 py-6 border-b border-slate-100 dark:border-slate-800 print:gap-2 print:px-3 print:py-2.5">
+                            <div className="grid md:grid-cols-[1fr_1fr_1.05fr_1.2fr] print:grid-cols-[1fr_1fr_1.05fr_1.2fr] gap-6 px-6 py-6 border-b border-slate-100 dark:border-slate-800 print:gap-2 print:px-3 print:py-2.5">
                                 <div className="space-y-3 print:space-y-1.5">
                                     <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">
                                         <IconUser size={16} className="print:w-3.5 print:h-3.5" />
@@ -505,6 +535,15 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
                                         <p className="text-sm text-emerald-600 dark:text-emerald-400 print:text-xs">Selesai: {formatDateTime(order.actual_finish_at)}</p>
                                     )}
                                 </div>
+
+                                <div className="space-y-3 print:space-y-1.5">
+                                    <div className="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                                        <span>Permintaan Konsumen</span>
+                                    </div>
+                                    <p className="whitespace-pre-line text-sm leading-5 text-slate-700 dark:text-slate-300 print:text-xs print:leading-tight">
+                                        {order?.notes || "Tidak ada catatan keluhan."}
+                                    </p>
+                                </div>
                             </div>
 
                             {/* Items Table */}
@@ -515,13 +554,16 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
                                             <th className="pb-3 print:pb-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Item</th>
                                             <th className="pb-3 print:pb-2 text-center text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Qty</th>
                                             <th className="pb-3 print:pb-2 text-right text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Harga</th>
+                                            <th className="pb-3 print:pb-2 text-right text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Diskon</th>
                                             <th className="pb-3 print:pb-2 text-right text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Subtotal</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                         {items.map((detail) => {
                                             const qty = Number(detail.qty) || 1;
-                                            const subtotalItem = (Number(detail.price) || 0) * qty;
+                                            const grossSubtotalItem = Number(detail.amount ?? ((Number(detail.price) || 0) * qty)) || 0;
+                                            const itemDiscount = (Number(detail.discount_amount) || 0) + (Number(detail.auto_discount_amount) || 0);
+                                            const subtotalItem = Number(detail.final_amount ?? (grossSubtotalItem - itemDiscount)) || 0;
                                             return (
                                                 <tr key={detail.id}>
                                                     <td className="py-3 print:py-1.5">
@@ -532,9 +574,15 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
                                                         {detail.part?.part_number && (
                                                             <p className="text-xs text-slate-500 dark:text-slate-400 print:text-[10px]">Kode: {detail.part.part_number}</p>
                                                         )}
+                                                        {detail.auto_discount_notes && (
+                                                            <p className="text-xs text-slate-500 dark:text-slate-400 print:text-[10px]">Diskon otomatis: {detail.auto_discount_notes}</p>
+                                                        )}
                                                     </td>
                                                     <td className="py-3 print:py-1.5 text-center text-slate-600 dark:text-slate-400">{qty}</td>
                                                     <td className="py-3 print:py-1.5 text-right text-slate-600 dark:text-slate-400">{formatPrice(Number(detail.price) || 0)}</td>
+                                                    <td className="py-3 print:py-1.5 text-right text-slate-600 dark:text-slate-400">
+                                                        {itemDiscount > 0 ? `- ${formatPrice(itemDiscount)}` : "-"}
+                                                    </td>
                                                     <td className="py-3 print:py-1.5 text-right font-semibold text-slate-900 dark:text-white">{formatPrice(subtotalItem)}</td>
                                                 </tr>
                                             );
@@ -598,12 +646,6 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
                                 </div>
                             </div>
 
-                            {order?.notes && (
-                                <div className="px-6 py-4 print:px-3 print:py-1.5 text-sm print:text-xs text-slate-600 dark:text-slate-300 border-t border-slate-100 dark:border-slate-800 flex gap-2">
-                                    <IconInfoCircle size={16} className="text-primary-500 print:w-3.5 print:h-3.5" />
-                                    <p className="whitespace-pre-line print:leading-tight">{order.notes}</p>
-                                </div>
-                            )}
                         </div>
                     )}
                 </div>
