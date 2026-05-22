@@ -1079,7 +1079,7 @@ class ServiceOrderController extends Controller
                         'part_id' => $part['part_id'] ?? null,
                         'source_purchase_detail_id' => null,
                         'cost_price' => 0,
-                        'selling_price' => $partPrice,
+                        'selling_price' => $partQty > 0 ? (int) round($partFinal / $partQty) : $partPrice,
                         'qty' => $partQty,
                         'price' => $partPrice,
                         'amount' => $partAmount,
@@ -1173,7 +1173,7 @@ class ServiceOrderController extends Controller
                     $detail->update([
                         'source_purchase_detail_id' => $pricing['source_purchase_detail_id'],
                         'cost_price' => $pricing['cost_price'],
-                        'selling_price' => (int) $detail->price,
+                        'selling_price' => $detail->qty > 0 ? (int) round($detail->final_amount / $detail->qty) : (int) $detail->price,
                     ]);
                 }
             }
