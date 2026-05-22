@@ -667,7 +667,7 @@ export default function Edit({
                         </button>
                     </div>
 
-                    <div className="hidden lg:flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:sticky lg:top-6 lg:h-[calc(100vh-100px)] lg:min-h-0">
+                    <div className="hidden lg:flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:sticky lg:top-6 lg:h-[calc(100vh-100px)] lg:min-h-0 lg:overflow-y-auto lg:pr-1">
                         <div className="space-y-4">
                             <div>
                                 <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">

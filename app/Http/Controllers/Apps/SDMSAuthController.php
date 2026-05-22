@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Apps;
 use App\Http\Controllers\Controller;
 use App\Models\Part;
 use App\Models\Supplier;
-use App\Services\DiscountTaxService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -197,35 +196,6 @@ class SDMSAuthController extends Controller
     }
 
     /**
-     * Check which received parts already exist in master sparepart
-     * POST /api/spg/existing-parts
-     */
-    public function checkExistingSparepartsFromSPG(Request $request)
-    {
-        $validated = $request->validate([
-            'part_numbers' => 'required|array|min:1',
-            'part_numbers.*' => 'required|string',
-        ]);
-
-        $partNumbers = collect($validated['part_numbers'])
-            ->map(fn ($partNumber) => trim((string) $partNumber))
-            ->filter()
-            ->unique()
-            ->values();
-
-        $existingParts = Part::query()
-            ->whereIn('part_number', $partNumbers->all(), 'and', false)
-            ->get(['id', 'part_number', 'name'])
-            ->values();
-
-        return response()->json([
-            'success' => true,
-            'part_numbers' => $existingParts->pluck('part_number')->values(),
-            'parts' => $existingParts,
-        ]);
-    }
-
-    /**
      * Create a PartPurchase from SPG received items
      * POST /api/spg/part-purchase
      */
@@ -237,14 +207,6 @@ class SDMSAuthController extends Controller
             'items.*.part_id' => 'required|string',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.unit_price' => 'required|integer|min:0',
-            'items.*.subtotal' => 'nullable|integer|min:0',
-            'items.*.line_total' => 'nullable|integer|min:0',
-            'items.*.discount_type' => 'nullable|in:none,percent,fixed',
-            'items.*.discount_value' => 'nullable|numeric|min:0',
-            'items.*.promo_discount_type' => 'nullable|in:none,percent,fixed',
-            'items.*.promo_discount_value' => 'nullable|numeric|min:0',
-            'discount_type' => 'nullable|in:none,percent,fixed',
-            'discount_value' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
         ]);
 
@@ -279,45 +241,17 @@ class SDMSAuthController extends Controller
                     ], 422);
                 }
 
-                $submittedUnitPrice = (int) ($item['unit_price'] ?? 0);
-                $submittedSubtotal = (int) ($item['subtotal'] ?? $item['line_total'] ?? 0);
-                $submittedQty = (int) ($item['quantity'] ?? 0);
-
-                if ($submittedUnitPrice > 0) {
-                    $unitPrice = $submittedUnitPrice;
-                } elseif ($submittedSubtotal > 0 && $submittedQty > 0) {
-                    $unitPrice = (int) round($submittedSubtotal / $submittedQty);
-                } else {
-                    $unitPrice = (int) ($part->buy_price ?? 0);
-                }
-
-                $discountType = $item['discount_type'] ?? 'none';
-                $discountValue = (float) ($item['discount_value'] ?? 0);
-                $promoDiscountType = $item['promo_discount_type'] ?? 'none';
-                $promoDiscountValue = (float) ($item['promo_discount_value'] ?? 0);
-                $subtotal = (int) $item['quantity'] * $unitPrice;
-                $finalAmount = DiscountTaxService::calculateAmountWithDiscount($subtotal, $discountType, $discountValue);
-
                 $resolvedItems[] = [
                     'part_id' => $part->id,
                     'quantity' => $item['quantity'],
-                    'unit_price' => $unitPrice,
-                    'subtotal' => $subtotal,
-                    'discount_type' => $discountType,
-                    'discount_value' => $discountValue,
-                    'discount_amount' => max(0, $subtotal - $finalAmount),
-                    'final_amount' => $finalAmount,
-                    'margin_type' => $item['margin_type'] ?? 'percent',
-                    'margin_value' => $item['margin_value'] ?? 0,
-                    'promo_discount_type' => $promoDiscountType,
-                    'promo_discount_value' => $promoDiscountValue,
+                    'unit_price' => $item['unit_price'],
                 ];
             }
 
             // Calculate total amount
             $totalAmount = 0;
             foreach ($resolvedItems as $item) {
-                $totalAmount += $item['final_amount'];
+                $totalAmount += $item['quantity'] * $item['unit_price'];
             }
 
             // Create purchase
@@ -327,26 +261,23 @@ class SDMSAuthController extends Controller
                 'status' => 'pending',
                 'total_amount' => $totalAmount,
                 'notes' => $validated['notes'] ?? 'From SPG Received Items',
-                'discount_type' => $validated['discount_type'] ?? 'none',
-                'discount_value' => $validated['discount_value'] ?? 0,
             ]);
 
             // Create purchase details
             foreach ($resolvedItems as $item) {
+                $subtotal = $item['quantity'] * $item['unit_price'];
                 \App\Models\PartPurchaseDetail::create([
                     'part_purchase_id' => $purchase->id,
                     'part_id' => $item['part_id'],
                     'quantity' => $item['quantity'],
                     'unit_price' => $item['unit_price'],
-                    'subtotal' => $item['subtotal'],
-                    'final_amount' => $item['final_amount'],
-                    'discount_type' => $item['discount_type'],
-                    'discount_value' => $item['discount_value'],
-                    'discount_amount' => $item['discount_amount'],
-                    'margin_type' => $item['margin_type'],
-                    'margin_value' => $item['margin_value'],
-                    'promo_discount_type' => $item['promo_discount_type'],
-                    'promo_discount_value' => $item['promo_discount_value'],
+                    'subtotal' => $subtotal,
+                    'final_amount' => $subtotal,
+                    'discount_type' => 'none',
+                    'discount_value' => 0,
+                    'discount_amount' => 0,
+                    'margin_type' => 'percent',
+                    'margin_value' => 0,
                 ]);
             }
 

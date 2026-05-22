@@ -344,4 +344,44 @@ class VoucherController extends Controller
             $voucher->eligibilities()->insert($payload);
         }
     }
+
+    public function usages(Request $request, Voucher $voucher)
+    {
+        $q = trim((string) $request->query('q', ''));
+        $customerId = $request->query('customer_id');
+        $sourceType = $request->query('source_type');
+
+        $query = $voucher->usages()->with('customer')->orderByDesc('used_at');
+
+        if ($q !== '') {
+            $query->where(function ($b) use ($q) {
+                $b->where('metadata', 'like', '%' . $q . '%')
+                    ->orWhere('discount_amount', 'like', '%' . $q . '%');
+            });
+        }
+
+        if (!is_null($customerId) && $customerId !== '') {
+            $query->where('customer_id', (int) $customerId);
+        }
+
+        if (!is_null($sourceType) && $sourceType !== '') {
+            $query->where('source_type', $sourceType);
+        }
+
+        $usages = $query->paginate(20)->withQueryString();
+
+        return Inertia::render('Dashboard/Vouchers/Usages', [
+            'voucher' => [
+                'id' => $voucher->id,
+                'code' => $voucher->code,
+                'name' => $voucher->name,
+            ],
+            'usages' => $usages,
+            'filters' => [
+                'q' => $q,
+                'customer_id' => $customerId,
+                'source_type' => $sourceType,
+            ],
+        ]);
+    }
 }

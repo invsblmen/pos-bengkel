@@ -1,10 +1,23 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { IconX } from '@tabler/icons-react';
 
 export default function VoucherInput({ value = '', onChange, availableVouchers = [], itemsSubtotal = 0, transactionDiscount = 0, taxAmount = 0, errors = null }) {
     const [query, setQuery] = useState(value || '');
     const [isFocused, setIsFocused] = useState(false);
+    const blurTimerRef = useRef(null);
     const normalized = (s) => (s || '').toString().trim().toUpperCase();
+
+    useEffect(() => {
+        setQuery(normalized(value));
+    }, [value]);
+
+    useEffect(() => {
+        return () => {
+            if (blurTimerRef.current) {
+                clearTimeout(blurTimerRef.current);
+            }
+        };
+    }, []);
 
     const suggestions = useMemo(() => {
         const q = normalized(query);
@@ -36,9 +49,14 @@ export default function VoucherInput({ value = '', onChange, availableVouchers =
     }, [selectedVoucher, itemsSubtotal, transactionDiscount, taxAmount]);
 
     const apply = (code) => {
+        if (blurTimerRef.current) {
+            clearTimeout(blurTimerRef.current);
+            blurTimerRef.current = null;
+        }
         const newCode = normalized(code);
         setQuery(newCode);
         onChange?.(newCode);
+        setIsFocused(false);
     };
 
     return (
@@ -49,8 +67,19 @@ export default function VoucherInput({ value = '', onChange, availableVouchers =
                     type="text"
                     value={query}
                     onChange={(e) => { setQuery(e.target.value.toUpperCase()); onChange?.(e.target.value.toUpperCase()); }}
-                    onFocus={() => setIsFocused(true)}
-                    onBlur={() => setIsFocused(false)}
+                    onFocus={() => {
+                        if (blurTimerRef.current) {
+                            clearTimeout(blurTimerRef.current);
+                            blurTimerRef.current = null;
+                        }
+                        setIsFocused(true);
+                    }}
+                    onBlur={() => {
+                        blurTimerRef.current = setTimeout(() => {
+                            setIsFocused(false);
+                            blurTimerRef.current = null;
+                        }, 120);
+                    }}
                     placeholder="Contoh: RAMADAN2026"
                     className="w-full h-9 px-3 text-xs rounded-lg border-2 border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white font-semibold focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
                     aria-autocomplete="list"
@@ -61,7 +90,16 @@ export default function VoucherInput({ value = '', onChange, availableVouchers =
                             <button
                                 key={v.id}
                                 type="button"
-                                onClick={() => apply(v.code)}
+                                onMouseDownCapture={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    apply(v.code);
+                                }}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    apply(v.code);
+                                }}
                                 className="text-left w-full px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800"
                             >
                                 <div className="flex justify-between items-center">
@@ -95,7 +133,22 @@ export default function VoucherInput({ value = '', onChange, availableVouchers =
                         <button type="button" onClick={() => { setQuery(''); onChange?.(''); }} className="px-3 py-1 text-sm bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center gap-1">
                             <IconX size={16} /> Batal
                         </button>
-                        <button type="button" onClick={() => apply(selectedVoucher.code)} className="px-3 py-1 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Pakai voucher</button>
+                        <button
+                            type="button"
+                            onMouseDownCapture={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                apply(selectedVoucher.code);
+                            }}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                apply(selectedVoucher.code);
+                            }}
+                            className="px-3 py-1 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+                        >
+                            Pakai voucher
+                        </button>
                     </div>
                 </div>
             )}

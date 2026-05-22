@@ -4,6 +4,7 @@ namespace Tests\Feature\Voucher;
 
 use Tests\TestCase;
 use App\Models\Customer;
+use App\Models\User;
 use App\Models\Voucher;
 use App\Models\VoucherEligibility;
 use App\Services\VoucherService;
@@ -264,5 +265,39 @@ class VoucherValidationTest extends TestCase
             'subtotal' => 100000,
         ]);
         $this->assertEquals(100000, $resultLowSubtotal['discount_amount']);
+    }
+
+    #[Test]
+    public function voucher_preview_route_accepts_post_without_csrf_token()
+    {
+        $user = User::create([
+            'name' => 'Voucher Preview User',
+            'email' => 'voucher-preview@example.com',
+            'password' => bcrypt('password'),
+        ]);
+        $user->assignRole('super-admin');
+
+        Voucher::query()->create([
+            'code' => 'PREVIEW2026',
+            'name' => 'Preview Voucher',
+            'is_active' => true,
+            'starts_at' => now()->subDay(),
+            'ends_at' => now()->addDay(),
+            'discount_type' => 'fixed',
+            'discount_value' => 5000,
+            'scope' => 'transaction',
+            'min_purchase' => 0,
+        ]);
+
+        $response = $this->actingAs($user)->postJson(route('vouchers.preview'), [
+            'code' => 'PREVIEW2026',
+            'subtotal' => 100000,
+        ]);
+
+        $response->assertOk();
+        $response->assertJson([
+            'ok' => true,
+            'discount_amount' => 5000,
+        ]);
     }
 }

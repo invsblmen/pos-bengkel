@@ -170,7 +170,12 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
         ->middlewareFor(['create', 'store'], 'permission:vouchers-create')
         ->middlewareFor(['edit', 'update'], 'permission:vouchers-edit')
         ->middlewareFor('destroy', 'permission:vouchers-delete');
-    Route::post('vouchers/preview', [VoucherController::class, 'preview'])->name('vouchers.preview');
+    Route::post('vouchers/preview', [VoucherController::class, 'preview'])
+        ->withoutMiddleware([ValidateCsrfToken::class])
+        ->name('vouchers.preview');
+    Route::get('vouchers/{voucher}/usages', [VoucherController::class, 'usages'])
+        ->middleware('permission:vouchers-access')
+        ->name('vouchers.usages.index');
 
     // Data import management
     Route::get('/imports', [DataImportController::class, 'index'])

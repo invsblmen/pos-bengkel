@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useMemo, useState } from 'react';
 import { IconInfoCircle, IconAlertCircle, IconCheck, IconLoader2, IconHelpCircle } from '@tabler/icons-react';
 
 function Tooltip({ text, children }) {
@@ -23,56 +23,44 @@ function Tooltip({ text, children }) {
 }
 
 export default function VoucherForm({ data, setData, errors, parts = [], partCategories = [], services = [], serviceCategories = [], submitting }) {
-    const [preview, setPreview] = useState(null);
-    const [previewError, setPreviewError] = useState(null);
-    const [previewLoading, setPreviewLoading] = useState(false);
     const [sampleSubtotal, setSampleSubtotal] = useState(100000);
-    const timer = useRef(null);
-
-    const doPreview = async () => {
-        setPreviewLoading(true);
-        setPreviewError(null);
-
-        try {
-            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-            const res = await fetch(route('vouchers.preview'), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': token,
-                    'Accept': 'application/json',
-                },
-                body: JSON.stringify({ code: data.code, subtotal: Number(sampleSubtotal || 0) }),
-            });
-
-            const json = await res.json();
-            if (!res.ok) {
-                setPreview(null);
-                setPreviewError(json?.errors ?? json?.message ?? 'Tidak bisa memproses preview');
-            } else {
-                setPreview(json);
-            }
-        } catch (err) {
-            setPreviewError('Koneksi gagal saat memeriksa voucher');
-            setPreview(null);
-        } finally {
-            setPreviewLoading(false);
+    const preview = useMemo(() => {
+        const code = (data.code || '').trim();
+        if (!code) {
+            return null;
         }
-    };
 
-    useEffect(() => {
-        if (timer.current) clearTimeout(timer.current);
-        timer.current = setTimeout(() => {
-            if ((data.code || '').trim() !== '') {
-                doPreview();
-            } else {
-                setPreview(null);
-                setPreviewError(null);
-            }
-        }, 500);
+        const subtotal = Math.max(0, Number(sampleSubtotal || 0));
+        const discountType = data.discount_type || 'percent';
+        const discountValue = Number(data.discount_value || 0);
 
-        return () => clearTimeout(timer.current);
-    }, [data.code, sampleSubtotal]);
+        let discountAmount = 0;
+        if (discountType === 'percent') {
+            discountAmount = Math.round((subtotal * discountValue) / 100);
+        } else if (discountType === 'fixed') {
+            discountAmount = Math.round(discountValue);
+        }
+
+        const maxDiscountValue = data.max_discount === '' || data.max_discount == null
+            ? null
+            : Number(data.max_discount);
+
+        if (maxDiscountValue !== null && !Number.isNaN(maxDiscountValue)) {
+            discountAmount = Math.min(discountAmount, maxDiscountValue);
+        }
+
+        discountAmount = Math.max(0, Math.min(subtotal, discountAmount));
+
+        return {
+            ok: true,
+            discount_amount: discountAmount,
+            voucher: {
+                code,
+                discount_type: discountType,
+                discount_value: discountValue,
+            },
+        };
+    }, [data.code, data.discount_type, data.discount_value, data.max_discount, sampleSubtotal]);
 
     const selectedPartCount = (data.eligible_parts || []).length;
     const selectedCategoryCount = (data.eligible_part_categories || []).length + (data.eligible_service_categories || []).length;
@@ -367,34 +355,17 @@ export default function VoucherForm({ data, setData, errors, parts = [], partCat
                     <div>
                         <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5 block">Hasil Preview</label>
                         <div className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700">
-                            {previewLoading ? (
-                                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                                    <IconLoader2 size={16} className="animate-spin" />
-                                    Mengecek...
-                                </div>
-                            ) : preview ? (
-                                preview.ok ? (
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-2">
-                                            <IconCheck size={16} className="text-green-600" />
-                                            <div className="font-bold text-slate-900 dark:text-white">Rp {Number(preview.discount_amount || 0).toLocaleString('id-ID')}</div>
+                            {preview ? (
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <IconCheck size={16} className="text-green-600" />
+                                        <div className="font-bold text-slate-900 dark:text-white">Rp {Number(preview.discount_amount || 0).toLocaleString('id-ID')}</div>
+                                    </div>
+                                    {preview.voucher && (
+                                        <div className="text-xs text-slate-600 dark:text-slate-400">
+                                            {preview.voucher.code} — {preview.voucher.discount_type === 'percent' ? `${preview.voucher.discount_value}%` : `Rp ${Number(preview.voucher.discount_value).toLocaleString('id-ID')}`}
                                         </div>
-                                        {preview.voucher && (
-                                            <div className="text-xs text-slate-600 dark:text-slate-400">
-                                                {preview.voucher.code} — {preview.voucher.discount_type === 'percent' ? `${preview.voucher.discount_value}%` : `Rp ${Number(preview.voucher.discount_value).toLocaleString('id-ID')}`}
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center gap-2 text-sm text-red-600">
-                                        <IconAlertCircle size={16} />
-                                        {(preview.errors && Object.values(preview.errors).flat().join('; ')) || 'Voucher tidak valid'}
-                                    </div>
-                                )
-                            ) : previewError ? (
-                                <div className="flex items-center gap-2 text-sm text-red-600">
-                                    <IconAlertCircle size={16} />
-                                    {typeof previewError === 'string' ? previewError : 'Error'}
+                                    )}
                                 </div>
                             ) : (
                                 <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">

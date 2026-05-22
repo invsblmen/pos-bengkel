@@ -276,6 +276,28 @@ export default function Create({ customers, mechanics, services, parts, vehicles
         : data.discount_value;
 
     const afterDiscount = Math.max(0, itemsSubtotal - transactionDiscount);
+    // Voucher discount (client-side preview when voucher code entered)
+    const voucherFromCode = (data.voucher_code || '')
+        ? (availableVouchers || []).find(v => (v.code || '').toUpperCase() === (data.voucher_code || '').toString().toUpperCase())
+        : null;
+
+    const voucherDiscountAmount = (() => {
+        if (!voucherFromCode) return 0;
+        const subtotal = Math.max(0, Number(itemsSubtotal || 0));
+        const type = voucherFromCode.discount_type || 'percent';
+        const val = Number(voucherFromCode.discount_value || 0);
+        let discount = 0;
+        if (type === 'percent') {
+            discount = Math.round((subtotal * val) / 100);
+        } else if (type === 'fixed') {
+            discount = Math.round(val);
+        }
+        if (voucherFromCode.max_discount) {
+            discount = Math.min(discount, Number(voucherFromCode.max_discount || 0));
+        }
+        // Ensure discount doesn't exceed subtotal-after-other-discounts
+        return Math.max(0, Math.min(discount, subtotal - transactionDiscount));
+    })();
     const taxAmount = (() => {
         const taxValue = Number(data.tax_value) || 0;
         if (taxMode === 'percent') {
@@ -285,7 +307,8 @@ export default function Create({ customers, mechanics, services, parts, vehicles
         }
     })();
     const rawGrandTotal = afterDiscount + taxAmount;
-    const { roundingAdjustment, grandTotal } = roundToCashDenomination(rawGrandTotal);
+    const rawGrandMinusVoucher = Math.max(0, rawGrandTotal - voucherDiscountAmount);
+    const { roundingAdjustment, grandTotal } = roundToCashDenomination(rawGrandMinusVoucher);
 
     useEffect(() => {
         if (!data.customer_id) {
@@ -650,7 +673,7 @@ export default function Create({ customers, mechanics, services, parts, vehicles
                         </button>
                     </div>
 
-                    <div className="hidden lg:flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:sticky lg:top-6 lg:h-[calc(100vh-100px)] lg:min-h-0">
+                    <div className="hidden lg:flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:sticky lg:top-6 lg:h-[calc(100vh-100px)] lg:min-h-0 lg:overflow-y-auto lg:pr-1">
                         <div className="space-y-4">
                             <div>
                                 <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
@@ -1081,6 +1104,12 @@ export default function Create({ customers, mechanics, services, parts, vehicles
                             <div className="flex justify-between items-center mb-2 text-sm">
                                 <span className="text-slate-500">Pajak</span>
                                 <span className="text-success-600">+{formatCurrency(taxAmount)}</span>
+                            </div>
+                        )}
+                        {voucherDiscountAmount > 0 && (
+                            <div className="flex justify-between items-center mb-2 text-sm">
+                                <span className="text-slate-500">Voucher</span>
+                                <span className="text-danger-500">-{formatCurrency(voucherDiscountAmount)}</span>
                             </div>
                         )}
                         {roundingAdjustment !== 0 && (

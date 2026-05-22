@@ -227,7 +227,29 @@ export default function Create({ parts = [], customers = [], availableVouchers =
     };
 
     const taxAmount = calculateTax();
-    const rawTotalAmount = afterDiscount + taxAmount;
+    // Voucher discount (client-side preview when voucher code entered)
+    const voucherFromCode = (data.voucher_code || '')
+        ? (availableVouchers || []).find(v => (v.code || '').toUpperCase() === (data.voucher_code || '').toString().toUpperCase())
+        : null;
+
+    const voucherDiscountAmount = (() => {
+        if (!voucherFromCode) return 0;
+        const subtotal = Math.max(0, Number(itemsSubtotal || 0));
+        const type = voucherFromCode.discount_type || 'percent';
+        const val = Number(voucherFromCode.discount_value || 0);
+        let discount = 0;
+        if (type === 'percent') {
+            discount = Math.round((subtotal * val) / 100);
+        } else if (type === 'fixed') {
+            discount = Math.round(val);
+        }
+        if (voucherFromCode.max_discount) {
+            discount = Math.min(discount, Number(voucherFromCode.max_discount || 0));
+        }
+        return Math.max(0, Math.min(discount, subtotal - transactionDiscount));
+    })();
+
+    const rawTotalAmount = Math.max(0, afterDiscount + taxAmount - voucherDiscountAmount);
     const { roundingAdjustment, grandTotal: totalAmount } = roundToCashDenomination(rawTotalAmount);
     const minimumDownPaymentReminder = Math.ceil(totalAmount * 0.5);
     const remainingAmount = Math.max(0, totalAmount - (Number(data.paid_amount) || 0));
@@ -981,6 +1003,12 @@ export default function Create({ parts = [], customers = [], availableVouchers =
                                             <span className="text-slate-600 dark:text-slate-400 font-medium">Pajak</span>
                                             <span className="font-bold text-green-600 dark:text-green-400">+{formatCurrency(taxAmount)}</span>
                                         </div>
+                                        {voucherDiscountAmount > 0 && (
+                                            <div className="flex items-center justify-between pb-3 border-b border-emerald-200 dark:border-emerald-700/30">
+                                                <span className="text-slate-600 dark:text-slate-400 font-medium">Voucher</span>
+                                                <span className="font-bold text-red-600 dark:text-red-400">-{formatCurrency(voucherDiscountAmount)}</span>
+                                            </div>
+                                        )}
                                         {roundingAdjustment !== 0 && (
                                             <div className="flex items-center justify-between pb-3 border-b border-emerald-200 dark:border-emerald-700/30">
                                                 <span className="text-slate-600 dark:text-slate-400 font-medium">Pembulatan</span>
