@@ -16,6 +16,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
+use App\Services\VoucherService;
+use Illuminate\Validation\ValidationException;
 
 class VoucherController extends Controller
 {
@@ -187,6 +189,57 @@ class VoucherController extends Controller
         );
 
         return $this->jsonOrRedirect(null, [], 'Voucher berhasil dihapus.');
+    }
+
+    public function preview(Request $request)
+    {
+        $payload = $request->validate([
+            'code' => 'nullable|string|max:50',
+            'subtotal' => 'nullable|numeric|min:0',
+            'part_ids' => 'nullable|array',
+            'part_ids.*' => 'integer',
+            'part_category_ids' => 'nullable|array',
+            'part_category_ids.*' => 'integer',
+            'service_ids' => 'nullable|array',
+            'service_ids.*' => 'integer',
+            'service_category_ids' => 'nullable|array',
+            'service_category_ids.*' => 'integer',
+            'customer_id' => 'nullable|integer',
+            'transaction_discount_type' => 'nullable|string',
+            'transaction_discount_value' => 'nullable|numeric',
+        ]);
+
+        $context = [
+            'subtotal' => (int) ($payload['subtotal'] ?? 0),
+            'part_ids' => $payload['part_ids'] ?? [],
+            'part_category_ids' => $payload['part_category_ids'] ?? [],
+            'service_ids' => $payload['service_ids'] ?? [],
+            'service_category_ids' => $payload['service_category_ids'] ?? [],
+            'customer_id' => $payload['customer_id'] ?? null,
+            'transaction_discount_type' => $payload['transaction_discount_type'] ?? 'none',
+            'transaction_discount_value' => $payload['transaction_discount_value'] ?? 0,
+        ];
+
+        try {
+            $service = new VoucherService();
+            $result = $service->validateForTransaction($payload['code'] ?? null, $context);
+
+            return response()->json([
+                'ok' => true,
+                'discount_amount' => $result['discount_amount'] ?? 0,
+                'voucher' => $result['voucher'] ? [
+                    'id' => $result['voucher']->id,
+                    'code' => $result['voucher']->code,
+                    'discount_type' => $result['voucher']->discount_type,
+                    'discount_value' => $result['voucher']->discount_value,
+                ] : null,
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'ok' => false,
+                'errors' => $e->errors(),
+            ], 422);
+        }
     }
 
     private function toRealtimePayload(Voucher $voucher): array

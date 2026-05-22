@@ -170,6 +170,7 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
         ->middlewareFor(['create', 'store'], 'permission:vouchers-create')
         ->middlewareFor(['edit', 'update'], 'permission:vouchers-edit')
         ->middlewareFor('destroy', 'permission:vouchers-delete');
+    Route::post('vouchers/preview', [VoucherController::class, 'preview'])->name('vouchers.preview');
 
     // Data import management
     Route::get('/imports', [DataImportController::class, 'index'])

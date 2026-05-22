@@ -23,6 +23,7 @@ use App\Services\CashChangeSuggestionService;
 use App\Services\DiscountTaxService;
 use App\Services\FIFOCostingService;
 use App\Services\VoucherService;
+use App\Services\VoucherApplier;
 use App\Services\WarrantyRegistrationService;
 use App\Support\DispatchesBroadcastSafely;
 use Carbon\Carbon;
@@ -48,13 +49,15 @@ class PartSaleController extends Controller
         DiscountTaxService $discountTaxService,
         CashChangeSuggestionService $cashChangeSuggestionService,
         WarrantyRegistrationService $warrantyRegistrationService,
-        VoucherService $voucherService
+        VoucherService $voucherService,
+        VoucherApplier $voucherApplier
     )
     {
         $this->discountTaxService = $discountTaxService;
         $this->cashChangeSuggestionService = $cashChangeSuggestionService;
         $this->warrantyRegistrationService = $warrantyRegistrationService;
         $this->voucherService = $voucherService;
+        $this->voucherApplier = $voucherApplier;
     }
 
     public function index(Request $request)
@@ -559,43 +562,9 @@ class PartSaleController extends Controller
 
             }
 
-            $voucherResult = $this->voucherService->validateForTransaction($request->voucher_code, [
-                'customer_id' => (int) $request->customer_id,
-                'subtotal' => $subtotalForVoucher,
-                'part_ids' => array_values(array_unique($partIdsForVoucher)),
-                'part_category_ids' => array_values(array_unique($partCategoryIdsForVoucher)),
-                'service_ids' => [],
-                'service_category_ids' => [],
-                'transaction_discount_type' => $request->discount_type ?? 'none',
-                'transaction_discount_value' => $request->discount_value ?? 0,
-            ]);
-
-            $voucher = $voucherResult['voucher'];
-            $voucherDiscountAmount = (int) ($voucherResult['discount_amount'] ?? 0);
-
-            $sale->update([
-                'voucher_id' => $voucher?->id,
-                'voucher_code' => $voucher?->code,
-                'voucher_discount_amount' => $voucher ? $voucherDiscountAmount : 0,
-            ]);
-
-            // Recalculate totals
-            $sale->recalculateTotals()->save();
+            $this->voucherApplier->applyToPartSale($sale, $request->voucher_code ?? null);
 
             $this->recordCashPaymentFromMeta($sale, (int) (Auth::id() ?? 0));
-
-            if ($voucher) {
-                $this->voucherService->markUsed(
-                    $voucher,
-                    PartSale::class,
-                    (int) $sale->id,
-                    (int) $sale->customer_id,
-                    $voucherDiscountAmount,
-                    [
-                        'sale_number' => $sale->sale_number,
-                    ]
-                );
-            }
 
             if ($sale->status === 'waiting_stock') {
                 $this->tryFulfillWaitingStock($sale);
@@ -808,41 +777,7 @@ class PartSaleController extends Controller
                 $this->warrantyRegistrationService->registerFromPartSaleDetail($partSale, $detail, $part);
             }
 
-            $voucherResult = $this->voucherService->validateForTransaction($request->voucher_code, [
-                'customer_id' => (int) $request->customer_id,
-                'subtotal' => $subtotalForVoucher,
-                'part_ids' => array_values(array_unique($partIdsForVoucher)),
-                'part_category_ids' => array_values(array_unique($partCategoryIdsForVoucher)),
-                'service_ids' => [],
-                'service_category_ids' => [],
-                'transaction_discount_type' => $request->discount_type ?? 'none',
-                'transaction_discount_value' => $request->discount_value ?? 0,
-            ]);
-
-            $voucher = $voucherResult['voucher'];
-            $voucherDiscountAmount = (int) ($voucherResult['discount_amount'] ?? 0);
-
-            $partSale->update([
-                'voucher_id' => $voucher?->id,
-                'voucher_code' => $voucher?->code,
-                'voucher_discount_amount' => $voucher ? $voucherDiscountAmount : 0,
-            ]);
-
-            // Recalculate totals
-            $partSale->recalculateTotals()->save();
-
-            if ($voucher) {
-                $this->voucherService->markUsed(
-                    $voucher,
-                    PartSale::class,
-                    (int) $partSale->id,
-                    (int) $partSale->customer_id,
-                    $voucherDiscountAmount,
-                    [
-                        'sale_number' => $partSale->sale_number,
-                    ]
-                );
-            }
+            $this->voucherApplier->applyToPartSale($partSale, $request->voucher_code ?? null);
 
             if (in_array($status, ['confirmed', 'ready_to_notify', 'waiting_pickup', 'completed'], true)) {
                 $this->reserveAllDetailsOrFail($partSale, "Konfirmasi Penjualan #{$partSale->sale_number}");

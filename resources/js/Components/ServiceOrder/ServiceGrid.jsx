@@ -391,28 +391,10 @@ export default function ServiceGrid({
                                 <div className="lg:col-span-3">
                                     <label className="mb-1 block text-[11px] font-semibold text-slate-700 dark:text-slate-300">Diskon</label>
                                     <div className="flex items-center gap-1.5">
-                                        <div className="inline-flex h-10 min-w-[70px] shrink-0 overflow-hidden rounded-lg border border-slate-300 dark:border-slate-700">
-                                            <button
-                                                type="button"
-                                                onClick={() => setPartDraft((prev) => ({ ...prev, discount_mode: 'percent' }))}
-                                                className={`inline-flex w-8 items-center justify-center text-[11px] font-bold transition-all ${partDraft.discount_mode === 'percent'
-                                                    ? 'bg-purple-600 text-white'
-                                                    : 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                                                }`}
-                                            >
-                                                %
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => setPartDraft((prev) => ({ ...prev, discount_mode: 'nominal' }))}
-                                                className={`inline-flex min-w-[38px] flex-1 items-center justify-center text-[11px] font-bold transition-all ${partDraft.discount_mode === 'nominal'
-                                                    ? 'bg-emerald-600 text-white'
-                                                    : 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                                                }`}
-                                            >
-                                                Rp
-                                            </button>
-                                        </div>
+                                        <DiscountModeToggle
+                                            mode={partDraft.discount_mode || 'percent'}
+                                            onChange={(mode) => setPartDraft((prev) => ({ ...prev, discount_mode: mode }))}
+                                        />
                                         <div className="relative flex-1">
                                             {partDraft.discount_mode === 'nominal' && (
                                                 <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500">Rp</span>
@@ -512,22 +494,11 @@ export default function ServiceGrid({
                                                         </div>
 
                                                         {/* Diskon Toggle */}
-                                                        <div className="inline-flex h-9 w-[70px] flex-shrink-0 overflow-hidden rounded-lg border border-slate-300 dark:border-slate-700">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handlePartDiscountChange(index, 'discount_mode', 'percent')}
-                                                                    className={`inline-flex w-8 items-center justify-center text-[11px] font-bold transition-all ${(part.discount_mode || 'percent') === 'percent' ? 'bg-primary-600 text-white' : 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}
-                                                                >
-                                                                    %
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handlePartDiscountChange(index, 'discount_mode', 'nominal')}
-                                                                    className={`inline-flex min-w-[38px] flex-1 items-center justify-center text-[11px] font-bold transition-all ${(part.discount_mode || 'percent') === 'nominal' ? 'bg-emerald-600 text-white' : 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}
-                                                                >
-                                                                    Rp
-                                                                </button>
-                                                        </div>
+                                                        <DiscountModeToggle
+                                                            mode={part.discount_mode || 'percent'}
+                                                            onChange={(mode) => handlePartDiscountChange(index, 'discount_mode', mode)}
+                                                            className="flex-shrink-0"
+                                                        />
 
                                                         {/* Diskon Value */}
                                                         <div className="min-w-0">
@@ -629,22 +600,11 @@ export default function ServiceGrid({
                                                     />
 
                                                     {/* Diskon Toggle */}
-                                                    <div className="inline-flex h-9 min-w-[70px] overflow-hidden rounded-lg border border-slate-300 dark:border-slate-700 flex-shrink-0">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handlePartDiscountChange(index, 'discount_mode', 'percent')}
-                                                            className={`inline-flex w-8 items-center justify-center text-[11px] font-bold ${(part.discount_mode || 'percent') === 'percent' ? 'bg-primary-600 text-white' : 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}
-                                                        >
-                                                            %
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handlePartDiscountChange(index, 'discount_mode', 'nominal')}
-                                                            className={`inline-flex min-w-[38px] flex-1 items-center justify-center text-[11px] font-bold ${(part.discount_mode || 'percent') === 'nominal' ? 'bg-emerald-600 text-white' : 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}
-                                                        >
-                                                            Rp
-                                                        </button>
-                                                    </div>
+                                                    <DiscountModeToggle
+                                                        mode={part.discount_mode || 'percent'}
+                                                        onChange={(mode) => handlePartDiscountChange(index, 'discount_mode', mode)}
+                                                        className="flex-shrink-0"
+                                                    />
 
                                                     {/* Diskon Value */}
                                                     <input

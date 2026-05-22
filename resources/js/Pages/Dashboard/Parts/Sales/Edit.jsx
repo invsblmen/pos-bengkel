@@ -9,6 +9,7 @@ import {
     IconShoppingCart, IconReceipt, IconCash, IconCheck,
     IconAlertCircle, IconDiscount, IconPercentage, IconCurrencyDollar
 } from '@tabler/icons-react';
+import VoucherInput from '@/Components/VoucherInput';
 import toast from 'react-hot-toast';
 import { extractDateFromISO } from '@/Utils/datetime';
 import { roundToCashDenomination } from '@/Utils/cashRounding';
@@ -843,25 +844,15 @@ export default function Edit({ sale, customers = [], parts = [], availableVouche
                                 </div>
                                 <div className="p-4 space-y-4">
                                     <div>
-                                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-                                            Kode Voucher
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={data.voucher_code || ''}
-                                            onChange={(e) => setData('voucher_code', e.target.value.toUpperCase())}
-                                            placeholder="Contoh: RAMADAN2026"
-                                            className="w-full h-9 px-3 text-xs rounded-lg border-2 border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white font-semibold focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
-                                            list="part-sale-voucher-options"
+                                        <VoucherInput
+                                            value={data.voucher_code}
+                                            onChange={(v) => setData('voucher_code', v)}
+                                            availableVouchers={availableVouchers}
+                                            itemsSubtotal={itemsSubtotal}
+                                            transactionDiscount={transactionDiscount}
+                                            taxAmount={taxAmount}
+                                            errors={errors.voucher_code}
                                         />
-                                        <datalist id="part-sale-voucher-options">
-                                            {availableVouchers.map((voucher) => (
-                                                <option key={voucher.id} value={voucher.code}>{voucher.name}</option>
-                                            ))}
-                                        </datalist>
-                                        {errors.voucher_code && (
-                                            <p className="mt-1 text-xs text-red-600">{errors.voucher_code}</p>
-                                        )}
                                     </div>
 
                                     <div className="grid gap-4 sm:grid-cols-2">

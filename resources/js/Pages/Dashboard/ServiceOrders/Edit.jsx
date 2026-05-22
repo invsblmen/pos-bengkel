@@ -24,6 +24,7 @@ import {
 } from '@tabler/icons-react';
 import toast from 'react-hot-toast';
 import { roundToCashDenomination } from '@/Utils/cashRounding';
+import VoucherInput from '@/Components/VoucherInput';
 
 export default function Edit({
     order,
@@ -763,23 +764,15 @@ export default function Edit({
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
-                                    Kode Voucher
-                                </label>
-                                <input
-                                    type="text"
-                                    value={data.voucher_code || ''}
-                                    onChange={(e) => setData('voucher_code', e.target.value.toUpperCase())}
-                                    placeholder="Contoh: SERVICEHEMAT"
-                                    list="service-order-voucher-options"
-                                    className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                                <VoucherInput
+                                    value={data.voucher_code}
+                                    onChange={(v) => setData('voucher_code', v)}
+                                    availableVouchers={availableVouchers}
+                                    itemsSubtotal={itemsSubtotal}
+                                    transactionDiscount={transactionDiscount}
+                                    taxAmount={taxAmount}
+                                    errors={errors.voucher_code}
                                 />
-                                <datalist id="service-order-voucher-options">
-                                    {availableVouchers.map((voucher) => (
-                                        <option key={voucher.id} value={voucher.code}>{voucher.name}</option>
-                                    ))}
-                                </datalist>
-                                {errors.voucher_code && <p className="mt-1 text-xs text-red-600">{errors.voucher_code}</p>}
                             </div>
 
                             <div>

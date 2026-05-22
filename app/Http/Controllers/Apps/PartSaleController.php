@@ -9,6 +9,7 @@ use App\Models\PartSale;
 use App\Models\PartSaleDetail;
 use App\Models\PartStockMovement;
 use App\Services\VoucherService;
+use App\Services\VoucherApplier;
 use App\Services\DiscountTaxService;
 use App\Services\FIFOCostingService;
 use App\Support\DispatchesBroadcastSafely;
@@ -27,7 +28,7 @@ class PartSaleController extends Controller
     use DispatchesBroadcastSafely;
     use RespondsWithJsonOrRedirect;
 
-    public function __construct(private readonly VoucherService $voucherService)
+    public function __construct(private readonly VoucherService $voucherService, private readonly VoucherApplier $voucherApplier)
     {
     }
 
@@ -144,7 +145,7 @@ class PartSaleController extends Controller
             ]);
 
             $sale->total = $this->syncPartSaleItems($sale, $data['items']);
-            $this->applyVoucherToPartSale($sale, $data['voucher_code'] ?? null);
+            $this->voucherApplier->applyToPartSale($sale, $data['voucher_code'] ?? null);
 
             // Calculate transaction-level discount and tax
             $sale->recalculateTotals()->save();
@@ -214,7 +215,7 @@ class PartSaleController extends Controller
             ]);
 
             $partSale->total = $this->syncPartSaleItems($partSale, $data['items']);
-            $this->applyVoucherToPartSale($partSale, $data['voucher_code'] ?? null);
+            $this->voucherApplier->applyToPartSale($partSale, $data['voucher_code'] ?? null);
 
             $partSale->recalculateTotals()->save();
 
@@ -224,68 +225,7 @@ class PartSaleController extends Controller
         return $this->jsonOrRedirect('part-sales.show', [$updatedSale->id], 'Penjualan sparepart berhasil diperbarui', $updatedSale->toArray());
     }
 
-    private function applyVoucherToPartSale(PartSale $sale, ?string $voucherCode): void
-    {
-        $context = $this->collectPartSaleVoucherContext($sale);
-
-        $voucherResult = $this->voucherService->validateForTransaction($voucherCode, [
-            'customer_id' => (int) ($sale->customer_id ?? 0),
-            'subtotal' => (int) ($sale->total ?? 0),
-            'part_ids' => $context['part_ids'],
-            'part_category_ids' => $context['part_category_ids'],
-            'service_ids' => [],
-            'service_category_ids' => [],
-            'transaction_discount_type' => $sale->discount_type ?? 'none',
-            'transaction_discount_value' => $sale->discount_value ?? 0,
-        ]);
-
-        $voucher = $voucherResult['voucher'];
-        $voucherDiscountAmount = (int) ($voucherResult['discount_amount'] ?? 0);
-
-        $sale->update([
-            'voucher_id' => $voucher?->id,
-            'voucher_code' => $voucher?->code,
-            'voucher_discount_amount' => $voucher ? $voucherDiscountAmount : 0,
-        ]);
-
-        $sale->recalculateTotals()->save();
-
-        if ($voucher) {
-            $this->voucherService->markUsed(
-                $voucher,
-                PartSale::class,
-                (int) $sale->id,
-                (int) ($sale->customer_id ?? 0),
-                $voucherDiscountAmount,
-                [
-                    'invoice' => $sale->invoice,
-                ]
-            );
-        }
-    }
-
-    private function collectPartSaleVoucherContext(PartSale $sale): array
-    {
-        $sale->loadMissing('details.part.category');
-
-        $partIds = [];
-        $partCategoryIds = [];
-
-        foreach ($sale->details as $detail) {
-            if ($detail->part_id) {
-                $partIds[] = (int) $detail->part_id;
-
-                if ($detail->part && $detail->part->part_category_id) {
-                    $partCategoryIds[] = (int) $detail->part->part_category_id;
-                }
-            }
-        }
-
-        return [
-            'part_ids' => array_values(array_unique($partIds)),
-            'part_category_ids' => array_values(array_unique($partCategoryIds)),
-        ];
-    }
+    // voucher application centralized in App\Services\VoucherApplier
 
     private function syncPartSaleItems(PartSale $sale, array $items): int
     {
