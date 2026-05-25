@@ -176,6 +176,9 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::get('vouchers/{voucher}/usages', [VoucherController::class, 'usages'])
         ->middleware('permission:vouchers-access')
         ->name('vouchers.usages.index');
+    Route::get('vouchers/{voucher}/usages/export', [VoucherController::class, 'usagesExport'])
+        ->middleware('permission:vouchers-access')
+        ->name('vouchers.usages.export');
 
     // Data import management
     Route::get('/imports', [DataImportController::class, 'index'])

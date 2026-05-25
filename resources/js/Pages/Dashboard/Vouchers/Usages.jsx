@@ -6,9 +6,11 @@ export default function Usages() {
     const { props } = usePage();
     const { voucher = {}, usages = { data: [] }, filters = {} } = props;
 
-    const [q, setQ] = useState(filters.q || '');
-    const [customerId, setCustomerId] = useState(filters.customer_id || '');
-    const [sourceType, setSourceType] = useState(filters.source_type || '');
+        const [q, setQ] = useState(filters.q || '');
+        const [customerId, setCustomerId] = useState(filters.customer_id || '');
+        const [sourceType, setSourceType] = useState(filters.source_type || '');
+        const [from, setFrom] = useState(filters.from || '');
+        const [to, setTo] = useState(filters.to || '');
 
     const applyFilter = (next) => {
         router.get(route('vouchers.usages.index', voucher.id), next, {
@@ -55,8 +57,19 @@ export default function Usages() {
                             <input value={sourceType} onChange={(e) => setSourceType(e.target.value)} className="w-full h-9 px-3 rounded-lg border" placeholder="App\\Models\\PartSale" />
                         </div>
 
-                        <div className="flex items-end">
+                        <div>
+                            <label className="text-xs font-semibold">Dari</label>
+                            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-full h-9 px-3 rounded-lg border" />
+                        </div>
+
+                        <div>
+                            <label className="text-xs font-semibold">Sampai</label>
+                            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-full h-9 px-3 rounded-lg border" />
+                        </div>
+
+                        <div className="flex items-end gap-2">
                             <button type="submit" className="h-9 px-3 rounded-lg bg-primary-600 text-white">Filter</button>
+                            <a href={route('vouchers.usages.export', { voucher: voucher.id, q, customer_id: customerId, source_type: sourceType, from, to })} className="h-9 px-3 rounded-lg bg-slate-200 text-slate-700 flex items-center">Export CSV</a>
                         </div>
                     </form>
                 </div>

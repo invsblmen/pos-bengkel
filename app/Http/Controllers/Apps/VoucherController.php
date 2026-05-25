@@ -350,6 +350,64 @@ class VoucherController extends Controller
         $q = trim((string) $request->query('q', ''));
         $customerId = $request->query('customer_id');
         $sourceType = $request->query('source_type');
+        $from = $request->query('from');
+        $to = $request->query('to');
+
+        $query = $voucher->usages()->with('customer')->orderByDesc('used_at');
+
+        if ($q !== '') {
+            $query->where(function ($b) use ($q) {
+                $b->where('metadata', 'like', '%' . $q . '%')
+                    ->orWhere('discount_amount', 'like', '%' . $q . '%');
+            });
+        }
+
+        if (!is_null($customerId) && $customerId !== '') {
+            $query->where('customer_id', (int) $customerId);
+        }
+
+        if (!is_null($sourceType) && $sourceType !== '') {
+            $query->where('source_type', $sourceType);
+        }
+        if (!empty($from) && !empty($to)) {
+            $query->whereBetween('used_at', [
+                date('Y-m-d 00:00:00', strtotime($from)),
+                date('Y-m-d 23:59:59', strtotime($to)),
+            ]);
+        } elseif (!empty($from)) {
+            $query->where('used_at', '>=', date('Y-m-d 00:00:00', strtotime($from)));
+        } elseif (!empty($to)) {
+            $query->where('used_at', '<=', date('Y-m-d 23:59:59', strtotime($to)));
+        }
+
+        $usages = $query->paginate(20)->withQueryString();
+
+        return Inertia::render('Dashboard/Vouchers/Usages', [
+            'voucher' => [
+                'id' => $voucher->id,
+                'code' => $voucher->code,
+                'name' => $voucher->name,
+            ],
+            'usages' => $usages,
+            'filters' => [
+                'q' => $q,
+                'customer_id' => $customerId,
+                'source_type' => $sourceType,
+                'from' => $from,
+                'to' => $to,
+            ],
+        ]);
+    }
+
+    public function usagesExport(Request $request, Voucher $voucher)
+    {
+        $this->authorize('viewAny', Voucher::class);
+
+        $q = trim((string) $request->query('q', ''));
+        $customerId = $request->query('customer_id');
+        $sourceType = $request->query('source_type');
+        $from = $request->query('from');
+        $to = $request->query('to');
 
         $query = $voucher->usages()->with('customer')->orderByDesc('used_at');
 
@@ -368,20 +426,42 @@ class VoucherController extends Controller
             $query->where('source_type', $sourceType);
         }
 
-        $usages = $query->paginate(20)->withQueryString();
+        if (!empty($from) && !empty($to)) {
+            $query->whereBetween('used_at', [
+                date('Y-m-d 00:00:00', strtotime($from)),
+                date('Y-m-d 23:59:59', strtotime($to)),
+            ]);
+        } elseif (!empty($from)) {
+            $query->where('used_at', '>=', date('Y-m-d 00:00:00', strtotime($from)));
+        } elseif (!empty($to)) {
+            $query->where('used_at', '<=', date('Y-m-d 23:59:59', strtotime($to)));
+        }
 
-        return Inertia::render('Dashboard/Vouchers/Usages', [
-            'voucher' => [
-                'id' => $voucher->id,
-                'code' => $voucher->code,
-                'name' => $voucher->name,
-            ],
-            'usages' => $usages,
-            'filters' => [
-                'q' => $q,
-                'customer_id' => $customerId,
-                'source_type' => $sourceType,
-            ],
+        $filename = 'voucher_usages_' . $voucher->code . '_' . now()->format('Ymd_His') . '.csv';
+
+        $callback = function () use ($query) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['used_at', 'customer_id', 'customer_name', 'source_type', 'source_id', 'discount_amount', 'metadata']);
+
+            $query->chunk(200, function ($rows) use ($handle) {
+                foreach ($rows as $row) {
+                    fputcsv($handle, [
+                        optional($row->used_at)->toDateTimeString(),
+                        $row->customer_id,
+                        $row->customer?->name ?? '',
+                        $row->source_type,
+                        $row->source_id,
+                        $row->discount_amount,
+                        is_array($row->metadata) ? json_encode($row->metadata, JSON_UNESCAPED_UNICODE) : ($row->metadata ?? ''),
+                    ]);
+                }
+            });
+
+            fclose($handle);
+        };
+
+        return response()->streamDownload($callback, $filename, [
+            'Content-Type' => 'text/csv; charset=utf-8',
         ]);
     }
 }
