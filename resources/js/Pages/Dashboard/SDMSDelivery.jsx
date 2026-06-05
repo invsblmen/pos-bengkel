@@ -4,6 +4,7 @@ import { IconFileDescription, IconRefresh, IconSearch, IconTruck } from '@tabler
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/Card';
 import axios from 'axios';
 import Modal from '@/Components/Dashboard/Modal';
+import SDMSSessionStatus from '@/Components/Dashboard/SDMSSessionStatus';
 import { toDisplayDateTime } from '@/Utils/datetime';
 
 const normalizeText = (value) => (value ?? '').toString().toLowerCase();
@@ -357,6 +358,8 @@ export default function SDMSDelivery({ sdms, defaultSupplierId = '', defaultSupp
             <Head title="List Pemesanan" />
 
             <div className="space-y-6">
+                <SDMSSessionStatus sdms={sdms} />
+
                 <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-cyan-50 p-6 shadow-sm dark:border-slate-800 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900/70">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                         <div className="max-w-2xl space-y-2">

@@ -8,7 +8,7 @@ import {
     IconFilter, IconX, IconArrowUp, IconArrowDown, IconArrowsSort,
     IconCategory, IconTruck, IconBox, IconDownload, IconPrinter,
     IconEye, IconSearch, IconList, IconLayoutGrid,
-    IconShieldCheck, IconAlertTriangle, IconRefresh, IconCloudSearch,
+    IconShieldCheck, IconAlertTriangle, IconRefresh, IconCloudSearch, IconCheck, IconAlertCircleFilled,
 } from '@tabler/icons-react';
 
 const formatCurrency = (value = 0) =>
@@ -120,6 +120,7 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
     const [sdmsPriceCheck, setSdmsPriceCheck] = useState(null);
     const [sdmsPriceLoading, setSdmsPriceLoading] = useState(false);
     const [sdmsPriceError, setSdmsPriceError] = useState(null);
+    const [sdmsSessionState, setSdmsSessionState] = useState('idle');
     const [visibleColumns, setVisibleColumns] = useState({
         name: true, part_number: true, category: true, supplier: true,
         rack_location: true, stock: true, minimal_stock: true,
@@ -190,6 +191,7 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
 
         setSdmsPriceLoading(true);
         setSdmsPriceError(null);
+        setSdmsSessionState('checking');
 
         try {
             const response = await fetch(`/dashboard/parts/sdms-price-check?${params.toString()}`, {
@@ -198,6 +200,7 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
             const payload = await response.json().catch(() => ({}));
 
             if (!response.ok) {
+                setSdmsSessionState(payload.login_url ? 'inactive' : 'unknown');
                 setSdmsPriceError({
                     message: payload.message || 'Gagal mengecek harga SDMS.',
                     login_url: payload.login_url,
@@ -205,8 +208,10 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
                 return;
             }
 
+            setSdmsSessionState('active');
             setSdmsPriceCheck(payload);
         } catch (error) {
+            setSdmsSessionState('unknown');
             setSdmsPriceError({ message: error.message || 'Gagal menghubungi endpoint cek harga SDMS.' });
         } finally {
             setSdmsPriceLoading(false);
@@ -329,7 +334,7 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
                     </div>
                 </div>
 
-                {(sdmsPriceError || hasSdmsResults) && (
+                {(sdmsPriceLoading || sdmsPriceError || hasSdmsResults) && (
                     <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 md:p-5 shadow-sm">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                             <div>
@@ -343,6 +348,28 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
                                             Membandingkan harga jual lokal dengan harga resmi SDMS untuk sparepart yang tampil di halaman ini.
                                         </p>
                                     </div>
+                                </div>
+                                <div className="mt-3">
+                                    {sdmsSessionState === 'active' && (
+                                        <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+                                            <IconCheck size={14} /> Sesi SDMS aktif
+                                        </span>
+                                    )}
+                                    {sdmsSessionState === 'inactive' && (
+                                        <span className="inline-flex items-center gap-2 rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-800 dark:bg-rose-950/40 dark:text-rose-200">
+                                            <IconAlertCircleFilled size={14} /> Sesi SDMS belum aktif
+                                        </span>
+                                    )}
+                                    {sdmsSessionState === 'checking' && (
+                                        <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                                            <IconRefresh size={14} className="animate-spin" /> Mengecek sesi SDMS...
+                                        </span>
+                                    )}
+                                    {sdmsSessionState === 'unknown' && (
+                                        <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                            <IconAlertCircle size={14} /> Status sesi belum pasti
+                                        </span>
+                                    )}
                                 </div>
                                 {sdmsPriceCheck?.checked_at && (
                                     <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">

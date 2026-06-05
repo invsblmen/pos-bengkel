@@ -3,6 +3,8 @@ import { Head, Link } from '@inertiajs/react';
 import { IconArrowLeft, IconRefresh, IconSearch, IconTruckDelivery, IconPlus, IconCheck, IconSend } from '@tabler/icons-react';
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/Card';
 import axios from 'axios';
+import SDMSAuthModal from '@/Components/Dashboard/SDMSAuthModal';
+import SDMSSessionStatus from '@/Components/Dashboard/SDMSSessionStatus';
 import { toDisplayDateTime } from '@/Utils/datetime';
 
 const normalizeText = (value) => (value ?? '').toString().toLowerCase();
@@ -357,6 +359,8 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
     const [addedParts, setAddedParts] = useState({});
     const [createSpareLoading, setCreateSpareLoading] = useState(false);
     const [createPurchaseLoading, setCreatePurchaseLoading] = useState(false);
+    const [showLoginModal, setShowLoginModal] = useState(false);
+    const isAuthenticated = Boolean(sdms && (sdms.access_token || sdms.id_token));
 
     const handleOpenAddModal = (numberPart, name) => {
         setModalPart({ numberPart, name });
@@ -653,6 +657,27 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
             <Head title="SPG" />
 
             <div className="space-y-6">
+                <SDMSSessionStatus sdms={sdms} />
+
+                {!isAuthenticated && (
+                    <div className="rounded-3xl border border-cyan-200 bg-gradient-to-r from-cyan-50 via-white to-blue-50 p-5 shadow-sm dark:border-cyan-900/40 dark:from-cyan-950/30 dark:via-slate-950 dark:to-blue-950/30">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                            <div className="space-y-1">
+                                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-700 dark:text-cyan-300">SDMS Session Required</p>
+                                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Login SDMS untuk memuat detail SPG</h2>
+                                <p className="text-sm leading-6 text-slate-600 dark:text-slate-400">Buka popup login untuk menyimpan sesi tanpa berpindah halaman.</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowLoginModal(true)}
+                                className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-cyan-600/20 transition hover:from-cyan-500 hover:to-blue-500"
+                            >
+                                Login SDMS
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-emerald-50 p-6 shadow-sm dark:border-slate-800 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900/70">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                         <div className="max-w-2xl space-y-2">
@@ -1187,6 +1212,8 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                     </CardBody>
                 </Card>
             </div>
+
+            <SDMSAuthModal show={showLoginModal} onClose={() => setShowLoginModal(false)} sdms={sdms} />
         </>
     );
 }

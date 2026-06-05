@@ -1,8 +1,13 @@
-import React from 'react';
-import { Head, Link } from '@inertiajs/react';
+import React, { useState } from 'react';
+import { Head } from '@inertiajs/react';
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/Card';
+import SDMSAuthModal from '@/Components/Dashboard/SDMSAuthModal';
+import SDMSSessionStatus from '@/Components/Dashboard/SDMSSessionStatus';
 
 export default function SDMSDashboard({ sdms }) {
+    const [showLoginModal, setShowLoginModal] = useState(false);
+    const isAuthenticated = Boolean(sdms && (sdms.access_token || sdms.id_token));
+
     return (
         <>
             <Head title="SDMS Dashboard" />
@@ -13,17 +18,32 @@ export default function SDMSDashboard({ sdms }) {
                     <p className="text-gray-600">Status koneksi dan token untuk SDMS Dealer API.</p>
                 </div>
 
+                <SDMSSessionStatus sdms={sdms} />
+
                 <Card>
                     <CardHeader>
                         <CardTitle>Status Autentikasi</CardTitle>
                     </CardHeader>
                     <CardBody>
-                        {!sdms || !(sdms.access_token || sdms.id_token) ? (
+                        {!isAuthenticated ? (
                             <div className="space-y-3">
                                 <p className="text-sm text-gray-600">Anda belum login ke SDMS.</p>
-                                <Link href={route('sdms.auth.index')} className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg">
-                                    Login ke SDMS
-                                </Link>
+                                <div className="flex flex-wrap gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowLoginModal(true)}
+                                        className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-cyan-600/20 transition hover:from-cyan-500 hover:to-blue-500"
+                                    >
+                                        Login SDMS
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowLoginModal(true)}
+                                        className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-900 dark:hover:text-white"
+                                    >
+                                        Buka popup login
+                                    </button>
+                                </div>
                             </div>
                         ) : (
                             <div className="space-y-3">
@@ -35,9 +55,13 @@ export default function SDMSDashboard({ sdms }) {
                                     <a href={(window && window.__SDMS_BASE_URL__) || '/'} target="_blank" rel="noreferrer" className="px-4 py-2 border rounded-lg">
                                         Buka SDMS (external)
                                     </a>
-                                    <Link href={route('sdms.auth.index')} className="px-4 py-2 bg-gray-200 rounded-lg">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowLoginModal(true)}
+                                        className="px-4 py-2 bg-gray-200 rounded-lg"
+                                    >
                                         Login Ulang / Ganti Kredensial
-                                    </Link>
+                                    </button>
                                 </div>
                                 {sdms.raw && (
                                     <details className="mt-4 p-3 border rounded bg-gray-50">
@@ -50,6 +74,8 @@ export default function SDMSDashboard({ sdms }) {
                     </CardBody>
                 </Card>
             </div>
+
+            <SDMSAuthModal show={showLoginModal} onClose={() => setShowLoginModal(false)} sdms={sdms} />
         </>
     );
 }
