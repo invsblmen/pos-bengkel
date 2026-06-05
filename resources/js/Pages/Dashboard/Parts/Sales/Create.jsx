@@ -46,7 +46,10 @@ export default function Create({ parts = [], customers = [], availableVouchers =
 
     const getPartId = (part) => part?.id ?? part?.part_id ?? part?.value ?? part?.key ?? null;
     const getPartName = (part) => part?.name ?? part?.part_name ?? part?.title ?? '';
-    const getPartPrice = (part) => part?.sell_price ?? part?.selling_price ?? part?.price ?? part?.unit_price ?? 0;
+    const getPartPrice = (part) => {
+        const candidates = [part?.sell_price, part?.selling_price, part?.price, part?.unit_price];
+        return Number(candidates.find((value) => Number(value) > 0) ?? 0);
+    };
     const getPartNumber = (part) => part?.part_number ?? part?.part_no ?? part?.code ?? '';
     const getPartStock = (part) => part?.stock ?? part?.qty ?? part?.quantity ?? 0;
 

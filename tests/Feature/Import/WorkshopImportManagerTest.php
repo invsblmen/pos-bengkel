@@ -71,4 +71,37 @@ class WorkshopImportManagerTest extends TestCase
             'year' => '2022',
         ], false);
     }
+
+    public function test_vehicle_import_warns_and_reuses_default_customer_when_customer_data_is_missing(): void
+    {
+        $manager = new WorkshopImportManager();
+
+        $path = tempnam(sys_get_temp_dir(), 'vehicle_import_');
+        if ($path === false) {
+            $this->fail('Unable to create temporary file for import test.');
+        }
+
+        file_put_contents($path, "plate_number,brand,model\nD1234AB,Honda,Beat\nD1235AC,Yamaha,Mio\n");
+
+        $file = new \Illuminate\Http\UploadedFile(
+            $path,
+            'vehicles.csv',
+            'text/csv',
+            null,
+            true
+        );
+
+        try {
+            $result = $manager->import('vehicles', $file, false);
+        } finally {
+            @unlink($path);
+        }
+
+        $this->assertSame(2, $result['successful_rows']);
+        $this->assertSame(2, count($result['warnings']));
+        $this->assertSame(2, $result['warnings'][0]['line']);
+        $this->assertSame(3, $result['warnings'][1]['line']);
+        $this->assertSame(1, \App\Models\Customer::query()->where('name', 'Pemilik Tidak Diketahui')->count());
+        $this->assertSame(2, \Illuminate\Support\Facades\DB::table('vehicles')->count());
+    }
 }

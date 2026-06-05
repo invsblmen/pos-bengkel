@@ -56,6 +56,8 @@ export default function Index({ datasets = [], selectedType = "", lastResult = n
         }));
     }, [lastResult]);
 
+    const warnings = Array.isArray(lastResult?.warnings) ? lastResult.warnings : [];
+
     useEffect(() => {
         if (groupedDetailFailures.length === 0) {
             setExpandedSheets({});
@@ -267,6 +269,20 @@ export default function Index({ datasets = [], selectedType = "", lastResult = n
                         <SummaryCard title="Update" value={lastResult.updated_rows} />
                         <SummaryCard title="Gagal" value={lastResult.failed_rows} className="border-red-200 dark:border-red-800" />
                     </div>
+
+                    {warnings.length > 0 && (
+                        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 px-4 py-3 text-sm">
+                            <p className="font-semibold">Peringatan Import</p>
+                            <ul className="mt-2 list-disc space-y-1 pl-5">
+                                {warnings.map((warning, idx) => (
+                                    <li key={`${warning.message || warning}-${idx}`}>
+                                        {warning.line ? `Baris ${warning.line}: ` : ""}
+                                        {warning.message || warning}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
 
                     {lastResult.dry_run && (
                         <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 text-blue-800 px-4 py-3 text-sm">

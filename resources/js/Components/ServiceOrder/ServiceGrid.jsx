@@ -21,6 +21,10 @@ const getPartNumber = (part) => {
     return part?.part_number || part?.part_no || part?.code || '';
 };
 
+const getPartPrice = (part) => {
+    return Number(part?.sell_price ?? part?.selling_price ?? part?.price ?? part?.unit_price ?? 0) || 0;
+};
+
 export default function ServiceGrid({
     services,
     parts,
@@ -119,7 +123,7 @@ export default function ServiceGrid({
         }
 
         const selectedPart = parts.find((p) => p.id === parseInt(inputPart.part_id));
-        const defaultPrice = selectedPart?.sell_price || 0;
+        const defaultPrice = getPartPrice(selectedPart);
         const partNumber = getPartNumber(selectedPart);
 
         setServiceParts([
@@ -155,7 +159,7 @@ export default function ServiceGrid({
         setPartDraft((prev) => ({
             ...prev,
             part_id: partId,
-            price: selectedPart.sell_price || 0
+            price: getPartPrice(selectedPart)
         }));
         focusDraftField('qty');
     };
@@ -333,7 +337,7 @@ export default function ServiceGrid({
                                         value={partDraft.part_id}
                                         onChange={handleDraftPartSelect}
                                         options={parts}
-                                        displayField={(p) => `${p.name} (${getPartNumber(p) || 'Tanpa kode'}) - ${formatCurrency(p.sell_price)}`}
+                                        displayField={(p) => `${p.name} (${getPartNumber(p) || 'Tanpa kode'}) - ${formatCurrency(getPartPrice(p))}`}
                                         searchFields={['name', 'part_number', 'code', 'barcode']}
                                         placeholder="Cari sparepart..."
                                         onCreateNew={() => onQuickCreatePart?.(null)}
@@ -346,7 +350,7 @@ export default function ServiceGrid({
                                             return (
                                                 <div className="flex items-center justify-between gap-2">
                                                     <div className={isDisabled ? 'text-gray-400 dark:text-gray-500' : ''}>
-                                                        <div>{p.name} - {formatCurrency(p.sell_price)}</div>
+                                                        <div>{p.name} - {formatCurrency(getPartPrice(p))}</div>
                                                         <div className="text-[11px] text-slate-500 dark:text-slate-400">
                                                             {partNumber ? `Kode: ${partNumber}` : 'Tanpa kode'} · Stok: {stock}
                                                         </div>

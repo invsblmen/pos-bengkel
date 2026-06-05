@@ -24,6 +24,8 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 class WorkshopImportManager
 {
+    private array $warnings = [];
+
     public const DATASET_META = [
         'customers' => [
             'label' => 'Pelanggan',
@@ -182,6 +184,7 @@ class WorkshopImportManager
         }
 
         $this->assertDataset($type);
+        $this->warnings = [];
 
         $rows = $this->readRows($file);
         $requiredHeaders = self::DATASET_META[$type]['required_headers'] ?? [];
@@ -217,7 +220,7 @@ class WorkshopImportManager
 
             try {
                 $this->assertRequiredColumns($rowData, $requiredHeaders);
-                $action = $this->dispatchImport($type, $rowData, $dryRun);
+                $action = $this->dispatchImport($type, $rowData, $dryRun, $line);
                 $successRows++;
 
                 if ($action === 'created') {
@@ -253,6 +256,7 @@ class WorkshopImportManager
             'would_update_rows' => $wouldUpdateRows,
             'dry_run' => $dryRun,
             'failures' => $failures,
+            'warnings' => $this->warnings,
         ];
     }
 
@@ -279,8 +283,12 @@ class WorkshopImportManager
         $instructions->setCellValue('A7', '5. Untuk relasi, gunakan nilai referensi yang sudah ada atau sesuai sample.');
         $instructions->setCellValue('A8', '6. Aktifkan Dry Run dulu sebelum simpan ke database.');
         $instructions->setCellValue('A9', '7. File boleh .xlsx, .xls, atau .csv untuk import.');
+        if (! empty($meta['notes'])) {
+            $instructions->setCellValue('A10', 'Catatan: ' . $meta['notes']);
+            $instructions->getStyle('A10')->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_TOP);
+        }
         $instructions->getStyle('A1')->getFont()->setBold(true)->setSize(14);
-        $instructions->getStyle('A3:A9')->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_TOP);
+        $instructions->getStyle('A3:A10')->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_TOP);
         $instructions->getColumnDimension('A')->setAutoSize(true);
 
         $sheet = $spreadsheet->createSheet();
@@ -428,17 +436,17 @@ class WorkshopImportManager
         }
     }
 
-    private function dispatchImport(string $type, array $row, bool $dryRun = false): string
+    private function dispatchImport(string $type, array $row, bool $dryRun = false, ?int $line = null): string
     {
         return match ($type) {
             'customers' => $this->importCustomer($row, $dryRun),
-            'vehicles' => $this->importVehicle($row, $dryRun),
+            'vehicles' => $this->importVehicle($row, $dryRun, $line),
             'mechanics' => $this->importMechanic($row, $dryRun),
             'suppliers' => $this->importSupplier($row, $dryRun),
             'part_categories' => $this->importPartCategory($row, $dryRun),
-            'parts' => $this->importPart($row, $dryRun),
+            'parts' => $this->importPart($row, $dryRun, $line),
             'service_categories' => $this->importServiceCategory($row, $dryRun),
-            'services' => $this->importService($row, $dryRun),
+            'services' => $this->importService($row, $dryRun, $line),
             default => throw new InvalidArgumentException('Tipe import tidak didukung.'),
         };
     }
@@ -469,7 +477,7 @@ class WorkshopImportManager
             'identity_number' => $this->stringOrNull($row, 'identity_number'),
         ];
 
-        $model = Customer::where('phone', $phone)->first();
+        $model = Customer::query()->where('phone', $phone)->first();
 
         if ($model) {
             if (! $dryRun) {
@@ -484,7 +492,7 @@ class WorkshopImportManager
         return 'created';
     }
 
-    private function importVehicle(array $row, bool $dryRun = false): string
+    private function importVehicle(array $row, bool $dryRun = false, ?int $line = null): string
     {
         $plateNumber = strtoupper((string) ($this->stringOrNull($row, 'plate_number') ?? ''));
         $customerPhone = $this->stringOrNull($row, 'customer_phone');
@@ -495,7 +503,7 @@ class WorkshopImportManager
             throw new InvalidArgumentException('Kolom plate_number wajib diisi.');
         }
 
-        $customer = $this->resolveVehicleCustomer($customerName, $customerPhone, $customerIdentityNumber, $dryRun);
+        $customer = $this->resolveVehicleCustomer($customerName, $customerPhone, $customerIdentityNumber, $dryRun, $line);
 
         $payload = [
             'customer_id' => $customer->id,
@@ -518,7 +526,7 @@ class WorkshopImportManager
             'previous_owner' => $this->stringOrNull($row, 'previous_owner'),
         ];
 
-        $model = Vehicle::where('plate_number', $plateNumber)->first();
+        $model = Vehicle::query()->where('plate_number', $plateNumber)->first();
 
         if ($model) {
             if (! $dryRun) {
@@ -533,31 +541,31 @@ class WorkshopImportManager
         return 'created';
     }
 
-    private function resolveVehicleCustomer(?string $customerName, ?string $customerPhone, ?string $customerIdentityNumber, bool $dryRun = false)
+    private function resolveVehicleCustomer(?string $customerName, ?string $customerPhone, ?string $customerIdentityNumber, bool $dryRun = false, ?int $line = null)
     {
         $defaultPhone = '000000000000';
         $defaultName = 'Pemilik Tidak Diketahui';
 
         if ($customerPhone) {
-            $customer = Customer::where('phone', $customerPhone)->first();
+            $customer = Customer::query()->where('phone', $customerPhone)->first();
             if ($customer) {
                 return $customer;
             }
 
-            throw new InvalidArgumentException('Pelanggan dengan customer_phone ' . $customerPhone . ' tidak ditemukan.');
+            throw new InvalidArgumentException('Pelanggan dengan customer_phone ' . $customerPhone . ' tidak ditemukan. Import data pelanggan terlebih dahulu atau isi customer_identity_number/customer_name yang cocok.');
         }
 
         if ($customerIdentityNumber) {
-            $customer = Customer::where('identity_number', $customerIdentityNumber)->first();
+            $customer = Customer::query()->where('identity_number', $customerIdentityNumber)->first();
             if ($customer) {
                 return $customer;
             }
 
-            throw new InvalidArgumentException('Pelanggan dengan customer_identity_number ' . $customerIdentityNumber . ' tidak ditemukan.');
+            throw new InvalidArgumentException('Pelanggan dengan customer_identity_number ' . $customerIdentityNumber . ' tidak ditemukan. Import data pelanggan terlebih dahulu atau cek kembali nomor identitas pada file sumber.');
         }
 
         if ($customerName) {
-            $query = Customer::where('name', $customerName);
+            $query = Customer::query()->where('name', $customerName);
             $matchCount = (int) $query->count();
 
             if ($matchCount === 1) {
@@ -565,30 +573,18 @@ class WorkshopImportManager
             }
 
             if ($matchCount > 1) {
-                throw new InvalidArgumentException('Nama customer "' . $customerName . '" ditemukan lebih dari satu kali. Gunakan customer_phone atau customer_identity_number.');
+                throw new InvalidArgumentException('Nama customer "' . $customerName . '" ditemukan lebih dari satu kali. Gunakan customer_phone atau customer_identity_number agar pelanggan bisa dipilih dengan tepat.');
             }
 
-            throw new InvalidArgumentException('Pelanggan dengan customer_name ' . $customerName . ' tidak ditemukan.');
+            throw new InvalidArgumentException('Pelanggan dengan customer_name ' . $customerName . ' tidak ditemukan. Pastikan nama sesuai dengan master pelanggan atau gunakan customer_phone/customer_identity_number.');
         }
 
-        if ($dryRun) {
-            return Customer::make([
-                'name' => $customerName ?: $defaultName,
-                'phone' => $customerPhone,
-                'email' => null,
-                'address' => null,
-                'gender' => null,
-                'birth_date' => null,
-                'city' => null,
-                'postal_code' => null,
-                'identity_type' => null,
-                'identity_number' => null,
-            ]);
-        }
+        $this->warnings[] = [
+            'line' => $line,
+            'message' => 'Data kendaraan tanpa customer_phone, customer_identity_number, dan customer_name memakai customer default "' . $defaultName . '".',
+        ];
 
-        return Customer::create([
-            'name' => $customerName ?: $defaultName,
-            'phone' => $customerPhone ?: $defaultPhone,
+        $defaults = [
             'email' => null,
             'address' => null,
             'gender' => null,
@@ -597,7 +593,19 @@ class WorkshopImportManager
             'postal_code' => null,
             'identity_type' => null,
             'identity_number' => null,
-        ]);
+        ];
+
+        if ($dryRun) {
+            return Customer::firstOrNew([
+                'name' => $defaultName,
+                'phone' => $defaultPhone,
+            ], $defaults);
+        }
+
+        return Customer::firstOrCreate([
+            'name' => $defaultName,
+            'phone' => $defaultPhone,
+        ], $defaults);
     }
 
     private function importMechanic(array $row, bool $dryRun = false): string
@@ -626,15 +634,15 @@ class WorkshopImportManager
         $model = null;
 
         if ($employeeNumber) {
-            $model = Mechanic::where('employee_number', $employeeNumber)->first();
+            $model = Mechanic::query()->where('employee_number', $employeeNumber)->first();
         }
 
         if (! $model && $phone) {
-            $model = Mechanic::where('phone', $phone)->first();
+            $model = Mechanic::query()->where('phone', $phone)->first();
         }
 
         if (! $model) {
-            $model = Mechanic::where('name', $name)->first();
+            $model = Mechanic::query()->where('name', $name)->first();
         }
 
         if ($model) {
@@ -665,7 +673,7 @@ class WorkshopImportManager
             'contact_person' => $this->stringOrNull($row, 'contact_person'),
         ];
 
-        $model = Supplier::where('name', $name)->first();
+        $model = Supplier::query()->where('name', $name)->first();
 
         if ($model) {
             if (! $dryRun) {
@@ -694,7 +702,7 @@ class WorkshopImportManager
             'sort_order' => $this->intOrDefault($row, 'sort_order', 0),
         ];
 
-        $model = PartCategory::where('name', $name)->first();
+        $model = PartCategory::query()->where('name', $name)->first();
 
         if ($model) {
             if (! $dryRun) {
@@ -709,7 +717,7 @@ class WorkshopImportManager
         return 'created';
     }
 
-    private function importPart(array $row, bool $dryRun = false): string
+    private function importPart(array $row, bool $dryRun = false, ?int $line = null): string
     {
         $name = $this->stringOrNull($row, 'name');
         if (! $name) {
@@ -722,10 +730,16 @@ class WorkshopImportManager
         $partCategoryId = null;
         if ($partCategoryName) {
             if ($dryRun) {
-                $partCategory = PartCategory::where('name', $partCategoryName)->first();
+                $partCategory = PartCategory::query()->where('name', $partCategoryName)->first();
                 $partCategoryId = $partCategory?->id;
             } else {
                 $partCategory = PartCategory::firstOrCreate(['name' => $partCategoryName]);
+                if ($partCategory->wasRecentlyCreated) {
+                    $this->warnings[] = [
+                        'line' => $line,
+                        'message' => 'Kategori sparepart "' . $partCategoryName . '" dibuat otomatis karena tidak ditemukan.',
+                    ];
+                }
                 $partCategoryId = $partCategory->id;
             }
         }
@@ -733,10 +747,16 @@ class WorkshopImportManager
         $supplierId = null;
         if ($supplierName) {
             if ($dryRun) {
-                $supplier = Supplier::where('name', $supplierName)->first();
+                $supplier = Supplier::query()->where('name', $supplierName)->first();
                 $supplierId = $supplier?->id;
             } else {
                 $supplier = Supplier::firstOrCreate(['name' => $supplierName]);
+                if ($supplier->wasRecentlyCreated) {
+                    $this->warnings[] = [
+                        'line' => $line,
+                        'message' => 'Supplier "' . $supplierName . '" dibuat otomatis karena tidak ditemukan.',
+                    ];
+                }
                 $supplierId = $supplier->id;
             }
         }
@@ -811,7 +831,7 @@ class WorkshopImportManager
             'sort_order' => $this->intOrDefault($row, 'sort_order', 0),
         ];
 
-        $model = ServiceCategory::where('name', $name)->first();
+        $model = ServiceCategory::query()->where('name', $name)->first();
 
         if ($model) {
             if (! $dryRun) {
@@ -826,7 +846,7 @@ class WorkshopImportManager
         return 'created';
     }
 
-    private function importService(array $row, bool $dryRun = false): string
+    private function importService(array $row, bool $dryRun = false, ?int $line = null): string
     {
         $title = $this->stringOrNull($row, 'title');
         if (! $title) {
@@ -838,10 +858,16 @@ class WorkshopImportManager
 
         if ($serviceCategoryName) {
             if ($dryRun) {
-                $serviceCategory = ServiceCategory::where('name', $serviceCategoryName)->first();
+                $serviceCategory = ServiceCategory::query()->where('name', $serviceCategoryName)->first();
                 $serviceCategoryId = $serviceCategory?->id;
             } else {
                 $serviceCategory = ServiceCategory::firstOrCreate(['name' => $serviceCategoryName]);
+                if ($serviceCategory->wasRecentlyCreated) {
+                    $this->warnings[] = [
+                        'line' => $line,
+                        'message' => 'Kategori layanan "' . $serviceCategoryName . '" dibuat otomatis karena tidak ditemukan.',
+                    ];
+                }
                 $serviceCategoryId = $serviceCategory->id;
             }
         }

@@ -26,6 +26,8 @@ export default function Edit({ part, suppliers: initialSuppliers, categories: in
         part_category_id: part.part_category_id || '',
         category_ids: (part.categories || []).map(c => c.id),
         supplier_id: part.supplier_id || '',
+        buy_price: part.buy_price || 0,
+        sell_price: part.sell_price || 0,
         stock: part.stock || 0,
         minimal_stock: part.minimal_stock || 0,
         rack_location: part.rack_location || '',
@@ -55,6 +57,8 @@ export default function Edit({ part, suppliers: initialSuppliers, categories: in
             data.barcode !== part.barcode ||
             data.part_category_id !== part.part_category_id ||
             data.supplier_id !== part.supplier_id ||
+            Number(data.buy_price || 0) !== Number(part.buy_price || 0) ||
+            Number(data.sell_price || 0) !== Number(part.sell_price || 0) ||
             data.minimal_stock !== part.minimal_stock ||
             data.rack_location !== part.rack_location ||
             data.description !== part.description ||
@@ -161,6 +165,38 @@ export default function Edit({ part, suppliers: initialSuppliers, categories: in
                                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Kosongkan jika tidak menggunakan barcode.</p>
                                 </div>
                             </div>
+                        </div>
+
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
+                            <div className="mb-4">
+                                <h2 className="text-base font-semibold text-slate-900 dark:text-white">Harga Default</h2>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                    Harga jual ini dipakai otomatis di penjualan sparepart dan servis order, lalu masih bisa dioverride hanya untuk transaksi tersebut.
+                                </p>
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <Input
+                                    type="number"
+                                    label="Harga Beli / HPP Referensi"
+                                    placeholder="0"
+                                    value={data.buy_price}
+                                    onChange={(e) => setData('buy_price', parseInt(e.target.value) || 0)}
+                                    errors={errors.buy_price}
+                                />
+                                <Input
+                                    type="number"
+                                    label="Harga Jual"
+                                    placeholder="0"
+                                    value={data.sell_price}
+                                    onChange={(e) => setData('sell_price', parseInt(e.target.value) || 0)}
+                                    errors={errors.sell_price}
+                                />
+                            </div>
+                            {Number(data.sell_price || 0) !== Number(part.sell_price || 0) && (
+                                <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">
+                                    Harga jual berubah dari {Number(part.sell_price || 0).toLocaleString('id-ID')} menjadi {Number(data.sell_price || 0).toLocaleString('id-ID')}.
+                                </p>
+                            )}
                         </div>
 
                         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">

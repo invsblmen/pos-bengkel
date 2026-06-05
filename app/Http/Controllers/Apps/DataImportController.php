@@ -46,6 +46,9 @@ class DataImportController extends Controller
         } catch (InvalidArgumentException $e) {
             $result = null;
             $importError = $e->getMessage();
+        } catch (\Throwable $e) {
+            $result = null;
+            $importError = 'Gagal memproses file import: ' . $e->getMessage();
         }
 
         return Inertia::render('Dashboard/Imports/Index', [

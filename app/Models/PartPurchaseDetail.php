@@ -107,7 +107,15 @@ class PartPurchaseDetail extends Model
             $this->margin_value ?? 0
         );
 
-        $this->normal_unit_price = $priceAfterDiscount + $this->margin_amount;
+        $hasManualMargin = (float) ($this->margin_value ?? 0) > 0;
+        $hasPromoDiscount = ($this->promo_discount_type ?? 'none') !== 'none'
+            && (float) ($this->promo_discount_value ?? 0) > 0;
+
+        // For HET-based suppliers, unit_price is the retail selling price. Supplier
+        // discount becomes FIFO cost/HPP, not a reduction of the default sell price.
+        $this->normal_unit_price = (!$hasManualMargin && !$hasPromoDiscount)
+            ? (int) ($this->unit_price ?? 0)
+            : $priceAfterDiscount + $this->margin_amount;
 
         // Step 4: Calculate promo discount amount and final selling price
         $this->promo_discount_amount = DiscountTaxService::calculateDiscount(

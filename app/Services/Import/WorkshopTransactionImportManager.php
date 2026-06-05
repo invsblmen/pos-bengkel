@@ -23,12 +23,14 @@ use Illuminate\Support\Str;
 use InvalidArgumentException;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 class WorkshopTransactionImportManager
 {
+    private array $warnings = [];
     public const DATASET_META = [
         'service_orders' => [
             'label' => 'Service Orders',
@@ -184,6 +186,10 @@ class WorkshopTransactionImportManager
         $instructions->setCellValue('A5', 'Sheet detail berisi baris item yang dihubungkan via nomor transaksi.');
         $instructions->setCellValue('A6', 'Referensi master di-resolve otomatis dari nama/kode/nomor.');
         $instructions->setCellValue('A7', 'Disarankan jalankan Dry Run terlebih dahulu.');
+        if (! empty($meta['notes'])) {
+            $instructions->setCellValue('A8', 'Catatan: ' . $meta['notes']);
+            $instructions->getStyle('A8')->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_TOP);
+        }
         $instructions->getStyle('A1')->getFont()->setBold(true)->setSize(14);
         $instructions->getColumnDimension('A')->setAutoSize(true);
 
@@ -213,6 +219,7 @@ class WorkshopTransactionImportManager
     public function import(string $type, UploadedFile $file, bool $dryRun = false): array
     {
         $this->assertDataset($type);
+        $this->warnings = [];
 
         if (! in_array(strtolower($file->getClientOriginalExtension()), ['xlsx', 'xls'], true)) {
             throw new InvalidArgumentException('Import transaksi hanya mendukung file Excel .xlsx atau .xls karena membutuhkan lebih dari satu sheet.');
@@ -224,12 +231,16 @@ class WorkshopTransactionImportManager
         $mainRows = $this->readSheetRows($spreadsheet, $meta['worksheets']['main']['title']);
         $detailRows = $this->readSheetRows($spreadsheet, $meta['worksheets']['details']['title']);
 
-        return match ($type) {
+        $result = match ($type) {
             'service_orders' => $this->importServiceOrders($mainRows, $detailRows, $dryRun),
             'part_purchases' => $this->importPartPurchases($mainRows, $detailRows, $dryRun),
             'part_sales' => $this->importPartSales($mainRows, $detailRows, $dryRun),
             default => throw new InvalidArgumentException('Tipe transaksi tidak didukung.'),
         };
+
+        $result['warnings'] = $this->warnings;
+
+        return $result;
     }
 
     private function importServiceOrders(array $mainRows, array $detailRows, bool $dryRun): array
@@ -255,17 +266,20 @@ class WorkshopTransactionImportManager
 
                 $customer = $this->resolveCustomer(
                     $this->stringOrNull($row, 'customer_phone'),
-                    $this->stringOrNull($row, 'customer_name')
+                    $this->stringOrNull($row, 'customer_name'),
+                    (int) ($row['__line'] ?? null)
                 );
                 $vehicle = $this->resolveVehicle(
                     $customer,
                     $this->stringOrNull($row, 'vehicle_plate_number'),
                     $this->stringOrNull($row, 'vehicle_brand'),
-                    $this->stringOrNull($row, 'vehicle_model')
+                    $this->stringOrNull($row, 'vehicle_model'),
+                    (int) ($row['__line'] ?? null)
                 );
                 $mechanic = $this->resolveMechanic(
                     $this->stringOrNull($row, 'mechanic_employee_number'),
-                    $this->stringOrNull($row, 'mechanic_name')
+                    $this->stringOrNull($row, 'mechanic_name'),
+                    (int) ($row['__line'] ?? null)
                 );
 
                 $payload = [
@@ -324,7 +338,8 @@ class WorkshopTransactionImportManager
 
                 $supplier = $this->resolveSupplier(
                     $this->stringOrNull($row, 'supplier_phone'),
-                    $this->stringOrNull($row, 'supplier_name')
+                    $this->stringOrNull($row, 'supplier_name'),
+                    (int) ($row['__line'] ?? null)
                 );
 
                 $updatedBy = $this->resolveUser($this->stringOrNull($row, 'updated_by_email'));
@@ -374,7 +389,8 @@ class WorkshopTransactionImportManager
 
                 $customer = $this->resolveCustomer(
                     $this->stringOrNull($row, 'customer_phone'),
-                    $this->stringOrNull($row, 'customer_name')
+                    $this->stringOrNull($row, 'customer_name'),
+                    (int) ($row['__line'] ?? null)
                 );
                 $createdBy = $this->resolveUser($this->stringOrNull($row, 'created_by_email'));
 
@@ -406,7 +422,7 @@ class WorkshopTransactionImportManager
     private function upsertServiceOrder(array $payload, array $detailRows, bool $dryRun): array
     {
         $orderNumber = $payload['order_number'];
-        $model = ServiceOrder::where('order_number', $orderNumber)->first();
+        $model = ServiceOrder::query()->where('order_number', $orderNumber)->first();
         $action = $model ? 'updated' : 'created';
 
         if ($dryRun) {
@@ -440,7 +456,7 @@ class WorkshopTransactionImportManager
     private function upsertPartPurchase(array $payload, array $detailRows, bool $dryRun): array
     {
         $purchaseNumber = $payload['purchase_number'];
-        $model = PartPurchase::where('purchase_number', $purchaseNumber)->first();
+        $model = PartPurchase::query()->where('purchase_number', $purchaseNumber)->first();
         $action = $model ? 'updated' : 'created';
 
         if ($dryRun) {
@@ -471,7 +487,7 @@ class WorkshopTransactionImportManager
     private function upsertPartSale(array $payload, array $detailRows, bool $dryRun): array
     {
         $invoice = $payload['sale_number'];
-        $model = PartSale::where('sale_number', $invoice)->first();
+        $model = PartSale::query()->where('sale_number', $invoice)->first();
         $action = $model ? 'updated' : 'created';
 
         if ($dryRun) {
@@ -515,12 +531,14 @@ class WorkshopTransactionImportManager
         if ($lineType === 'service') {
             $service = $this->resolveService(
                 $this->stringOrNull($row, 'service_code'),
-                $this->stringOrNull($row, 'service_title')
+                $this->stringOrNull($row, 'service_title'),
+                (int) ($row['__line'] ?? null)
             );
         } else {
             $part = $this->resolvePart(
                 $this->stringOrNull($row, 'part_number'),
-                $this->stringOrNull($row, 'part_name')
+                $this->stringOrNull($row, 'part_name'),
+                (int) ($row['__line'] ?? null)
             );
         }
 
@@ -556,7 +574,8 @@ class WorkshopTransactionImportManager
     {
         $part = $this->resolvePart(
             $this->stringOrNull($row, 'part_number'),
-            $this->stringOrNull($row, 'part_name')
+            $this->stringOrNull($row, 'part_name'),
+            (int) ($row['__line'] ?? null)
         );
 
         $quantity = max(1, $this->intOrDefault($row, 'quantity', 1));
@@ -843,16 +862,16 @@ class WorkshopTransactionImportManager
         return (string) ($row['order_number'] ?? $row['purchase_number'] ?? $row['invoice'] ?? '');
     }
 
-    private function resolveCustomer(?string $phone, ?string $name): ?Customer
+    private function resolveCustomer(?string $phone, ?string $name, ?int $line = null): ?Customer
     {
         $customer = null;
 
         if ($phone) {
-            $customer = Customer::where('phone', $phone)->first();
+            $customer = Customer::query()->where('phone', $phone)->first();
         }
 
         if (! $customer && $name) {
-            $customer = Customer::where('name', $name)->first();
+            $customer = Customer::query()->where('name', $name)->first();
         }
 
         if (! $customer && ($phone || $name)) {
@@ -862,18 +881,25 @@ class WorkshopTransactionImportManager
                 'name' => $name ?? 'Customer Import',
                 'address' => null,
             ]);
+
+            if ($customer->wasRecentlyCreated) {
+                $this->warnings[] = [
+                    'line' => $line,
+                    'message' => 'Pelanggan "' . ($name ?? $phone) . '" dibuat otomatis karena referensi tidak ditemukan.',
+                ];
+            }
         }
 
         return $customer;
     }
 
-    private function resolveVehicle(?Customer $customer, ?string $plateNumber, ?string $brand, ?string $model): ?Vehicle
+    private function resolveVehicle(?Customer $customer, ?string $plateNumber, ?string $brand, ?string $model, ?int $line = null): ?Vehicle
     {
         if (! $plateNumber) {
             return null;
         }
 
-        $vehicle = Vehicle::where('plate_number', $plateNumber)->first();
+        $vehicle = Vehicle::query()->where('plate_number', $plateNumber)->first();
         if ($vehicle) {
             return $vehicle;
         }
@@ -885,9 +911,16 @@ class WorkshopTransactionImportManager
                 'name' => 'Customer ' . $plateNumber,
                 'address' => null,
             ]);
+
+            if ($customer->wasRecentlyCreated) {
+                $this->warnings[] = [
+                    'line' => $line,
+                    'message' => 'Customer otomatis dibuat untuk kendaraan dengan plat ' . $plateNumber . '.',
+                ];
+            }
         }
 
-        return Vehicle::firstOrCreate([
+        $vehicle = Vehicle::firstOrCreate([
             'plate_number' => $plateNumber,
         ], [
             'customer_id' => $customer->id,
@@ -896,46 +929,64 @@ class WorkshopTransactionImportManager
             'year' => null,
             'notes' => null,
         ]);
+
+        if ($vehicle->wasRecentlyCreated) {
+            $this->warnings[] = [
+                'line' => $line,
+                'message' => 'Kendaraan dengan plat ' . $plateNumber . ' dibuat otomatis karena tidak ditemukan.',
+            ];
+        }
+
+        return $vehicle;
     }
 
-    private function resolveMechanic(?string $employeeNumber, ?string $name): ?Mechanic
+    private function resolveMechanic(?string $employeeNumber, ?string $name, ?int $line = null): ?Mechanic
     {
         if ($employeeNumber) {
-            $mechanic = Mechanic::where('employee_number', $employeeNumber)->first();
+            $mechanic = Mechanic::query()->where('employee_number', $employeeNumber)->first();
             if ($mechanic) {
                 return $mechanic;
             }
         }
 
         if ($name) {
-            $mechanic = Mechanic::where('name', $name)->first();
+            $mechanic = Mechanic::query()->where('name', $name)->first();
             if ($mechanic) {
                 return $mechanic;
             }
         }
 
         if ($employeeNumber || $name) {
-            return Mechanic::firstOrCreate([
+            $mechanic = Mechanic::firstOrCreate([
                 'employee_number' => $employeeNumber ?? $this->slugFallback($name ?? 'mechanic'),
             ], [
                 'name' => $name ?? 'Mechanic Import',
                 'status' => 'active',
             ]);
+
+            if ($mechanic->wasRecentlyCreated) {
+                $this->warnings[] = [
+                    'line' => $line,
+                    'message' => 'Mekanik "' . ($name ?? $employeeNumber) . '" dibuat otomatis karena referensi tidak ditemukan.',
+                ];
+            }
+
+            return $mechanic;
         }
 
         return null;
     }
 
-    private function resolveSupplier(?string $phone, ?string $name): ?Supplier
+    private function resolveSupplier(?string $phone, ?string $name, ?int $line = null): ?Supplier
     {
         $supplier = null;
 
         if ($phone) {
-            $supplier = Supplier::where('phone', $phone)->first();
+            $supplier = Supplier::query()->where('phone', $phone)->first();
         }
 
         if (! $supplier && $name) {
-            $supplier = Supplier::where('name', $name)->first();
+            $supplier = Supplier::query()->where('name', $name)->first();
         }
 
         if (! $supplier && ($phone || $name)) {
@@ -947,21 +998,28 @@ class WorkshopTransactionImportManager
                 'address' => null,
                 'contact_person' => null,
             ]);
+
+            if ($supplier->wasRecentlyCreated) {
+                $this->warnings[] = [
+                    'line' => $line,
+                    'message' => 'Supplier "' . ($name ?? $phone) . '" dibuat otomatis karena referensi tidak ditemukan.',
+                ];
+            }
         }
 
         return $supplier;
     }
 
-    private function resolveService(?string $code, ?string $title): Service
+    private function resolveService(?string $code, ?string $title, ?int $line = null): Service
     {
         $service = null;
 
         if ($code) {
-            $service = Service::where('code', $code)->first();
+            $service = Service::query()->where('code', $code)->first();
         }
 
         if (! $service && $title) {
-            $service = Service::where('title', $title)->first();
+            $service = Service::query()->where('title', $title)->first();
         }
 
         if ($service) {
@@ -970,7 +1028,7 @@ class WorkshopTransactionImportManager
 
         $generatedCode = $code ?: Str::upper(Str::slug($title ?: 'service-import', '-'));
 
-        return Service::firstOrCreate([
+        $service = Service::firstOrCreate([
             'code' => $generatedCode,
         ], [
             'title' => $title ?? $generatedCode,
@@ -983,9 +1041,18 @@ class WorkshopTransactionImportManager
             'default_incentive_percentage' => 0,
             'has_warranty' => false,
         ]);
+
+        if ($service->wasRecentlyCreated) {
+            $this->warnings[] = [
+                'line' => $line,
+                'message' => 'Layanan "' . ($title ?? $generatedCode) . '" dibuat otomatis karena referensi tidak ditemukan.',
+            ];
+        }
+
+        return $service;
     }
 
-    private function resolvePart(?string $partNumber, ?string $name): Part
+    private function resolvePart(?string $partNumber, ?string $name, ?int $line = null): Part
     {
         $part = null;
 
@@ -1005,7 +1072,7 @@ class WorkshopTransactionImportManager
             return $part;
         }
 
-        return Part::create([
+        $part = Part::create([
             'part_number' => $partNumber,
             'name' => $name ?? ($partNumber ?: 'Part Import'),
             'status' => 'active',
@@ -1013,6 +1080,15 @@ class WorkshopTransactionImportManager
             'buy_price' => 0,
             'sell_price' => 0,
         ]);
+
+        if ($part->wasRecentlyCreated) {
+            $this->warnings[] = [
+                'line' => $line,
+                'message' => 'Part "' . ($name ?? $partNumber) . '" dibuat otomatis karena referensi tidak ditemukan.',
+            ];
+        }
+
+        return $part;
     }
 
     private function resolveUser(?string $email): ?User
@@ -1021,7 +1097,7 @@ class WorkshopTransactionImportManager
             return null;
         }
 
-        return User::where('email', $email)->first();
+        return User::query()->where('email', $email)->first();
     }
 
     private function calculateDiscountAmount(int $amount, string $discountType, float|int $discountValue): int

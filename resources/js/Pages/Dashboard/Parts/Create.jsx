@@ -26,6 +26,8 @@ export default function Create({ suppliers: initialSuppliers, categories: initia
         part_category_id: '',
         category_ids: [],
         supplier_id: '',
+        buy_price: 0,
+        sell_price: 0,
         stock: 0,
         minimal_stock: 0,
         rack_location: '',
@@ -145,6 +147,36 @@ export default function Create({ suppliers: initialSuppliers, categories: initia
                                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Kosongkan jika tidak menggunakan barcode.</p>
                                 </div>
                             </div>
+                        </div>
+
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
+                            <div className="mb-4">
+                                <h2 className="text-base font-semibold text-slate-900 dark:text-white">Harga Default</h2>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                    Harga jual ini menjadi default di penjualan sparepart dan servis order, namun tetap bisa diubah per transaksi.
+                                </p>
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <Input
+                                    type="number"
+                                    label="Harga Beli / HPP Referensi"
+                                    placeholder="0"
+                                    value={data.buy_price}
+                                    onChange={(e) => setData('buy_price', parseInt(e.target.value) || 0)}
+                                    errors={errors.buy_price}
+                                />
+                                <Input
+                                    type="number"
+                                    label="Harga Jual"
+                                    placeholder="0"
+                                    value={data.sell_price}
+                                    onChange={(e) => setData('sell_price', parseInt(e.target.value) || 0)}
+                                    errors={errors.sell_price}
+                                />
+                            </div>
+                            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                                Jika pembelian dari supplier memakai HET, harga jual juga akan diperbarui dari HET saat pembelian diterima.
+                            </p>
                         </div>
 
                         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
