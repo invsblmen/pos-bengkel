@@ -242,6 +242,7 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     // parts management
     Route::get('/parts', [\App\Http\Controllers\Apps\PartController::class, 'index'])->middleware('permission:parts-access')->name('parts.index');
     Route::get('/parts/low-stock', [LowStockAlertController::class, 'index'])->middleware('permission:parts-access')->name('parts.low-stock');
+    Route::get('/parts/sdms-price-check', [\App\Http\Controllers\Apps\PartController::class, 'sdmsPriceCheck'])->middleware('permission:parts-access')->name('parts.sdms-price-check');
     Route::get('/parts/create', [\App\Http\Controllers\Apps\PartController::class, 'create'])->middleware('permission:parts-create')->name('parts.create');
     Route::get('/parts/{id}', [\App\Http\Controllers\Apps\PartController::class, 'show'])->middleware('permission:parts-access')->name('parts.show');
     Route::get('/parts/{id}/edit', [\App\Http\Controllers\Apps\PartController::class, 'edit'])->middleware('permission:parts-update')->name('parts.edit');

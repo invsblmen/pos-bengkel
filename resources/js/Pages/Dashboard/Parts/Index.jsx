@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Head, router, Link } from '@inertiajs/react';
 import Button from '@/Components/Dashboard/Button';
 import Pagination from '@/Components/Dashboard/Pagination';
@@ -8,7 +8,7 @@ import {
     IconFilter, IconX, IconArrowUp, IconArrowDown, IconArrowsSort,
     IconCategory, IconTruck, IconBox, IconDownload, IconPrinter,
     IconEye, IconSearch, IconList, IconLayoutGrid,
-    IconShieldCheck, IconAlertTriangle,
+    IconShieldCheck, IconAlertTriangle, IconRefresh, IconCloudSearch,
 } from '@tabler/icons-react';
 
 const formatCurrency = (value = 0) =>
@@ -23,6 +23,39 @@ const stockMeta = {
     normal: { label: 'Normal',      chip: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
     low:    { label: 'Stok Rendah', chip: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
     out:    { label: 'Habis',       chip: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
+};
+
+const sdmsStatusMeta = {
+    match: {
+        label: 'Sesuai',
+        chip: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+        panel: 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200',
+    },
+    local_lower: {
+        label: 'Lokal Lebih Rendah',
+        chip: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+        panel: 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200',
+    },
+    local_higher: {
+        label: 'Lokal Lebih Tinggi',
+        chip: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+        panel: 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-200',
+    },
+    not_found: {
+        label: 'Tidak Ditemukan',
+        chip: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+        panel: 'border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200',
+    },
+    missing_code: {
+        label: 'Kode Kosong',
+        chip: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
+        panel: 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200',
+    },
+    error: {
+        label: 'Gagal Cek',
+        chip: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+        panel: 'border-red-200 bg-red-50 text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200',
+    },
 };
 
 function StatCard({ title, value, subtitle, icon, tone }) {
@@ -84,6 +117,9 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
     const [viewMode, setViewMode]         = useState('table');
     const [liveItems, setLiveItems]       = useState(parts?.data || []);
     const [showColumnToggle, setShowColumnToggle] = useState(false);
+    const [sdmsPriceCheck, setSdmsPriceCheck] = useState(null);
+    const [sdmsPriceLoading, setSdmsPriceLoading] = useState(false);
+    const [sdmsPriceError, setSdmsPriceError] = useState(null);
     const [visibleColumns, setVisibleColumns] = useState({
         name: true, part_number: true, category: true, supplier: true,
         rack_location: true, stock: true, minimal_stock: true,
@@ -95,6 +131,12 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
     });
 
     useEffect(() => { setLiveItems(parts?.data || []); }, [parts?.data]);
+
+    const sdmsResultByPartId = useMemo(() => {
+        return new Map((sdmsPriceCheck?.items || []).map((item) => [Number(item.part_id), item]));
+    }, [sdmsPriceCheck]);
+
+    const hasSdmsResults = (sdmsPriceCheck?.items || []).length > 0;
 
     const handleSort = (column) => {
         const dir = filters?.sort_by === column && filters?.sort_direction === 'asc' ? 'desc' : 'asc';
@@ -134,6 +176,41 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
         setSearch(''); setStockStatus('all');
         setActiveFilters({ category_id: '', supplier_id: '' });
         router.get(route('parts.index'));
+    };
+
+    const handleCheckSdmsPrices = async () => {
+        const selectedIds = (liveItems || []).map((part) => part.id).filter(Boolean);
+        if (selectedIds.length === 0) {
+            setSdmsPriceError({ message: 'Tidak ada sparepart pada halaman ini untuk dicek.' });
+            return;
+        }
+
+        const params = new URLSearchParams();
+        selectedIds.forEach((id) => params.append('part_ids[]', id));
+
+        setSdmsPriceLoading(true);
+        setSdmsPriceError(null);
+
+        try {
+            const response = await fetch(`/dashboard/parts/sdms-price-check?${params.toString()}`, {
+                headers: { Accept: 'application/json' },
+            });
+            const payload = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                setSdmsPriceError({
+                    message: payload.message || 'Gagal mengecek harga SDMS.',
+                    login_url: payload.login_url,
+                });
+                return;
+            }
+
+            setSdmsPriceCheck(payload);
+        } catch (error) {
+            setSdmsPriceError({ message: error.message || 'Gagal menghubungi endpoint cek harga SDMS.' });
+        } finally {
+            setSdmsPriceLoading(false);
+        }
     };
 
     const toggleColumn = (col) => setVisibleColumns(prev => ({ ...prev, [col]: !prev[col] }));
@@ -178,6 +255,34 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
         };
     };
 
+    const renderSdmsBadge = (part) => {
+        const result = sdmsResultByPartId.get(Number(part.id));
+        if (!result) {
+            return <span className="text-xs text-slate-400">Belum dicek</span>;
+        }
+
+        const meta = sdmsStatusMeta[result.status] || sdmsStatusMeta.error;
+        const diff = Number(result.difference || 0);
+
+        return (
+            <div className="space-y-1">
+                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${meta.chip}`}>
+                    {meta.label}
+                </span>
+                {result.sdms_price > 0 && (
+                    <div className="text-[11px] leading-tight text-slate-500 dark:text-slate-400">
+                        SDMS {formatCurrency(result.sdms_price)}
+                        {diff !== 0 && (
+                            <span className={diff < 0 ? 'text-amber-600 dark:text-amber-400' : 'text-blue-600 dark:text-blue-400'}>
+                                {' '}({diff > 0 ? '+' : ''}{formatCurrency(diff)})
+                            </span>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     return (
         <>
             <Head title="Sparepart" />
@@ -197,6 +302,15 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
                                 <button type="button" onClick={() => setViewMode('table')} className={`p-2 rounded-lg ${viewMode === 'table' ? 'bg-primary-500 text-white' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}><IconList size={18} /></button>
                                 <button type="button" onClick={() => setViewMode('card')}  className={`p-2 rounded-lg ${viewMode === 'card'  ? 'bg-primary-500 text-white' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}><IconLayoutGrid size={18} /></button>
                             </div>
+                            <button
+                                type="button"
+                                onClick={handleCheckSdmsPrices}
+                                disabled={sdmsPriceLoading || (liveItems || []).length === 0}
+                                className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-950 hover:bg-slate-800 disabled:bg-slate-400 dark:bg-white dark:hover:bg-slate-100 dark:disabled:bg-slate-600 text-white dark:text-slate-950 disabled:text-white font-semibold rounded-xl transition-colors text-sm shadow-sm"
+                            >
+                                {sdmsPriceLoading ? <IconRefresh size={16} className="animate-spin" /> : <IconCloudSearch size={16} />}
+                                {sdmsPriceLoading ? 'Mengecek...' : 'Cek Harga SDMS'}
+                            </button>
                             <Link href={route('part-categories.index')} className="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-xl transition-colors text-sm">
                                 <IconCategory size={16} /> Kategori
                             </Link>
@@ -214,6 +328,74 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
                         <StatCard title="Habis"         value={stats?.out_of_stock ?? 0}                 subtitle="Tidak tersedia"     icon={<IconPackage size={20} />}       tone="red"   />
                     </div>
                 </div>
+
+                {(sdmsPriceError || hasSdmsResults) && (
+                    <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 md:p-5 shadow-sm">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-white dark:bg-white dark:text-slate-950">
+                                        <IconCloudSearch size={20} />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-base font-black text-slate-900 dark:text-white">Monitoring Harga SDMS</h2>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                            Membandingkan harga jual lokal dengan harga resmi SDMS untuk sparepart yang tampil di halaman ini.
+                                        </p>
+                                    </div>
+                                </div>
+                                {sdmsPriceCheck?.checked_at && (
+                                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                                        Terakhir dicek: {new Date(sdmsPriceCheck.checked_at).toLocaleString('id-ID')}
+                                    </p>
+                                )}
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={handleCheckSdmsPrices}
+                                disabled={sdmsPriceLoading}
+                                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                            >
+                                <IconRefresh size={16} className={sdmsPriceLoading ? 'animate-spin' : ''} />
+                                Cek Ulang
+                            </button>
+                        </div>
+
+                        {sdmsPriceError && (
+                            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200">
+                                <p className="font-bold">Gagal mengecek harga SDMS</p>
+                                <p className="mt-1">{sdmsPriceError.message}</p>
+                                {sdmsPriceError.login_url && (
+                                    <Link href={sdmsPriceError.login_url} className="mt-3 inline-flex rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700">
+                                        Login SDMS
+                                    </Link>
+                                )}
+                            </div>
+                        )}
+
+                        {hasSdmsResults && (
+                            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+                                {[
+                                    ['match', 'Sesuai'],
+                                    ['local_lower', 'Lokal Lebih Rendah'],
+                                    ['local_higher', 'Lokal Lebih Tinggi'],
+                                    ['not_found', 'Tidak Ditemukan'],
+                                    ['missing_code', 'Kode Kosong'],
+                                    ['error', 'Gagal'],
+                                ].map(([key, label]) => {
+                                    const meta = sdmsStatusMeta[key] || sdmsStatusMeta.error;
+                                    return (
+                                        <div key={key} className={`rounded-2xl border p-3 ${meta.panel}`}>
+                                            <p className="text-[11px] font-bold uppercase tracking-wide opacity-75">{label}</p>
+                                            <p className="mt-1 text-2xl font-black">{sdmsPriceCheck?.summary?.[key] ?? 0}</p>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/*  Filter Bar  */}
                 <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-4">
@@ -349,6 +531,7 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
                                                 {visibleColumns.minimal_stock && <th className="px-4 py-3 text-center text-xs font-bold uppercase text-slate-500 dark:text-slate-300">Min. Stok</th>}
                                                 {visibleColumns.buy_price && <th className="px-4 py-3 text-right text-xs font-bold uppercase text-slate-500 dark:text-slate-300"><button onClick={() => handleSort('buy_price')} className="flex items-center justify-end gap-1.5 w-full hover:text-primary-600 dark:hover:text-primary-400">Harga Beli {getSortIcon('buy_price')}</button></th>}
                                                 {visibleColumns.sell_price && <th className="px-4 py-3 text-right text-xs font-bold uppercase text-slate-500 dark:text-slate-300"><button onClick={() => handleSort('sell_price')} className="flex items-center justify-end gap-1.5 w-full hover:text-primary-600 dark:hover:text-primary-400">Harga Jual {getSortIcon('sell_price')}</button></th>}
+                                                {hasSdmsResults && <th className="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500 dark:text-slate-300">Status SDMS</th>}
                                                 <th className="px-4 py-3 text-center text-xs font-bold uppercase text-slate-500 dark:text-slate-300">Aksi</th>
                                             </tr>
                                         </thead>
@@ -397,6 +580,7 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
                                                         )}
                                                         {visibleColumns.buy_price && <td className="px-4 py-3 text-right text-sm text-slate-600 dark:text-slate-400">{formatCurrency(p.buy_price || 0)}</td>}
                                                         {visibleColumns.sell_price && <td className="px-4 py-3 text-right text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(p.sell_price || 0)}</td>}
+                                                        {hasSdmsResults && <td className="px-4 py-3">{renderSdmsBadge(p)}</td>}
                                                         <td className="px-4 py-3">
                                                             <div className="flex items-center justify-center gap-1">
                                                                 <Link href={route('parts.show', p.id)} className="inline-flex items-center gap-1 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-blue-200 dark:hover:bg-blue-900/50"><IconEye size={14} /> Detail</Link>
@@ -454,6 +638,12 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
                                                         <p className="text-sm font-bold text-primary-700 dark:text-primary-300">{formatCurrency(p.sell_price || 0)}</p>
                                                     </div>
                                                 </div>
+                                                {hasSdmsResults && (
+                                                    <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/60">
+                                                        <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Status SDMS</p>
+                                                        {renderSdmsBadge(p)}
+                                                    </div>
+                                                )}
                                                 <div className="mt-3 flex items-center gap-2">
                                                     <Link href={route('parts.show', p.id)} className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 py-1.5 text-xs font-semibold hover:bg-blue-200 dark:hover:bg-blue-900/50"><IconEye size={14} /> Detail</Link>
                                                     <Link href={route('parts.edit', p.id)} className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 py-1.5 text-xs font-semibold hover:bg-amber-200 dark:hover:bg-amber-900/50"><IconPencilCog size={14} /> Edit</Link>

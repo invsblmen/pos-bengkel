@@ -10,6 +10,8 @@ use App\Events\PartUpdated;
 use App\Events\PartDeleted;
 use App\Support\DispatchesBroadcastSafely;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
@@ -111,6 +113,118 @@ class PartController extends Controller
         return Inertia::render('Dashboard/Parts/Create', [
             'suppliers' => Supplier::orderBy('name')->get(),
             'categories' => \App\Models\PartCategory::orderBy('name')->get(),
+        ]);
+    }
+
+    public function sdmsPriceCheck(Request $request)
+    {
+        $ids = collect($request->input('part_ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->take(50)
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return response()->json([
+                'message' => 'Tidak ada sparepart yang dipilih untuk dicek.',
+                'items' => [],
+                'summary' => $this->emptySdmsPriceSummary(),
+            ]);
+        }
+
+        $headers = $this->sdmsForwardHeaders();
+        if (empty($headers['Authorization'])) {
+            return response()->json([
+                'message' => 'Sesi SDMS belum aktif. Silakan login SDMS terlebih dahulu.',
+                'login_url' => route('sdms.auth.index'),
+            ], 401);
+        }
+
+        $parts = Part::query()
+            ->whereIn('id', $ids)
+            ->get(['id', 'name', 'part_number', 'sell_price']);
+
+        $baseUrl = rtrim((string) (config('services.sdms.base_url') ?? env('SDMS_API_BASE', 'https://sdmsdealer-h23.mpm-motor.com:22000')), '/');
+        $endpoint = $baseUrl . '/api/part/GoodPartDetail/cs';
+
+        $items = $parts->map(function (Part $part) use ($endpoint, $headers) {
+            $partNumber = trim((string) ($part->part_number ?? ''));
+            $localPrice = (int) ($part->sell_price ?? 0);
+
+            if ($partNumber === '') {
+                return $this->formatSdmsPriceResult($part, null, 'missing_code', 'Kode part kosong.');
+            }
+
+            try {
+                $response = Http::withHeaders($headers)
+                    ->withOptions(['verify' => false])
+                    ->timeout(12)
+                    ->get($endpoint, [
+                        'idPart' => $partNumber,
+                        'idCustomer' => 'undefined',
+                    ]);
+            } catch (\Throwable $e) {
+                Log::warning('SDMS part price check failed', [
+                    'part_id' => $part->id,
+                    'part_number' => $partNumber,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return $this->formatSdmsPriceResult($part, null, 'error', $e->getMessage());
+            }
+
+            if (!$response->successful()) {
+                return $this->formatSdmsPriceResult(
+                    $part,
+                    null,
+                    'error',
+                    'SDMS mengembalikan status ' . $response->status()
+                );
+            }
+
+            $body = $response->json();
+            $result = collect($body['Result'] ?? $body['result'] ?? [])->first();
+
+            if (!$result) {
+                return $this->formatSdmsPriceResult($part, null, 'not_found', 'Part tidak ditemukan di SDMS.');
+            }
+
+            $sdmsPrice = (int) round((float) ($result['price'] ?? $result['retailPrice'] ?? 0));
+            $status = 'match';
+            $message = 'Harga sudah sesuai SDMS.';
+
+            if ($sdmsPrice <= 0) {
+                $status = 'not_found';
+                $message = 'Harga SDMS tidak tersedia.';
+            } elseif ($localPrice < $sdmsPrice) {
+                $status = 'local_lower';
+                $message = 'Harga lokal lebih rendah dari SDMS.';
+            } elseif ($localPrice > $sdmsPrice) {
+                $status = 'local_higher';
+                $message = 'Harga lokal lebih tinggi dari SDMS.';
+            }
+
+            return $this->formatSdmsPriceResult($part, [
+                'part_number' => $result['idproduct'] ?? $partNumber,
+                'name' => $result['name'] ?? null,
+                'price' => $sdmsPrice,
+            ], $status, $message);
+        })->values();
+
+        $summary = $this->emptySdmsPriceSummary();
+        foreach ($items as $item) {
+            $key = $item['status'] ?? 'error';
+            if (array_key_exists($key, $summary)) {
+                $summary[$key]++;
+            }
+        }
+        $summary['total'] = $items->count();
+
+        return response()->json([
+            'checked_at' => now()->toISOString(),
+            'items' => $items,
+            'summary' => $summary,
         ]);
     }
 
@@ -292,5 +406,87 @@ class PartController extends Controller
         );
 
         return $this->jsonOrRedirect('parts.index', [], 'Part deleted successfully.');
+    }
+
+    private function emptySdmsPriceSummary(): array
+    {
+        return [
+            'total' => 0,
+            'match' => 0,
+            'local_lower' => 0,
+            'local_higher' => 0,
+            'not_found' => 0,
+            'missing_code' => 0,
+            'error' => 0,
+        ];
+    }
+
+    private function formatSdmsPriceResult(Part $part, ?array $sdms, string $status, string $message): array
+    {
+        $localPrice = (int) ($part->sell_price ?? 0);
+        $sdmsPrice = (int) ($sdms['price'] ?? 0);
+
+        return [
+            'part_id' => $part->id,
+            'part_number' => $part->part_number,
+            'name' => $part->name,
+            'local_price' => $localPrice,
+            'sdms_part_number' => $sdms['part_number'] ?? null,
+            'sdms_name' => $sdms['name'] ?? null,
+            'sdms_price' => $sdmsPrice,
+            'difference' => $sdmsPrice > 0 ? $localPrice - $sdmsPrice : null,
+            'status' => $status,
+            'message' => $message,
+        ];
+    }
+
+    private function sdmsForwardHeaders(): array
+    {
+        $sdms = session('sdms', null);
+        $headers = [
+            'Accept' => 'application/json',
+        ];
+
+        $sessionToken = is_array($sdms) ? ($sdms['access_token'] ?? $sdms['id_token'] ?? null) : null;
+        if ($sessionToken) {
+            $headers['Authorization'] = 'Bearer ' . $sessionToken;
+        }
+
+        if (is_array($sdms) && !empty($sdms['username'])) {
+            $headers['username'] = (string) $sdms['username'];
+        }
+
+        if (is_array($sdms) && !empty($sdms['idInternal'])) {
+            $headers['idInternal'] = (string) $sdms['idInternal'];
+        }
+
+        if (!isset($headers['idInternal']) && is_string($sessionToken) && substr_count($sessionToken, '.') >= 2) {
+            try {
+                $parts = explode('.', $sessionToken);
+                $payload = $parts[1] ?? '';
+                $payload .= str_repeat('=', (4 - strlen($payload) % 4) % 4);
+                $claims = json_decode(base64_decode(strtr($payload, '-_', '+/')), true) ?: [];
+
+                foreach (['idInternal', 'id_internal', 'internalId', 'internal_id', 'idinternal', 'id', 'sub', 'user_id', 'uid'] as $key) {
+                    if (!empty($claims[$key])) {
+                        $headers['idInternal'] = (string) $claims[$key];
+                        break;
+                    }
+                }
+
+                if (!isset($headers['username'])) {
+                    foreach (['username', 'preferred_username', 'upn', 'email', 'name', 'sub'] as $key) {
+                        if (!empty($claims[$key])) {
+                            $headers['username'] = (string) $claims[$key];
+                            break;
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::debug('SDMS part price token parse failed', ['error' => $e->getMessage()]);
+            }
+        }
+
+        return $headers;
     }
 }
