@@ -49,7 +49,7 @@ export default function SDMSAuthModal({ show, onClose, sdms = null }) {
 
     return (
         <Modal show={show} onClose={closeModal} maxWidth="5xl" scrollable={true}>
-            <div className="grid overflow-hidden bg-white lg:grid-cols-[1.05fr_0.95fr] dark:bg-slate-950">
+            <div className="-m-4 sm:-m-6 grid overflow-hidden bg-white lg:grid-cols-[1.05fr_0.95fr] dark:bg-slate-950">
                 <div className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-cyan-950 to-blue-900 p-6 text-white sm:p-8">
                     <div
                         className="absolute inset-0 opacity-20"
