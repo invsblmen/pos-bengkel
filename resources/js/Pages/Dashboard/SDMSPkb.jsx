@@ -4,7 +4,7 @@ import { IconFileDescription, IconRefresh, IconSearch, IconTruck } from '@tabler
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/Card';
 import axios from 'axios';
 import Modal from '@/Components/Dashboard/Modal';
-import SDMSSessionStatus from '@/Components/Dashboard/SDMSSessionStatus';
+import SDMSAuthModal from '@/Components/Dashboard/SDMSAuthModal';
 import { toDisplayDate } from '@/Utils/datetime';
 
 const normalizeText = (value) => (value ?? '').toString().toLowerCase();
@@ -45,8 +45,16 @@ export default function SDMSPkb({ sdms }) {
     const [query, setQuery] = useState('');
     const [showDetail, setShowDetail] = useState(false);
     const [selected, setSelected] = useState(null);
+    const [showLoginModal, setShowLoginModal] = useState(false);
+    const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
+    const isAuthenticated = Boolean(sdms && (sdms.access_token || sdms.id_token));
 
     const fetchPkb = async () => {
+        if (!isAuthenticated) {
+            setShowLoginModal(true);
+            return;
+        }
+
         setLoading(true);
         try {
             const res = await axios.get('/api/reception/Pkb');
@@ -76,12 +84,15 @@ export default function SDMSPkb({ sdms }) {
     };
 
     useEffect(() => {
-        let mounted = true;
-        if (mounted) fetchPkb();
-        return () => {
-            mounted = false;
-        };
-    }, []);
+        if (isAuthenticated) {
+            fetchPkb();
+            return;
+        }
+
+        setLoading(false);
+        setItems([]);
+        setError(null);
+    }, [isAuthenticated]);
 
     const filteredItems = useMemo(() => {
         const keyword = query.trim().toLowerCase();
@@ -115,8 +126,6 @@ export default function SDMSPkb({ sdms }) {
             <Head title="List PKB" />
 
             <div className="space-y-6">
-                <SDMSSessionStatus sdms={sdms} />
-
                 <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-emerald-50 p-6 shadow-sm dark:border-slate-800 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900/70">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                         <div className="max-w-2xl space-y-2">
@@ -125,22 +134,46 @@ export default function SDMSPkb({ sdms }) {
                             </div>
                             <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">List PKB</h1>
                             <p className="text-sm leading-6 text-slate-600 dark:text-slate-400">
-                                Daftar PKB dari SDMS Dealer API yang sudah dilengkapi pencarian cepat, badge status, dan detail raw JSON.
+                                Ringkasan PKB dari SDMS dengan pencarian cepat dan tampilan yang mudah dibaca.
                             </p>
+                            <div className="flex flex-wrap items-center gap-2 pt-1 text-sm text-slate-600 dark:text-slate-400">
+                                <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${isAuthenticated ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200'}`}>
+                                    {isAuthenticated ? 'Sesi SDMS aktif' : 'Sesi SDMS belum aktif'}
+                                </span>
+                                {isAuthenticated ? (
+                                    <span>
+                                        Login sebagai <span className="font-semibold text-slate-900 dark:text-white">{sdms?.username || '-'}</span>
+                                        {sdms?.idInternal ? ` • ${sdms.idInternal}` : ''}
+                                    </span>
+                                ) : (
+                                    <span>Login diperlukan untuk memuat daftar PKB.</span>
+                                )}
+                            </div>
                         </div>
 
-                        <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[420px]">
-                            <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/60">
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total PKB</p>
-                                <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{items.length}</p>
-                            </div>
-                            <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/60">
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Open</p>
-                                <p className="mt-2 text-2xl font-bold text-emerald-600 dark:text-emerald-400">{openCount}</p>
-                            </div>
-                            <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/60">
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Tercari</p>
-                                <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{filteredItems.length}</p>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:min-w-[420px] lg:justify-end">
+                            {!isAuthenticated && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowLoginModal(true)}
+                                    className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-cyan-600/20 transition hover:from-cyan-500 hover:to-blue-500"
+                                >
+                                    Login SDMS
+                                </button>
+                            )}
+                            <div className="grid gap-3 sm:grid-cols-3">
+                                <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/60">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total PKB</p>
+                                    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{items.length}</p>
+                                </div>
+                                <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/60">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Open</p>
+                                    <p className="mt-2 text-2xl font-bold text-emerald-600 dark:text-emerald-400">{openCount}</p>
+                                </div>
+                                <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/60">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Tercari</p>
+                                    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{filteredItems.length}</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -167,6 +200,13 @@ export default function SDMSPkb({ sdms }) {
                                 >
                                     <IconRefresh size={16} className={loading ? 'animate-spin' : ''} />
                                     {loading ? 'Memuat...' : 'Refresh'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowTechnicalDetails((current) => !current)}
+                                    className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                                >
+                                    {showTechnicalDetails ? 'Sembunyikan Detail Teknis' : 'Tampilkan Detail Teknis'}
                                 </button>
                             </div>
                         </div>
@@ -275,23 +315,31 @@ export default function SDMSPkb({ sdms }) {
                                     <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-200">
                                         <div className="flex items-center gap-2 font-semibold">
                                             <IconTruck size={16} />
-                                            Informasi singkat PKB
+                                            Ringkasan PKB
                                         </div>
                                         <p className="mt-2 leading-6">
-                                            Data ini diambil langsung dari SDMS dan bisa dipakai untuk analisis status pekerjaan, kendaraan, serta customer.
+                                            Data ini diambil langsung dari SDMS dan bisa dipakai untuk melihat status pekerjaan, kendaraan, serta customer.
                                         </p>
                                     </div>
 
-                                    <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
-                                        <summary className="cursor-pointer text-sm font-semibold text-slate-700 dark:text-slate-200">Raw JSON</summary>
-                                        <pre className="mt-3 overflow-auto text-xs leading-6 text-slate-700 dark:text-slate-300">{JSON.stringify(selected, null, 2)}</pre>
-                                    </details>
+                                    {showTechnicalDetails ? (
+                                        <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                                            <summary className="cursor-pointer text-sm font-semibold text-slate-700 dark:text-slate-200">Raw JSON</summary>
+                                            <pre className="mt-3 overflow-auto text-xs leading-6 text-slate-700 dark:text-slate-300">{JSON.stringify(selected, null, 2)}</pre>
+                                        </details>
+                                    ) : (
+                                        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-400">
+                                            Detail teknis disembunyikan. Aktifkan tombol detail teknis jika perlu melihat data mentah.
+                                        </div>
+                                    )}
                                 </div>
                             </Modal>
                         )}
                     </CardBody>
                 </Card>
             </div>
+
+            <SDMSAuthModal show={showLoginModal} onClose={() => setShowLoginModal(false)} sdms={sdms} />
         </>
     );
 }

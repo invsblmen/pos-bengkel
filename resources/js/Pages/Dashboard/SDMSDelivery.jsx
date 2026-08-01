@@ -4,7 +4,7 @@ import { IconFileDescription, IconRefresh, IconSearch, IconTruck } from '@tabler
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/Card';
 import axios from 'axios';
 import Modal from '@/Components/Dashboard/Modal';
-import SDMSSessionStatus from '@/Components/Dashboard/SDMSSessionStatus';
+import SDMSAuthModal from '@/Components/Dashboard/SDMSAuthModal';
 import { toDisplayDateTime } from '@/Utils/datetime';
 
 const normalizeText = (value) => (value ?? '').toString().toLowerCase();
@@ -46,6 +46,8 @@ export default function SDMSDelivery({ sdms, defaultSupplierId = '', defaultSupp
     const [error, setError] = useState(null);
     const [query, setQuery] = useState('');
     const [appliedQuery, setAppliedQuery] = useState('');
+    const [showLoginModal, setShowLoginModal] = useState(false);
+    const isAuthenticated = Boolean(sdms && (sdms.access_token || sdms.id_token));
 
 
     const [showDetail, setShowDetail] = useState(false);
@@ -60,6 +62,7 @@ export default function SDMSDelivery({ sdms, defaultSupplierId = '', defaultSupp
     const [debugLoading, setDebugLoading] = useState(false);
     const [debugError, setDebugError] = useState(null);
     const [totals, setTotals] = useState({ totalamount: null, discount: null, grandTotal: null });
+    const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
 
     const formatMoney = (val) => {
         if (val === null || val === undefined || val === '') return '';
@@ -73,6 +76,11 @@ export default function SDMSDelivery({ sdms, defaultSupplierId = '', defaultSupp
     };
 
     const fetchDelivery = async () => {
+        if (!isAuthenticated) {
+            setShowLoginModal(true);
+            return;
+        }
+
         setLoading(true);
         try {
             const res = await axios.get('/api/part/DeliveryOrder', { params: { page: 1, size: 100, sort: ',asc' } });
@@ -141,12 +149,15 @@ export default function SDMSDelivery({ sdms, defaultSupplierId = '', defaultSupp
     };
 
     useEffect(() => {
-        let mounted = true;
-        if (mounted) fetchDelivery();
-        return () => {
-            mounted = false;
-        };
-    }, []);
+        if (isAuthenticated) {
+            fetchDelivery();
+            return;
+        }
+
+        setLoading(false);
+        setItems([]);
+        setError(null);
+    }, [isAuthenticated]);
 
     const filteredItems = useMemo(() => {
         const keyword = appliedQuery.trim().toLowerCase();
@@ -358,8 +369,6 @@ export default function SDMSDelivery({ sdms, defaultSupplierId = '', defaultSupp
             <Head title="List Pemesanan" />
 
             <div className="space-y-6">
-                <SDMSSessionStatus sdms={sdms} />
-
                 <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-cyan-50 p-6 shadow-sm dark:border-slate-800 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900/70">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                         <div className="max-w-2xl space-y-2">
@@ -368,22 +377,46 @@ export default function SDMSDelivery({ sdms, defaultSupplierId = '', defaultSupp
                             </div>
                             <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">List Pemesanan</h1>
                             <p className="text-sm leading-6 text-slate-600 dark:text-slate-400">
-                                Delivery Order ditampilkan dengan pencarian cepat, status badge, dan detail item yang menampilkan harga, diskon, serta subtotal.
+                                Daftar delivery order yang ringkas dan mudah dipakai untuk pencarian serta pembukaan detail item.
                             </p>
+                            <div className="flex flex-wrap items-center gap-2 pt-1 text-sm text-slate-600 dark:text-slate-400">
+                                <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${isAuthenticated ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200'}`}>
+                                    {isAuthenticated ? 'Sesi SDMS aktif' : 'Sesi SDMS belum aktif'}
+                                </span>
+                                {isAuthenticated ? (
+                                    <span>
+                                        Login sebagai <span className="font-semibold text-slate-900 dark:text-white">{sdms?.username || '-'}</span>
+                                        {sdms?.idInternal ? ` • ${sdms.idInternal}` : ''}
+                                    </span>
+                                ) : (
+                                    <span>Login diperlukan untuk memuat delivery order.</span>
+                                )}
+                            </div>
                         </div>
 
-                        <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[420px]">
-                            <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/60">
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total DO</p>
-                                <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{items.length}</p>
-                            </div>
-                            <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/60">
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Open</p>
-                                <p className="mt-2 text-2xl font-bold text-emerald-600 dark:text-emerald-400">{openCount}</p>
-                            </div>
-                            <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/60">
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Closed</p>
-                                <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{completeCount}</p>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:min-w-[420px] lg:justify-end">
+                            {!isAuthenticated && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowLoginModal(true)}
+                                    className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-cyan-600/20 transition hover:from-cyan-500 hover:to-blue-500"
+                                >
+                                    Login SDMS
+                                </button>
+                            )}
+                            <div className="grid gap-3 sm:grid-cols-3">
+                                <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/60">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total DO</p>
+                                    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{items.length}</p>
+                                </div>
+                                <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/60">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Open</p>
+                                    <p className="mt-2 text-2xl font-bold text-emerald-600 dark:text-emerald-400">{openCount}</p>
+                                </div>
+                                <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/60">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Closed</p>
+                                    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{completeCount}</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -424,6 +457,13 @@ export default function SDMSDelivery({ sdms, defaultSupplierId = '', defaultSupp
                                 >
                                     <IconRefresh size={16} className={loading ? 'animate-spin' : ''} />
                                     {loading ? 'Memuat...' : 'Refresh'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowTechnicalDetails((current) => !current)}
+                                    className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                                >
+                                    {showTechnicalDetails ? 'Sembunyikan Detail Teknis' : 'Tampilkan Detail Teknis'}
                                 </button>
                             </div>
                         </div>
@@ -588,14 +628,16 @@ export default function SDMSDelivery({ sdms, defaultSupplierId = '', defaultSupp
                                                 >
                                                     <IconRefresh size={16} /> Reload
                                                 </button>
-                                                <button
-                                                    onClick={() => fetchOrderItemsDebug(selected)}
-                                                    disabled={debugLoading}
-                                                    className="inline-flex items-center gap-2 rounded-xl bg-amber-100 px-3 py-2 text-sm font-semibold text-amber-800 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-amber-950/40 dark:text-amber-200"
-                                                >
-                                                    <IconSearch size={16} />
-                                                    {debugLoading ? 'Debugging...' : 'Debug (_proxy_debug)'}
-                                                </button>
+                                                {showTechnicalDetails && (
+                                                    <button
+                                                        onClick={() => fetchOrderItemsDebug(selected)}
+                                                        disabled={debugLoading}
+                                                        className="inline-flex items-center gap-2 rounded-xl bg-amber-100 px-3 py-2 text-sm font-semibold text-amber-800 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-amber-950/40 dark:text-amber-200"
+                                                    >
+                                                        <IconSearch size={16} />
+                                                        {debugLoading ? 'Debugging...' : 'Debug (_proxy_debug)'}
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
 
@@ -680,28 +722,40 @@ export default function SDMSDelivery({ sdms, defaultSupplierId = '', defaultSupp
                                             </div>
                                         )}
 
-                                        {debugError && <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">{debugError}</div>}
-                                        {debugData && (
-                                            <div className="mt-4">
-                                                <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Proxy Debug</h4>
-                                                <details className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
-                                                    <summary className="cursor-pointer text-sm font-semibold text-slate-700 dark:text-slate-200">Show proxy debug JSON</summary>
-                                                    <pre className="mt-3 overflow-auto text-xs leading-6 text-slate-700 dark:text-slate-300">{JSON.stringify(debugData, null, 2)}</pre>
-                                                </details>
-                                            </div>
+                                        {showTechnicalDetails && (
+                                            <>
+                                                {debugError && <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">{debugError}</div>}
+                                                {debugData && (
+                                                    <div className="mt-4">
+                                                        <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Proxy Debug</h4>
+                                                        <details className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                                                            <summary className="cursor-pointer text-sm font-semibold text-slate-700 dark:text-slate-200">Show proxy debug JSON</summary>
+                                                            <pre className="mt-3 overflow-auto text-xs leading-6 text-slate-700 dark:text-slate-300">{JSON.stringify(debugData, null, 2)}</pre>
+                                                        </details>
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
                                     </div>
 
-                                    <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
-                                        <summary className="cursor-pointer text-sm font-semibold text-slate-700 dark:text-slate-200">Raw JSON</summary>
-                                        <pre className="mt-3 overflow-auto text-xs leading-6 text-slate-700 dark:text-slate-300">{JSON.stringify(selected, null, 2)}</pre>
-                                    </details>
+                                    {showTechnicalDetails ? (
+                                        <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                                            <summary className="cursor-pointer text-sm font-semibold text-slate-700 dark:text-slate-200">Raw JSON</summary>
+                                            <pre className="mt-3 overflow-auto text-xs leading-6 text-slate-700 dark:text-slate-300">{JSON.stringify(selected, null, 2)}</pre>
+                                        </details>
+                                    ) : (
+                                        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-400">
+                                            Detail teknis disembunyikan. Aktifkan tombol detail teknis bila perlu melihat data mentah atau proxy debug.
+                                        </div>
+                                    )}
                                 </div>
                             </Modal>
                         )}
                     </CardBody>
                 </Card>
             </div>
+
+            <SDMSAuthModal show={showLoginModal} onClose={() => setShowLoginModal(false)} sdms={sdms} />
         </>
     );
 }

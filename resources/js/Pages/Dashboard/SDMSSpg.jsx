@@ -194,7 +194,31 @@ const getOrderItemLineDiscount = (item) => {
     if (itemDisc > 0 && qty > 0) return Math.round(itemDisc * qty);
     return 0;
 };
-const getOrderItemOverallDiscount = (source) => parseInt(findDeepDetailText(source, ['discount', 'Discount', 'discountAmount', 'discount_amount']) || 0, 10);
+const getOrderItemOverallDiscount = (source) => {
+    const candidates = [
+        source,
+        source?.items,
+        source?.Items,
+        source?.Result,
+        source?.Result?.items,
+        source?.Result?.Items,
+        source?.data,
+        source?.data?.items,
+        source?.Data,
+        source?.Data?.Items,
+    ];
+
+    for (const candidate of candidates) {
+        if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) continue;
+
+        const directDiscount = parseInt(extractDetailText(candidate, ['discount', 'Discount', 'discountAmount', 'discount_amount']) || 0, 10);
+        if (directDiscount > 0) return directDiscount;
+    }
+
+    return parseInt(findDeepDetailText(source, ['discount', 'Discount', 'discountAmount', 'discount_amount']) || 0, 10);
+};
+const getOrderItemUnitDiscount = (item) => parseInt(findDeepDetailText(item, ['discdtlitemamount', 'cashdiscamount']) || 0, 10);
+const getOrderItemTotalDiscount = (item) => parseInt(findDeepDetailText(item, ['discdtllineamount', 'discountlinetotal', 'discountLineAmount', 'discount_line_amount']) || 0, 10);
 const extractDeliveryReference = (payload) => {
     const list = unwrapList(payload);
     const first = Array.isArray(list) && list.length > 0 ? list[0] : null;
@@ -234,6 +258,11 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
     const normalizeIdBilling = (value) => (value ?? '').toString().trim();
 
     const loadSpg = async (nextIdBilling = idBilling) => {
+        if (!isAuthenticated) {
+            setShowLoginModal(true);
+            return;
+        }
+
         const billingId = normalizeIdBilling(nextIdBilling);
 
         if (!billingId) {
@@ -314,11 +343,21 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
     };
 
     useEffect(() => {
-        if (normalizeIdBilling(initialIdBilling)) {
+        if (isAuthenticated && normalizeIdBilling(initialIdBilling)) {
             loadSpg(initialIdBilling);
+            return;
+        }
+
+        if (!isAuthenticated) {
+            setLoading(false);
+            setDetail(null);
+            setItems([]);
+            setDraftRows([]);
+            setDetailError(null);
+            setItemsError(null);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [initialIdBilling]);
+    }, [initialIdBilling, isAuthenticated]);
 
     const filteredItems = useMemo(() => {
         const keyword = query.trim().toLowerCase();
@@ -352,6 +391,7 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
     const [submitResult, setSubmitResult] = useState(null);
     const [receivedParts, setReceivedParts] = useState([]);
     const [showReceivedList, setShowReceivedList] = useState(false);
+    const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
 
     // local sparepart add modal state
     const [showAddModal, setShowAddModal] = useState(false);
@@ -479,6 +519,8 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                 const partNumber = getOrderItemPartNumber(part) || getCompareItemPartNumber(part) || part.part_id || '';
                 const qty = Number(getOrderItemQty(part) || getCompareItemQtyReceive(part) || 1);
                 const lineDiscount = getOrderItemLineDiscount(part);
+                const sdmsUnitDiscount = getOrderItemUnitDiscount(part);
+                const sdmsLineDiscount = getOrderItemTotalDiscount(part);
                 const unitPrice = getOrderItemUnitPrice(part) || getCompareItemUnitPrice(part) || 0;
                 const lineTotal = getOrderItemLineTotal(part) || (unitPrice * qty);
 
@@ -488,6 +530,8 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                     unit_price: unitPrice,
                     subtotal: lineTotal,
                     line_total: lineTotal,
+                    discdtlitemamount: sdmsUnitDiscount,
+                    discdtllineamount: sdmsLineDiscount,
                     discount_type: lineDiscount > 0 ? 'fixed' : getCompareItemDiscountType(part),
                     discount_value: lineDiscount > 0 ? lineDiscount : getCompareItemDiscountValue(part),
                     margin_type: 'percent',
@@ -765,6 +809,13 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                                     <IconSend size={16} />
                                     {submitLoading ? 'Mengirim...' : 'Submit SPG'}
                                 </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowTechnicalDetails((current) => !current)}
+                                    className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                                >
+                                    {showTechnicalDetails ? 'Sembunyikan Detail Teknis' : 'Tampilkan Detail Teknis'}
+                                </button>
                             </div>
                             {!compareResult && (
                                 <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">
@@ -914,7 +965,7 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                             </div>
                         )}
 
-                        {(compareResult || compareError) && (
+                        {(showTechnicalDetails && (compareResult || compareError)) && (
                             <div className="mt-4 grid gap-3">
                                 <div className={`rounded-2xl border p-4 ${compareError ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300'}`}>
                                     <div className="flex items-center justify-between">
@@ -1200,15 +1251,23 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                         )}
 
 
-                        <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
-                            <summary className="cursor-pointer text-sm font-semibold text-slate-700 dark:text-slate-200">Raw JSON Item</summary>
-                            <pre className="mt-3 overflow-auto text-xs leading-6 text-slate-700 dark:text-slate-300">{JSON.stringify(items, null, 2)}</pre>
-                        </details>
+                        {showTechnicalDetails ? (
+                            <>
+                                <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                                    <summary className="cursor-pointer text-sm font-semibold text-slate-700 dark:text-slate-200">Raw JSON Item</summary>
+                                    <pre className="mt-3 overflow-auto text-xs leading-6 text-slate-700 dark:text-slate-300">{JSON.stringify(items, null, 2)}</pre>
+                                </details>
 
-                        <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
-                            <summary className="cursor-pointer text-sm font-semibold text-slate-700 dark:text-slate-200">State Draft</summary>
-                            <pre className="mt-3 overflow-auto text-xs leading-6 text-slate-700 dark:text-slate-300">{JSON.stringify({ suratJalan, draftRows }, null, 2)}</pre>
-                        </details>
+                                <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                                    <summary className="cursor-pointer text-sm font-semibold text-slate-700 dark:text-slate-200">State Draft</summary>
+                                    <pre className="mt-3 overflow-auto text-xs leading-6 text-slate-700 dark:text-slate-300">{JSON.stringify({ suratJalan, draftRows }, null, 2)}</pre>
+                                </details>
+                            </>
+                        ) : (
+                            <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-400">
+                                Detail teknis disembunyikan. Aktifkan tombol detail teknis bila perlu melihat raw JSON, state draft, atau hasil banding mentah.
+                            </div>
+                        )}
                     </CardBody>
                 </Card>
             </div>

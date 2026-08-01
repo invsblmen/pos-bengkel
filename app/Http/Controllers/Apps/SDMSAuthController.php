@@ -27,6 +27,7 @@ class SDMSAuthController extends Controller
             'idInternal' => ['required', 'string'],
             'username' => ['required', 'string'],
             'password' => ['required', 'string'],
+            'redirect_to' => ['nullable', 'string'],
         ]);
 
         $target = config('services.sdms.base_url') ?? env('SDMS_API_BASE', 'https://sdmsdealer-h23.mpm-motor.com:22000');
@@ -83,6 +84,11 @@ class SDMSAuthController extends Controller
             session(['sdms' => $sdms]);
 
             if ($token) {
+                $redirectTo = trim((string) ($data['redirect_to'] ?? ''));
+                if ($redirectTo !== '' && str_starts_with($redirectTo, '/') && !str_starts_with($redirectTo, '//')) {
+                    return redirect()->to($redirectTo)->with('success', 'Token berhasil diterima');
+                }
+
                 return redirect()->route('sdms.dashboard')->with('success', 'Token berhasil diterima');
             }
 
@@ -207,6 +213,12 @@ class SDMSAuthController extends Controller
             'items.*.part_id' => 'required|string',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.unit_price' => 'required|integer|min:0',
+            'items.*.discount_type' => 'nullable|in:none,percent,fixed',
+            'items.*.discount_value' => 'nullable|numeric|min:0',
+            'items.*.discdtlitemamount' => 'nullable|numeric|min:0',
+            'items.*.discdtllineamount' => 'nullable|numeric|min:0',
+            'discount_type' => 'nullable|in:none,percent,fixed',
+            'discount_value' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
         ]);
 
@@ -241,17 +253,39 @@ class SDMSAuthController extends Controller
                     ], 422);
                 }
 
+                $quantity = (int) $item['quantity'];
+                $unitPrice = (int) $item['unit_price'];
+                $lineDiscountAmount = (int) round((float) ($item['discdtllineamount'] ?? 0));
+                $itemDiscountAmount = (int) round((float) ($item['discdtlitemamount'] ?? 0));
+                $discountType = $item['discount_type'] ?? 'none';
+                $discountValue = (float) ($item['discount_value'] ?? 0);
+
+                if ($lineDiscountAmount > 0) {
+                    $discountType = 'fixed';
+                    $discountValue = $lineDiscountAmount;
+                } elseif ($itemDiscountAmount > 0) {
+                    $discountType = 'fixed';
+                    $discountValue = $itemDiscountAmount * $quantity;
+                }
+
                 $resolvedItems[] = [
                     'part_id' => $part->id,
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $item['unit_price'],
+                    'quantity' => $quantity,
+                    'unit_price' => $unitPrice,
+                    'discount_type' => $discountType,
+                    'discount_value' => $discountValue,
                 ];
             }
 
-            // Calculate total amount
+            // Calculate total amount after SDMS item discounts.
             $totalAmount = 0;
             foreach ($resolvedItems as $item) {
-                $totalAmount += $item['quantity'] * $item['unit_price'];
+                $subtotal = $item['quantity'] * $item['unit_price'];
+                $totalAmount += \App\Services\DiscountTaxService::calculateAmountWithDiscount(
+                    $subtotal,
+                    $item['discount_type'] ?? 'none',
+                    $item['discount_value'] ?? 0
+                );
             }
 
             // Create purchase
@@ -260,25 +294,27 @@ class SDMSAuthController extends Controller
                 'purchase_date' => now()->toDateString(),
                 'status' => 'pending',
                 'total_amount' => $totalAmount,
+                'discount_type' => $validated['discount_type'] ?? 'none',
+                'discount_value' => $validated['discount_value'] ?? 0,
                 'notes' => $validated['notes'] ?? 'From SPG Received Items',
             ]);
 
             // Create purchase details
             foreach ($resolvedItems as $item) {
                 $subtotal = $item['quantity'] * $item['unit_price'];
-                \App\Models\PartPurchaseDetail::create([
+                $detail = \App\Models\PartPurchaseDetail::create([
                     'part_purchase_id' => $purchase->id,
                     'part_id' => $item['part_id'],
                     'quantity' => $item['quantity'],
                     'unit_price' => $item['unit_price'],
                     'subtotal' => $subtotal,
-                    'final_amount' => $subtotal,
-                    'discount_type' => 'none',
-                    'discount_value' => 0,
-                    'discount_amount' => 0,
+                    'discount_type' => $item['discount_type'] ?? 'none',
+                    'discount_value' => $item['discount_value'] ?? 0,
                     'margin_type' => 'percent',
                     'margin_value' => 0,
                 ]);
+
+                $detail->calculateAllPrices()->save();
             }
 
             // Calculate totals

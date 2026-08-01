@@ -10,6 +10,7 @@ import {
     IconEye, IconSearch, IconList, IconLayoutGrid,
     IconShieldCheck, IconAlertTriangle, IconRefresh, IconCloudSearch, IconCheck, IconAlertCircleFilled,
 } from '@tabler/icons-react';
+import SDMSAuthModal from '@/Components/Dashboard/SDMSAuthModal';
 
 const formatCurrency = (value = 0) =>
     new Intl.NumberFormat('id-ID', {
@@ -111,6 +112,7 @@ function EmptyState({ hasFilters, onReset }) {
 }
 
 export default function Index({ parts, filters, categories, suppliers, stats }) {
+    const currentUrl = typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}${window.location.hash}` : '';
     const [search, setSearch]             = useState(filters?.q || '');
     const [stockStatus, setStockStatus]   = useState(filters?.stock_status || 'all');
     const [showFilters, setShowFilters]   = useState(false);
@@ -121,6 +123,7 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
     const [sdmsPriceLoading, setSdmsPriceLoading] = useState(false);
     const [sdmsPriceError, setSdmsPriceError] = useState(null);
     const [sdmsSessionState, setSdmsSessionState] = useState('idle');
+    const [showSdmsLoginModal, setShowSdmsLoginModal] = useState(false);
     const [visibleColumns, setVisibleColumns] = useState({
         name: true, part_number: true, category: true, supplier: true,
         rack_location: true, stock: true, minimal_stock: true,
@@ -391,12 +394,20 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
 
                         {sdmsPriceError && (
                             <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200">
-                                <p className="font-bold">Gagal mengecek harga SDMS</p>
-                                <p className="mt-1">{sdmsPriceError.message}</p>
+                                <p className="font-bold">{sdmsPriceError.login_url ? 'Sesi SDMS belum aktif' : 'Gagal mengecek harga SDMS'}</p>
+                                <p className="mt-1">
+                                    {sdmsPriceError.login_url
+                                        ? 'Login SDMS dulu untuk melanjutkan pengecekan harga.'
+                                        : sdmsPriceError.message}
+                                </p>
                                 {sdmsPriceError.login_url && (
-                                    <Link href={sdmsPriceError.login_url} className="mt-3 inline-flex rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowSdmsLoginModal(true)}
+                                        className="mt-3 inline-flex rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700"
+                                    >
                                         Login SDMS
-                                    </Link>
+                                    </button>
                                 )}
                             </div>
                         )}
@@ -694,6 +705,12 @@ export default function Index({ parts, filters, categories, suppliers, stats }) 
                 </div>
 
             </div>
+
+            <SDMSAuthModal
+                show={showSdmsLoginModal}
+                onClose={() => setShowSdmsLoginModal(false)}
+                redirectTo={currentUrl}
+            />
         </>
     );
 }

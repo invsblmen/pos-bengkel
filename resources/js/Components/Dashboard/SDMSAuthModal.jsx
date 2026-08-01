@@ -14,11 +14,12 @@ import {
 } from '@tabler/icons-react';
 import Modal from '@/Components/Dashboard/Modal';
 
-export default function SDMSAuthModal({ show, onClose, sdms = null }) {
+export default function SDMSAuthModal({ show, onClose, sdms = null, redirectTo = '' }) {
     const { data, setData, post, processing, errors, reset } = useForm({
         idInternal: '',
         username: '',
         password: '',
+        redirect_to: '',
     });
     const [showPassword, setShowPassword] = useState(false);
 
@@ -27,6 +28,13 @@ export default function SDMSAuthModal({ show, onClose, sdms = null }) {
             setShowPassword(false);
         }
     }, [show]);
+
+    useEffect(() => {
+        if (show) {
+            const target = redirectTo || (typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}${window.location.hash}` : '');
+            setData('redirect_to', target);
+        }
+    }, [redirectTo, setData, show]);
 
     const closeModal = () => {
         reset('password');
