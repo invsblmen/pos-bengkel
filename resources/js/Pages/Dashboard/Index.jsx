@@ -331,7 +331,7 @@ export default function Dashboard({
                     <InfoCard
                         title="Siap Diambil"
                         value={workshop.readyPickupSales || 0}
-                        subtitle="ready_to_notify / waiting_pickup"
+                        subtitle="Siap diingatkan / menunggu diambil"
                         icon={IconShoppingCart}
                     />
                 </div>
