@@ -42,5 +42,8 @@ return [
         'compose_file' => env('WHATSAPP_GO_DOCKER_COMPOSE', 'go-whatsapp-web-multidevice/docker-compose.yml'),
         // Optional service name (leave empty to manage all services defined in compose file)
         'service_name' => env('WHATSAPP_GO_DOCKER_SERVICE', ''),
+        // Docker Engine API host (tcp) e.g. tcp://127.0.0.1:2375 or http://127.0.0.1:2375
+        // If empty, CLI will be preferred; set this if you want API fallback over TCP.
+        'host' => env('WHATSAPP_DOCKER_HOST', env('DOCKER_HOST', '')),
     ],
 ];
