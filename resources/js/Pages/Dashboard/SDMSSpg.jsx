@@ -255,6 +255,8 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
     const [createdPurchase, setCreatedPurchase] = useState(null);
     const [existingParts, setExistingParts] = useState({});
 
+    const isAuthenticated = Boolean(sdms && (sdms.access_token || sdms.id_token));
+
     const normalizeIdBilling = (value) => (value ?? '').toString().trim();
 
     const loadSpg = async (nextIdBilling = idBilling) => {
@@ -400,7 +402,6 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
     const [createSpareLoading, setCreateSpareLoading] = useState(false);
     const [createPurchaseLoading, setCreatePurchaseLoading] = useState(false);
     const [showLoginModal, setShowLoginModal] = useState(false);
-    const isAuthenticated = Boolean(sdms && (sdms.access_token || sdms.id_token));
 
     const handleOpenAddModal = (numberPart, name) => {
         setModalPart({ numberPart, name });

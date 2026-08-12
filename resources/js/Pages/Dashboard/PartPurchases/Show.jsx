@@ -317,6 +317,58 @@ export default function Show({ purchase, cashDenominations = [] }) {
                             </div>
                         </div>
 
+                        {/* Items */}
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                            <div className="px-6 py-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border-b border-slate-200 dark:border-slate-700">
+                                <h2 className="text-lg font-semibold">Purchase Items</h2>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-slate-100 dark:border-slate-800">
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">No</th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Part</th>
+                                            <th className="px-6 py-4 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Quantity</th>
+                                            <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Unit Price</th>
+                                            <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Subtotal</th>
+                                            <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Discount</th>
+                                            <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                        {purchase.details && purchase.details.map((detail, idx) => (
+                                            <tr key={detail.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                                <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{idx + 1}</td>
+                                                <td className="px-6 py-4">
+                                                    <div className="text-sm font-semibold text-slate-900 dark:text-white">{detail.part?.name || '-'}</div>
+                                                    <div className="text-xs text-slate-500">
+                                                        Kode: {detail.part?.part_number || '-'}
+                                                        {detail.part?.category && ` | ${detail.part.category.name}`}
+                                                    </div>
+                                                    {detail.discount_type && detail.discount_type !== 'none' && (
+                                                        <div className="text-xs text-slate-500 mt-0.5">
+                                                            Diskon: {detail.discount_type === 'percent' ? `${detail.discount_value}%` : `Rp ${new Intl.NumberFormat('id-ID').format(detail.discount_value)}`}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 text-center text-sm text-slate-600 dark:text-slate-400">{detail.quantity}</td>
+                                                <td className="px-6 py-4 text-right text-sm text-slate-600 dark:text-slate-400">{formatCurrency(detail.unit_price)}</td>
+                                                <td className="px-6 py-4 text-right text-sm text-slate-600 dark:text-slate-400">{formatCurrency(detail.subtotal)}</td>
+                                                <td className="px-6 py-4 text-right text-sm">
+                                                    {(detail.discount_amount || 0) > 0 ? (
+                                                        <span className="text-red-600 font-medium">-{formatCurrency(detail.discount_amount)}</span>
+                                                    ) : (
+                                                        <span className="text-slate-400">-</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 text-right text-sm font-semibold text-slate-900 dark:text-white">{formatCurrency(detail.final_amount || detail.subtotal)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
                         {/* Payment Summary & Notes */}
                         <div className="grid md:grid-cols-2 gap-6">
                             {/* Payment Breakdown */}
@@ -396,57 +448,7 @@ export default function Show({ purchase, cashDenominations = [] }) {
                             </div>
                         )}
 
-                        {/* Items */}
-                        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                            <div className="px-6 py-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border-b border-slate-200 dark:border-slate-700">
-                                <h2 className="text-lg font-semibold">Purchase Items</h2>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="border-b border-slate-100 dark:border-slate-800">
-                                            <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">No</th>
-                                            <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Part</th>
-                                            <th className="px-6 py-4 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Quantity</th>
-                                            <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Unit Price</th>
-                                            <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Subtotal</th>
-                                            <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Discount</th>
-                                            <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                        {purchase.details && purchase.details.map((detail, idx) => (
-                                            <tr key={detail.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                                <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{idx + 1}</td>
-                                                <td className="px-6 py-4">
-                                                    <div className="text-sm font-semibold text-slate-900 dark:text-white">{detail.part?.name || '-'}</div>
-                                                    <div className="text-xs text-slate-500">
-                                                        Kode: {detail.part?.part_number || '-'}
-                                                        {detail.part?.category && ` | ${detail.part.category.name}`}
-                                                    </div>
-                                                    {detail.discount_type && detail.discount_type !== 'none' && (
-                                                        <div className="text-xs text-slate-500 mt-0.5">
-                                                            Diskon: {detail.discount_type === 'percent' ? `${detail.discount_value}%` : `Rp ${new Intl.NumberFormat('id-ID').format(detail.discount_value)}`}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 text-center text-sm text-slate-600 dark:text-slate-400">{detail.quantity}</td>
-                                                <td className="px-6 py-4 text-right text-sm text-slate-600 dark:text-slate-400">{formatCurrency(detail.unit_price)}</td>
-                                                <td className="px-6 py-4 text-right text-sm text-slate-600 dark:text-slate-400">{formatCurrency(detail.subtotal)}</td>
-                                                <td className="px-6 py-4 text-right text-sm">
-                                                    {(detail.discount_amount || 0) > 0 ? (
-                                                        <span className="text-red-600 font-medium">-{formatCurrency(detail.discount_amount)}</span>
-                                                    ) : (
-                                                        <span className="text-slate-400">-</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 text-right text-sm font-semibold text-slate-900 dark:text-white">{formatCurrency(detail.final_amount || detail.subtotal)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+
                     </div>
                 </div>
 

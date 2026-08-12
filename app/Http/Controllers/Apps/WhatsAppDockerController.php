@@ -292,4 +292,94 @@ class WhatsAppDockerController extends Controller
 
         return response()->json(['success' => true, 'containers' => $summary], 200);
     }
+
+    // --- Local binary control (non-Docker) ---------------------------------
+    public function localStart(Request $request): JsonResponse
+    {
+        $bin = $this->localBinaryPath();
+        if (! file_exists($bin)) {
+            return response()->json(['success' => false, 'error' => "Local binary not found: {$bin}"], 404);
+        }
+
+        try {
+            if (str_starts_with(PHP_OS_FAMILY, 'Windows')) {
+                $cmd = sprintf('start /B "" "%s" rest > NUL 2>&1', $bin);
+                $process = Process::fromShellCommandline($cmd);
+                $process->run();
+                return response()->json(['success' => true, 'cmd' => $cmd], 200);
+            }
+
+            $cmd = sprintf('nohup "%s" rest > /dev/null 2>&1 &', $bin);
+            $process = Process::fromShellCommandline($cmd);
+            $process->run();
+            return response()->json(['success' => true, 'cmd' => $cmd], 200);
+        } catch (\Throwable $e) {
+            Log::error('localStart failed', ['exception' => $e->getMessage()]);
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function localStop(Request $request): JsonResponse
+    {
+        $bin = $this->localBinaryPath();
+        if (! file_exists($bin)) {
+            return response()->json(['success' => false, 'error' => "Local binary not found: {$bin}"], 404);
+        }
+
+        try {
+            if (str_starts_with(PHP_OS_FAMILY, 'Windows')) {
+                $name = basename($bin);
+                $cmd = sprintf('taskkill /IM "%s" /F', $name);
+                $res = $this->runProcess([$cmd]);
+                return response()->json($res, ($res['success'] ?? false) ? 200 : 500);
+            }
+
+            $name = basename($bin);
+            $cmd = sprintf('pkill -f "%s rest" || true', $name);
+            $res = $this->runProcess([$cmd]);
+            return response()->json($res, ($res['success'] ?? false) ? 200 : 500);
+        } catch (\Throwable $e) {
+            Log::error('localStop failed', ['exception' => $e->getMessage()]);
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function localStatus(Request $request): JsonResponse
+    {
+        $bin = $this->localBinaryPath();
+        if (! file_exists($bin)) {
+            return response()->json(['success' => false, 'error' => "Local binary not found: {$bin}"], 404);
+        }
+
+        try {
+            if (str_starts_with(PHP_OS_FAMILY, 'Windows')) {
+                $name = basename($bin);
+                $p = Process::fromShellCommandline("tasklist /FI \"IMAGENAME eq {$name}\"");
+                $p->run();
+                $out = $p->getOutput();
+                $running = ! str_contains($out, 'No tasks are running');
+                return response()->json(['success' => true, 'running' => $running, 'output' => $out], 200);
+            }
+
+            $name = basename($bin);
+            $p = Process::fromShellCommandline("pgrep -fl '{$name} rest' || true");
+            $p->run();
+            $out = $p->getOutput();
+            $running = trim($out) !== '';
+            return response()->json(['success' => true, 'running' => $running, 'output' => $out], 200);
+        } catch (\Throwable $e) {
+            Log::error('localStatus failed', ['exception' => $e->getMessage()]);
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    private function localBinaryPath(): string
+    {
+        $path = (string) config('whatsapp.local.binary_path', base_path('go-whatsapp-web-multidevice/src/whatsapp'));
+        if (str_starts_with(PHP_OS_FAMILY, 'Windows') && ! str_ends_with($path, '.exe')) {
+            $path .= '.exe';
+        }
+
+        return $path;
+    }
 }

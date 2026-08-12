@@ -282,15 +282,30 @@ export default function Logs({ filters, summary, outboundStatuses, webhookEvents
     const manageGoService = useCallback(async (action) => {
         setIsManagingService(true);
         try {
+            // Prefer local binary endpoints if available
+            let useLocal = false;
+            try {
+                const s = await window.axios.get(route('whatsapp.go.local.status'));
+                if (s?.status === 200) useLocal = true;
+            } catch (e) {
+                // 404 or not found -> fallback to docker
+                useLocal = false;
+            }
+
             let response;
-            if (action === 'status') {
-                response = await window.axios.get(route('whatsapp.go.docker.status'));
-            } else if (action === 'start') {
-                response = await window.axios.post(route('whatsapp.go.docker.start'));
-            } else if (action === 'stop') {
-                response = await window.axios.post(route('whatsapp.go.docker.stop'));
-            } else if (action === 'restart') {
-                response = await window.axios.post(route('whatsapp.go.docker.restart'));
+            if (useLocal) {
+                if (action === 'status') response = await window.axios.get(route('whatsapp.go.local.status'));
+                if (action === 'start') response = await window.axios.post(route('whatsapp.go.local.start'));
+                if (action === 'stop') response = await window.axios.post(route('whatsapp.go.local.stop'));
+                if (action === 'restart') {
+                    await window.axios.post(route('whatsapp.go.local.stop'));
+                    response = await window.axios.post(route('whatsapp.go.local.start'));
+                }
+            } else {
+                if (action === 'status') response = await window.axios.get(route('whatsapp.go.docker.status'));
+                if (action === 'start') response = await window.axios.post(route('whatsapp.go.docker.start'));
+                if (action === 'stop') response = await window.axios.post(route('whatsapp.go.docker.stop'));
+                if (action === 'restart') response = await window.axios.post(route('whatsapp.go.docker.restart'));
             }
 
             setHealthToast({ tone: 'success', message: `Perintah ${action} dikirim.` });

@@ -85,6 +85,10 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::post('/whatsapp/go/docker/stop', [WhatsAppDockerController::class, 'stop'])->middleware('permission:reports-access')->name('whatsapp.go.docker.stop');
     Route::post('/whatsapp/go/docker/restart', [WhatsAppDockerController::class, 'restart'])->middleware('permission:reports-access')->name('whatsapp.go.docker.restart');
     Route::get('/whatsapp/go/docker/status', [WhatsAppDockerController::class, 'status'])->middleware('permission:reports-access')->name('whatsapp.go.docker.status');
+    // Local binary control (non-Docker)
+    Route::post('/whatsapp/go/local/start', [WhatsAppDockerController::class, 'localStart'])->middleware('permission:reports-access')->name('whatsapp.go.local.start');
+    Route::post('/whatsapp/go/local/stop', [WhatsAppDockerController::class, 'localStop'])->middleware('permission:reports-access')->name('whatsapp.go.local.stop');
+    Route::get('/whatsapp/go/local/status', [WhatsAppDockerController::class, 'localStatus'])->middleware('permission:reports-access')->name('whatsapp.go.local.status');
     Route::get('/whatsapp/logs', [WhatsAppLogController::class, 'index'])->middleware('permission:reports-access')->name('whatsapp.logs.index');
     Route::get('/whatsapp/queue-monitor', [WhatsAppLogController::class, 'queueMonitor'])->middleware('permission:reports-access')->name('whatsapp.queue-monitor.index');
     Route::get('/whatsapp/health/check', [WhatsAppLogController::class, 'healthCheck'])->middleware('permission:reports-access')->name('whatsapp.health.check');
