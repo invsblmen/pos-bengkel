@@ -36,4 +36,11 @@ return [
         'heartbeat_ttl_seconds' => (int) env('WHATSAPP_QUEUE_HEARTBEAT_TTL_SECONDS', 90),
         'refresh_interval_seconds' => (int) env('WHATSAPP_QUEUE_REFRESH_INTERVAL_SECONDS', 15),
     ],
+    'docker' => [
+        // Path to docker-compose file relative to repository root or absolute path.
+        // Default assumes local copy at `go-whatsapp-web-multidevice/docker-compose.yml`.
+        'compose_file' => env('WHATSAPP_GO_DOCKER_COMPOSE', 'go-whatsapp-web-multidevice/docker-compose.yml'),
+        // Optional service name (leave empty to manage all services defined in compose file)
+        'service_name' => env('WHATSAPP_GO_DOCKER_SERVICE', ''),
+    ],
 ];

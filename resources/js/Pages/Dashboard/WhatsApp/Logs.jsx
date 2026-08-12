@@ -50,6 +50,7 @@ export default function Logs({ filters, summary, outboundStatuses, webhookEvents
         latency_ms: null,
     });
     const [isCheckingHealth, setIsCheckingHealth] = useState(false);
+    const [isManagingService, setIsManagingService] = useState(false);
     const [lastHealthCheckedAt, setLastHealthCheckedAt] = useState(null);
     const [healthToast, setHealthToast] = useState(null);
 
@@ -278,6 +279,34 @@ export default function Logs({ filters, summary, outboundStatuses, webhookEvents
         }
     }, []);
 
+    const manageGoService = useCallback(async (action) => {
+        setIsManagingService(true);
+        try {
+            let response;
+            if (action === 'status') {
+                response = await window.axios.get(route('whatsapp.go.docker.status'));
+            } else if (action === 'start') {
+                response = await window.axios.post(route('whatsapp.go.docker.start'));
+            } else if (action === 'stop') {
+                response = await window.axios.post(route('whatsapp.go.docker.stop'));
+            } else if (action === 'restart') {
+                response = await window.axios.post(route('whatsapp.go.docker.restart'));
+            }
+
+            setHealthToast({ tone: 'success', message: `Perintah ${action} dikirim.` });
+            setTimeout(() => setHealthToast(null), 4000);
+            // refresh health after action
+            setTimeout(() => checkWhatsAppGoHealth(), 1500);
+            return response?.data;
+        } catch (error) {
+            setHealthToast({ tone: 'danger', message: `Gagal menjalankan ${action}: ${error?.response?.data?.error || error?.message}` });
+            setTimeout(() => setHealthToast(null), 6000);
+            throw error;
+        } finally {
+            setIsManagingService(false);
+        }
+    }, [checkWhatsAppGoHealth]);
+
     useEffect(() => {
         checkWhatsAppGoHealth();
     }, [checkWhatsAppGoHealth]);
@@ -457,6 +486,32 @@ export default function Logs({ filters, summary, outboundStatuses, webhookEvents
                     <div className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${activeServiceHealthBadge.className}`}>
                         <span className={`h-2 w-2 rounded-full ${activeServiceHealthBadge.dotClassName}`}></span>
                         <span>{activeServiceHealthBadge.label}</span>
+                    </div>
+                    <div className="inline-flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => manageGoService('start')}
+                            disabled={isManagingService}
+                            className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+                        >
+                            Start
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => manageGoService('stop')}
+                            disabled={isManagingService}
+                            className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 hover:bg-red-100 disabled:opacity-60"
+                        >
+                            Stop
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => manageGoService('restart')}
+                            disabled={isManagingService}
+                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                        >
+                            Restart
+                        </button>
                     </div>
                     <div className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${workerBadge.className}`}>
                         <span className={`h-2 w-2 rounded-full ${workerBadge.dotClassName}`}></span>

@@ -30,6 +30,7 @@ use App\Http\Controllers\Apps\DataImportController;
 use App\Http\Controllers\Apps\WhatsAppLogController;
 use App\Http\Controllers\Apps\WhatsAppMessageController;
 use App\Http\Controllers\Apps\WhatsAppGoController;
+use App\Http\Controllers\Apps\WhatsAppDockerController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Http\Request;
@@ -80,6 +81,10 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::post('/notifications/mark-read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::post('/notifications/delete', [NotificationController::class, 'destroy'])->name('notifications.destroy');
     Route::get('/whatsapp/go', WhatsAppGoController::class)->middleware('permission:reports-access')->name('whatsapp.go.index');
+    Route::post('/whatsapp/go/docker/start', [WhatsAppDockerController::class, 'start'])->middleware('permission:reports-access')->name('whatsapp.go.docker.start');
+    Route::post('/whatsapp/go/docker/stop', [WhatsAppDockerController::class, 'stop'])->middleware('permission:reports-access')->name('whatsapp.go.docker.stop');
+    Route::post('/whatsapp/go/docker/restart', [WhatsAppDockerController::class, 'restart'])->middleware('permission:reports-access')->name('whatsapp.go.docker.restart');
+    Route::get('/whatsapp/go/docker/status', [WhatsAppDockerController::class, 'status'])->middleware('permission:reports-access')->name('whatsapp.go.docker.status');
     Route::get('/whatsapp/logs', [WhatsAppLogController::class, 'index'])->middleware('permission:reports-access')->name('whatsapp.logs.index');
     Route::get('/whatsapp/queue-monitor', [WhatsAppLogController::class, 'queueMonitor'])->middleware('permission:reports-access')->name('whatsapp.queue-monitor.index');
     Route::get('/whatsapp/health/check', [WhatsAppLogController::class, 'healthCheck'])->middleware('permission:reports-access')->name('whatsapp.health.check');
