@@ -46,4 +46,9 @@ return [
         // If empty, CLI will be preferred; set this if you want API fallback over TCP.
         'host' => env('WHATSAPP_DOCKER_HOST', env('DOCKER_HOST', '')),
     ],
+    'local' => [
+        // Path to local built binary (absolute or repo-relative). Default assumes
+        // `go-whatsapp-web-multidevice/src/whatsapp`.
+        'binary_path' => env('WHATSAPP_LOCAL_BINARY', base_path('go-whatsapp-web-multidevice/src/whatsapp')),
+    ],
 ];
