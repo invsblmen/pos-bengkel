@@ -39,3 +39,9 @@ go-frontend-vite-legacy-*/
 go-whatsapp-web-multidevice/src/storages/
 go-whatsapp-web-multidevice/src/*.exe
 go-whatsapp-web-multidevice/
+
+# Ignore any directory whose name starts with "go-" and common Go module files
+go-*/
+**/go.mod
+**/go.sum
+**/main.go
