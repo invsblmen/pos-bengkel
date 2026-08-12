@@ -16,12 +16,14 @@ class PartFactory extends Factory
         $supplier = Supplier::inRandomOrder()->first();
 
         return [
-            'sku' => strtoupper(Str::random(8)),
+            'part_number' => 'PN-' . strtoupper(Str::random(6)),
             'name' => $this->faker->words(3, true),
             'description' => $this->faker->sentence(),
             'buy_price' => $this->faker->numberBetween(10000, 200000),
             'sell_price' => $this->faker->numberBetween(20000, 350000),
             'stock' => $this->faker->numberBetween(0, 150),
+            'minimal_stock' => $this->faker->numberBetween(0, 20),
+            'rack_location' => $this->faker->randomElement([null, 'A1', 'B2', 'C3']),
             'supplier_id' => $supplier ? $supplier->id : null,
         ];
     }
