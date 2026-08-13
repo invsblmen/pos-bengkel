@@ -128,6 +128,8 @@ CREATE TABLE IF NOT EXISTS customers (
 );
 
 -- Vehicles table
+-- NOTE: `km` is not stored on the vehicles table in the current schema.
+-- Vehicle odometer (km) is computed from latest completed `service_orders.odometer_km`.
 CREATE TABLE IF NOT EXISTS vehicles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     customer_id INTEGER NOT NULL,
@@ -136,7 +138,6 @@ CREATE TABLE IF NOT EXISTS vehicles (
     model TEXT,
     year INTEGER,
     color TEXT,
-    km INTEGER DEFAULT 0,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE

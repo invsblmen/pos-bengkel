@@ -102,7 +102,7 @@ System Tables (Ready):
 ```
 High Priority (Must Add):
 
-1. SERVICES (New Entity - NOT Covered by `parts`)
+├─ vehicles         [16 fields] + (odometer computed from `service_orders.odometer_km`), service intervals
    - services table: id, name, description, category_id, status, pricing, warranty_info
    - Reason: Parts ≠ Services. Parts are tangible inventory, Services are labor/activities
 
