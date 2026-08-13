@@ -15,6 +15,8 @@ return new class extends Migration
             $table->string('brand')->nullable();
             $table->string('model')->nullable();
             $table->integer('year')->nullable();
+            // NOTE: vehicle odometer was historically stored here as `km`.
+            // Current runtime code derives odometer from `service_orders.odometer_km`.
             $table->integer('km')->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();

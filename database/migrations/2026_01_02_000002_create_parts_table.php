@@ -10,6 +10,9 @@ return new class extends Migration
     {
         Schema::create('parts', function (Blueprint $table) {
             $table->id();
+            // NOTE: `sku` was originally introduced here but the application
+            // now prefers `part_number`. This migration is kept for historical
+            // purposes and to allow rollbacks for older deployments.
             $table->string('sku')->nullable()->unique();
             $table->string('name');
             $table->text('description')->nullable();

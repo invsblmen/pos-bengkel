@@ -10,6 +10,9 @@ return new class extends Migration
     {
         Schema::table('parts', function (Blueprint $table) {
             if (!Schema::hasColumn('parts', 'part_number')) {
+                // Insert `part_number` after historical `sku` column. `sku`
+                // has been deprecated in runtime; `part_number` is the
+                // preferred identifier going forward.
                 $table->string('part_number', 100)->nullable()->unique()->after('sku');
             }
             if (!Schema::hasColumn('parts', 'barcode')) {

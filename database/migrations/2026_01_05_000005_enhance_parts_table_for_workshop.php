@@ -10,6 +10,8 @@ return new class extends Migration
     {
         Schema::table('parts', function (Blueprint $table) {
             if (!Schema::hasColumn('parts', 'part_category_id')) {
+                // `after('sku')` kept for historical schema order; application
+                // now uses `part_number` as the canonical part identifier.
                 $table->unsignedBigInteger('part_category_id')->nullable()->after('sku')->index();
             }
             if (!Schema::hasColumn('parts', 'unit_measure')) {

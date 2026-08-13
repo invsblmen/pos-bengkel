@@ -13,6 +13,8 @@ return new class extends Migration
     {
         if (!Schema::hasColumn('parts', 'supplier_id')) {
             Schema::table('parts', function (Blueprint $table) {
+                // Kept `after('sku')` for historical ordering; SKU has been
+                // superseded by `part_number` in runtime code.
                 $table->foreignId('supplier_id')->nullable()->after('sku')->constrained()->nullOnDelete();
             });
         }

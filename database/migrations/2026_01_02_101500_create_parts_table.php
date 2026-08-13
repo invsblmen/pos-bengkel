@@ -15,7 +15,9 @@ return new class extends Migration
             Schema::create('parts', function (Blueprint $table) {
                 $table->id();
                 $table->string('name');
-                $table->string('sku')->nullable()->unique();
+                   // NOTE: `sku` existed in earlier schema versions. Use `part_number`
+                   // in current code paths; this column remains here for migration history.
+                   $table->string('sku')->nullable()->unique();
                 $table->foreignId('supplier_id')->nullable()->constrained()->nullOnDelete();
                 $table->decimal('buy_price', 12, 2)->default(0);
                 $table->decimal('sell_price', 12, 2)->default(0);
