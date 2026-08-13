@@ -69,7 +69,7 @@
 - **Inertia Render:** `Dashboard/Parts/Index`
 - **Why Important:**
   - ✅ **Frequent access** - Parts referenced in service orders and sales
-  - ✅ **Search + filter** - Name/SKU search, category filtering
+  - ✅ **Search + filter** - Name/Part number search, category filtering
   - ✅ **Pagination** - Full relationship load per page
   - ✅ **Shows stock levels** - Important display data
 - **Recommended ViaGo Method:** `partIndexViaGo()`
