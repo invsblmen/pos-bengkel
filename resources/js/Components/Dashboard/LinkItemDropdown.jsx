@@ -13,6 +13,7 @@ export default function LinkItemDropdown({ icon, title, data, access, sidebarOpe
     // destruct auth from usepage props
     const { auth } = usePage().props;
     const { isFavorite, toggleFavorite, getDropdownState, toggleDropdownState } = useSidebar();
+    const menuItems = Menu();
 
     const hasActiveChild = useMemo(() => {
         return data.some((item) => item.permissions === true && url.startsWith(getComparableSidebarHref(item.href)));
@@ -22,9 +23,8 @@ export default function LinkItemDropdown({ icon, title, data, access, sidebarOpe
 
     // Get keyboard shortcut indices
     const shortcutIndices = useMemo(() => {
-        const menuItems = Menu();
         return getSidebarShortcutMap(menuItems);
-    }, [data]);
+    }, [menuItems]);
 
     const handleFavoriteToggle = (e, href) => {
         e.preventDefault();

@@ -13,7 +13,7 @@
         "laravel/framework": "^12.38.1",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.9",
-        "phpoffice/phpspreadsheet": "3.4",
+        "phpoffice/phpspreadsheet": "*",
         "spatie/laravel-permission": "^6.7",
         "tightenco/ziggy": "^2.0"
     },

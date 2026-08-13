@@ -304,15 +304,24 @@ class WhatsAppDockerController extends Controller
         try {
             if (str_starts_with(PHP_OS_FAMILY, 'Windows')) {
                 $cmd = sprintf('start /B "" "%s" rest > NUL 2>&1', $bin);
-                $process = Process::fromShellCommandline($cmd);
-                $process->run();
-                return response()->json(['success' => true, 'cmd' => $cmd], 200);
+            } else {
+                $cmd = sprintf('nohup "%s" rest > /dev/null 2>&1 &', $bin);
             }
 
-            $cmd = sprintf('nohup "%s" rest > /dev/null 2>&1 &', $bin);
+            Log::info('localStart executing', ['cmd' => $cmd]);
             $process = Process::fromShellCommandline($cmd);
+            $process->setTimeout(10);
             $process->run();
-            return response()->json(['success' => true, 'cmd' => $cmd], 200);
+
+            $result = [
+                'success' => $process->isSuccessful(),
+                'cmd' => $cmd,
+                'output' => $process->getOutput(),
+                'error' => $process->getErrorOutput(),
+                'exit_code' => $process->getExitCode(),
+            ];
+            Log::info('localStart result', $result);
+            return response()->json($result, $result['success'] ? 200 : 500);
         } catch (\Throwable $e) {
             Log::error('localStart failed', ['exception' => $e->getMessage()]);
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
@@ -330,13 +339,35 @@ class WhatsAppDockerController extends Controller
             if (str_starts_with(PHP_OS_FAMILY, 'Windows')) {
                 $name = basename($bin);
                 $cmd = sprintf('taskkill /IM "%s" /F', $name);
-                $res = $this->runProcess([$cmd]);
+                Log::info('localStop executing', ['cmd' => $cmd]);
+                $p = Process::fromShellCommandline($cmd);
+                $p->setTimeout(10);
+                $p->run();
+                $res = [
+                    'success' => $p->isSuccessful(),
+                    'cmd' => $cmd,
+                    'output' => $p->getOutput(),
+                    'error' => $p->getErrorOutput(),
+                    'exit_code' => $p->getExitCode(),
+                ];
+                Log::info('localStop result', $res);
                 return response()->json($res, ($res['success'] ?? false) ? 200 : 500);
             }
 
             $name = basename($bin);
             $cmd = sprintf('pkill -f "%s rest" || true', $name);
-            $res = $this->runProcess([$cmd]);
+            Log::info('localStop executing', ['cmd' => $cmd]);
+            $p = Process::fromShellCommandline($cmd);
+            $p->setTimeout(10);
+            $p->run();
+            $res = [
+                'success' => $p->isSuccessful(),
+                'cmd' => $cmd,
+                'output' => $p->getOutput(),
+                'error' => $p->getErrorOutput(),
+                'exit_code' => $p->getExitCode(),
+            ];
+            Log::info('localStop result', $res);
             return response()->json($res, ($res['success'] ?? false) ? 200 : 500);
         } catch (\Throwable $e) {
             Log::error('localStop failed', ['exception' => $e->getMessage()]);
@@ -354,19 +385,29 @@ class WhatsAppDockerController extends Controller
         try {
             if (str_starts_with(PHP_OS_FAMILY, 'Windows')) {
                 $name = basename($bin);
-                $p = Process::fromShellCommandline("tasklist /FI \"IMAGENAME eq {$name}\"");
+                $cmd = sprintf('tasklist /FI "IMAGENAME eq %s"', $name);
+                Log::info('localStatus executing', ['cmd' => $cmd]);
+                $p = Process::fromShellCommandline($cmd);
+                $p->setTimeout(5);
                 $p->run();
                 $out = $p->getOutput();
                 $running = ! str_contains($out, 'No tasks are running');
-                return response()->json(['success' => true, 'running' => $running, 'output' => $out], 200);
+                $res = ['success' => true, 'running' => $running, 'output' => $out, 'cmd' => $cmd, 'error' => $p->getErrorOutput(), 'exit_code' => $p->getExitCode()];
+                Log::info('localStatus result', $res);
+                return response()->json($res, 200);
             }
 
             $name = basename($bin);
-            $p = Process::fromShellCommandline("pgrep -fl '{$name} rest' || true");
+            $cmd = sprintf('pgrep -fl "%s rest" || true', $name);
+            Log::info('localStatus executing', ['cmd' => $cmd]);
+            $p = Process::fromShellCommandline($cmd);
+            $p->setTimeout(5);
             $p->run();
             $out = $p->getOutput();
             $running = trim($out) !== '';
-            return response()->json(['success' => true, 'running' => $running, 'output' => $out], 200);
+            $res = ['success' => true, 'running' => $running, 'output' => $out, 'cmd' => $cmd, 'error' => $p->getErrorOutput(), 'exit_code' => $p->getExitCode()];
+            Log::info('localStatus result', $res);
+            return response()->json($res, 200);
         } catch (\Throwable $e) {
             Log::error('localStatus failed', ['exception' => $e->getMessage()]);
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
