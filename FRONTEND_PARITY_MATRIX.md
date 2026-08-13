@@ -147,11 +147,11 @@ Week considered "frontend parity green" only when:
 - [x] Feature flag configured: ✓ (.env setting `GO_VEHICLE_INDEX_USE_GO`=false by default).
 
 **UAT Manual Tests Required:**
-- [ ] C1 Layout parity: Grid card view (brand/model, plate number, year, KM, service status), list view (table), header.
+- [ ] C1 Layout parity: Grid card view (brand/model, plate number, year, odometer (km) — computed from `service_orders.odometer_km`, service status), list view (table), header.
 - [ ] C2 Filter/sort parity: Transmission filter + service_status filter + sort by column + search (plate/brand/model) + pagination (20 per page).
 - [ ] C3 Empty state: No vehicles available message identical.
 - [ ] C4 Validation: Create/edit vehicle triggers identical validation errors.
-- [ ] C5 Formatting: Plate number uppercase, KM display with comma separator, year as 4-digit, color label.
+- [ ] C5 Formatting: Plate number uppercase, odometer (km) display with comma separator (computed from `service_orders.odometer_km`), year as 4-digit, color label.
 - [ ] C6 Realtime: Create vehicle in separate tab, verify update in index within 1s, verify highlight 6s, verify no jitter.
 - [ ] C7 Permissions: Check service advisor vs owner view restrictions on edit/detail buttons.
 - [ ] C8 Payload: Compare Laravel vs Go JSON (vehicles array with nested customer, stats object).
