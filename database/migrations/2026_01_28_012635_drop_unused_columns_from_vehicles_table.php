@@ -11,6 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // NOTE: Vehicle odometer (`km`) is now derived from latest
+        // `service_orders.odometer_km`. The persisted `vehicles.km` column
+        // was removed to avoid duplication and keep a single source of truth.
         Schema::table('vehicles', function (Blueprint $table) {
             // Drop columns yang tidak diperlukan karena data diambil dari service_orders
             $table->dropColumn([

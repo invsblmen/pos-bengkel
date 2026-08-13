@@ -11,6 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // NOTE: Historically the `parts.sku` column existed in older schemas.
+        // The application now uses `parts.part_number` as the canonical identifier
+        // for parts and `sku` has been removed from the runtime schema.
+        // Migration is kept for history and rollback support.
+
         Schema::table('parts', function (Blueprint $table) {
             // Drop SKU column if exists
             if (Schema::hasColumn('parts', 'sku')) {

@@ -219,7 +219,7 @@ export default function PartSalesProfit({ sales, summary, topParts, filters }) {
                                         <tr key={idx} className="border-b border-slate-100 dark:border-slate-800">
                                             <td className="px-4 py-3">
                                                 <div className="font-medium text-slate-900 dark:text-white">{part.part_name}</div>
-                                                <div className="text-xs text-slate-500">{part.part_sku}</div>
+                                                <div className="text-xs text-slate-500">{part.part_number}</div>
                                             </td>
                                             <td className="px-4 py-3 text-center text-slate-700 dark:text-slate-300">
                                                 {part.total_quantity}

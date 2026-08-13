@@ -163,7 +163,7 @@ class PartSalesProfitReportController extends Controller
                 ->map(function ($item) {
                     return [
                         'part_name' => $item->part->name ?? 'Unknown',
-                        'part_sku' => $item->part->part_number ?? 'N/A',
+                        'part_number' => $item->part->part_number ?? 'N/A',
                         'total_quantity' => (int) $item->total_quantity,
                         'total_profit' => (int) $item->total_profit,
                         'avg_margin' => round($item->avg_margin, 2),
