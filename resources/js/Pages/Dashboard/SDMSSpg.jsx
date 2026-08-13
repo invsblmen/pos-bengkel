@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+,.import React, { useEffect, useMemo, useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import { IconArrowLeft, IconRefresh, IconSearch, IconTruckDelivery, IconPlus, IconCheck, IconSend } from '@tabler/icons-react';
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/Card';
@@ -966,7 +966,7 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                             </div>
                         )}
 
-                        {(showTechnicalDetails && (compareResult || compareError)) && (
+                        {(compareResult || compareError) && (
                             <div className="mt-4 grid gap-3">
                                 <div className={`rounded-2xl border p-4 ${compareError ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300'}`}>
                                     <div className="flex items-center justify-between">
@@ -1088,7 +1088,9 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                                     </div>
                                 )}
 
-                                <pre className="mt-3 overflow-auto rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs leading-6 text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">{JSON.stringify(compareResult || (compareError?.response?.data || { message: compareError?.message }), null, 2)}</pre>
+                                {showTechnicalDetails && (
+                                    <pre className="mt-3 overflow-auto rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs leading-6 text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">{JSON.stringify(compareResult || (compareError?.response?.data || { message: compareError?.message }), null, 2)}</pre>
+                                )}
                             </div>
                         )}
 
@@ -1266,7 +1268,7 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                             </>
                         ) : (
                             <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-400">
-                                Detail teknis disembunyikan. Aktifkan tombol detail teknis bila perlu melihat raw JSON, state draft, atau hasil banding mentah.
+                                Detail teknis disembunyikan. Aktifkan tombol detail teknis bila perlu melihat raw JSON atau state draft.
                             </div>
                         )}
                     </CardBody>
