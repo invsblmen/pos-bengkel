@@ -61,9 +61,9 @@ class PartSalesProfitReportController extends Controller
         // Aggregate page profit metrics in a single grouped query
         $metricsBySale = collect(Cache::remember($pageMetricsCacheKey, now()->addSeconds(45), function () use ($pageSaleIds, $quantityColumn) {
             return PartSaleDetail::query()
-                ->selectRaw('part_sale_id')
-                ->selectRaw("SUM(COALESCE(cost_price, 0) * COALESCE({$quantityColumn}, 0)) as total_cost")
-                ->selectRaw("SUM(COALESCE(selling_price, 0) * COALESCE({$quantityColumn}, 0)) as total_revenue")
+                ->select('part_sale_id')
+                ->selectRaw("SUM(COALESCE(cost_price, 0) * COALESCE({$quantityColumn}, 0)) as total_cost", [])
+                ->selectRaw("SUM(COALESCE(selling_price, 0) * COALESCE({$quantityColumn}, 0)) as total_revenue", [])
                 ->whereIn('part_sale_id', $pageSaleIds)
                 ->groupBy('part_sale_id')
                 ->get()
@@ -96,7 +96,7 @@ class PartSalesProfitReportController extends Controller
         $summaryCacheKey = 'reports:part-sales-profit:summary:' . sha1(json_encode($baseCachePayload));
         $summaryStats = (object) Cache::remember($summaryCacheKey, now()->addSeconds(45), function () use ($filters, $startDateTime, $endDateTime, $quantityExpression) {
             $row = PartSaleDetail::query()
-                ->join('part_sales', 'part_sale_details.part_sale_id', '=', 'part_sales.id')
+                ->join('part_sales', 'part_sale_details.part_sale_id', '=', 'part_sales.id', 'inner', false)
                 ->when($filters['invoice'] ?? null, fn ($q, $invoice) =>
                     $q->where('part_sales.sale_number', 'like', '%' . $invoice . '%')
                 )
@@ -106,10 +106,10 @@ class PartSalesProfitReportController extends Controller
                 ->when($endDateTime, fn ($q, $end) =>
                     $q->where('part_sales.created_at', '<=', $end)
                 )
-                ->selectRaw("SUM(COALESCE(part_sale_details.cost_price, 0) * {$quantityExpression}) as total_cost")
-                ->selectRaw("SUM(COALESCE(part_sale_details.selling_price, 0) * {$quantityExpression}) as total_revenue")
-                ->selectRaw("SUM({$quantityExpression}) as total_quantity")
-                ->selectRaw('COUNT(DISTINCT part_sales.id) as orders_count')
+                ->selectRaw("SUM(COALESCE(part_sale_details.cost_price, 0) * {$quantityExpression}) as total_cost", [])
+                ->selectRaw("SUM(COALESCE(part_sale_details.selling_price, 0) * {$quantityExpression}) as total_revenue", [])
+                ->selectRaw("SUM({$quantityExpression}) as total_quantity", [])
+                ->selectRaw('COUNT(DISTINCT part_sales.id) as orders_count', [])
                 ->first();
 
             return [
@@ -144,8 +144,8 @@ class PartSalesProfitReportController extends Controller
                 SUM(' . $quantityExpression . ') as total_quantity,
                 SUM((COALESCE(part_sale_details.selling_price, 0) - COALESCE(part_sale_details.cost_price, 0)) * ' . $quantityExpression . ') as total_profit,
                     AVG((COALESCE(selling_price, 0) - COALESCE(cost_price, 0)) / NULLIF(COALESCE(cost_price, 1), 0) * 100) as avg_margin
-                ')
-                ->join('part_sales', 'part_sale_details.part_sale_id', '=', 'part_sales.id')
+                ', [])
+                ->join('part_sales', 'part_sale_details.part_sale_id', '=', 'part_sales.id', 'inner', false)
                 ->when($filters['invoice'] ?? null, fn ($q, $invoice) =>
                     $q->where('part_sales.sale_number', 'like', '%' . $invoice . '%')
                 )
@@ -201,10 +201,10 @@ class PartSalesProfitReportController extends Controller
         ];
 
         $profitBySupplier = DB::table('part_sale_details')
-            ->join('part_sales', 'part_sale_details.part_sale_id', '=', 'part_sales.id')
-            ->join('part_purchase_details', 'part_sale_details.source_purchase_detail_id', '=', 'part_purchase_details.id')
-            ->join('part_purchases', 'part_purchase_details.part_purchase_id', '=', 'part_purchases.id')
-            ->join('suppliers', 'part_purchases.supplier_id', '=', 'suppliers.id')
+            ->join('part_sales', 'part_sale_details.part_sale_id', '=', 'part_sales.id', 'inner', false)
+            ->join('part_purchase_details', 'part_sale_details.source_purchase_detail_id', '=', 'part_purchase_details.id', 'inner', false)
+            ->join('part_purchases', 'part_purchase_details.part_purchase_id', '=', 'part_purchases.id', 'inner', false)
+            ->join('suppliers', 'part_purchases.supplier_id', '=', 'suppliers.id', 'inner', false)
             ->selectRaw('
                 suppliers.id as supplier_id,
                 suppliers.name as supplier_name,

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\Process\Process;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 
 class WhatsAppDockerController extends Controller
 {
@@ -92,17 +93,7 @@ class WhatsAppDockerController extends Controller
 
         try {
             $full = $host . $path;
-            $client = app()->make('http.client');
-            // If http.client binding not available, fallback to Http facade
-            if (is_callable([$client, 'request'])) {
-                $response = $client->request($method, $full, $options);
-                $body = (string) $response->getBody();
-                $status = $response->getStatusCode();
-                $json = json_decode($body, true);
-                return ['success' => $status >= 200 && $status < 300, 'status' => $status, 'body' => $json ?? $body];
-            }
-
-            $response = \Illuminate\Support\Facades\Http::withOptions(['verify' => false, 'timeout' => 10])->send($method, $full, $options);
+            $response = Http::withOptions(['verify' => false])->timeout(10)->send($method, $full, $options);
             $body = $response->body();
             $status = $response->status();
             $json = null;
