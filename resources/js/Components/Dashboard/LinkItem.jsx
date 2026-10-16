@@ -101,6 +101,7 @@ export default function LinkItem({
         return (
             <Link
                 href={linkHref}
+                prefetch="hover"
                 target={target}
                 rel={rel}
                 className={`${baseClasses} ${activeClasses} px-4 py-2.5 text-sm font-medium`}
@@ -163,6 +164,7 @@ export default function LinkItem({
     return (
         <Link
             href={linkHref}
+            prefetch="hover"
             target={target}
             rel={rel}
             className={`

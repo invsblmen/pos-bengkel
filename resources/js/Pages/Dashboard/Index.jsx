@@ -1,6 +1,5 @@
 import { Head, Link, usePage } from "@inertiajs/react";
 import { useEffect, useMemo, useRef } from "react";
-import Chart from "chart.js/auto";
 import {
     IconBox,
     IconCategory,
@@ -171,7 +170,12 @@ export default function Dashboard({
         gradient.addColorStop(0, "rgba(99, 102, 241, 0.3)");
         gradient.addColorStop(1, "rgba(99, 102, 241, 0.01)");
 
-        chartInstance.current = new Chart(chartRef.current, {
+        let cancelled = false;
+
+        import("chart.js/auto").then(({ default: Chart }) => {
+            if (cancelled || !chartRef.current) return;
+
+            chartInstance.current = new Chart(chartRef.current, {
             type: "line",
             data: {
                 labels,
@@ -237,9 +241,14 @@ export default function Dashboard({
                     },
                 },
             },
+            });
         });
 
-        return () => chartInstance.current?.destroy();
+        return () => {
+            cancelled = true;
+            chartInstance.current?.destroy();
+            chartInstance.current = null;
+        };
     }, [chartData]);
 
     return (

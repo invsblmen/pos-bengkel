@@ -8,6 +8,7 @@ import { ThemeSwitcherProvider } from './Context/ThemeSwitcherContext';
 import { SidebarProvider } from './Context/SidebarContext';
 import DashboardLayout from './Layouts/DashboardLayout';
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const pages = import.meta.glob('./Pages/**/*.jsx');
 const dashboardLayout = (page) => <DashboardLayout>{page}</DashboardLayout>;
 const dashboardLayoutExclusions = new Set([
     'Dashboard/ServiceOrders/Create',
@@ -20,7 +21,7 @@ createInertiaApp({
     resolve: async (name) => {
         const page = await resolvePageComponent(
             `./Pages/${name}.jsx`,
-            import.meta.glob('./Pages/**/*.jsx')
+            pages
         );
 
         if (
