@@ -23,6 +23,7 @@ import {
 } from '@tabler/icons-react';
 import toast from 'react-hot-toast';
 import { toDisplayDateTime } from '@/Utils/datetime';
+import OdometerCheckInModal from '@/Components/ServiceOrder/OdometerCheckInModal';
 
 const statusMeta = {
     all: { label: 'Semua', chip: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
@@ -105,6 +106,7 @@ export default function Index({ orders, stats, mechanics, filters }) {
     const [showFilters, setShowFilters] = useState(false);
     const [viewMode, setViewMode] = useState('table');
     const [liveServiceOrders, setLiveServiceOrders] = useState(orders?.data || []);
+    const [odometerOrder, setOdometerOrder] = useState(null);
 
     useEffect(() => {
         setLiveServiceOrders(orders?.data || []);
@@ -161,16 +163,36 @@ export default function Index({ orders, stats, mechanics, filters }) {
         );
     };
 
-    const handleStatusChange = (orderId, newStatus) => {
+    const submitStatusChange = (orderId, newStatus, data = {}) => {
         router.post(
             route('service-orders.update-status', orderId),
-            { status: newStatus },
+            { status: newStatus, ...data },
             {
                 preserveScroll: true,
                 onSuccess: () => toast.success('Status berhasil diperbarui!'),
                 onError: () => toast.error('Gagal memperbarui status!'),
             }
         );
+    };
+
+    const handleStatusChange = (order, newStatus) => {
+        if (newStatus === 'completed' && (order.odometer_km === null || order.odometer_km === undefined)) {
+            setOdometerOrder(order);
+            return;
+        }
+
+        submitStatusChange(order.id, newStatus, {
+            odometer_km: newStatus === 'completed' ? order.odometer_km : undefined,
+        });
+    };
+
+    const handleOdometerSubmit = ({ odometer_km, notes }) => {
+        if (!odometerOrder) {
+            return;
+        }
+
+        submitStatusChange(odometerOrder.id, 'completed', { odometer_km, notes });
+        setOdometerOrder(null);
     };
 
     const formatPrice = (price) =>
@@ -468,7 +490,7 @@ export default function Index({ orders, stats, mechanics, filters }) {
                                                             <div className="relative inline-block">
                                                                 <select
                                                                     value={order.status}
-                                                                    onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                                                                    onChange={(e) => handleStatusChange(order, e.target.value)}
                                                                     className={`appearance-none cursor-pointer rounded-xl px-3 py-1.5 pr-8 text-xs font-semibold border-0 focus:ring-2 focus:ring-primary-500 ${badge.chip}`}
                                                                 >
                                                                     <option value="pending">Menunggu</option>
@@ -534,7 +556,7 @@ export default function Index({ orders, stats, mechanics, filters }) {
                                                         <div className="relative inline-block">
                                                         <select
                                                             value={order.status}
-                                                            onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                                                            onChange={(e) => handleStatusChange(order, e.target.value)}
                                                             className={`appearance-none cursor-pointer rounded-xl px-3 py-1.5 pr-8 text-xs font-semibold border-0 focus:ring-2 focus:ring-primary-500 ${badge.chip}`}
                                                         >
                                                             <option value="pending">Menunggu</option>
@@ -563,6 +585,11 @@ export default function Index({ orders, stats, mechanics, filters }) {
                             <div className="border-t border-slate-200 dark:border-slate-700 px-4 py-3 bg-slate-50 dark:bg-slate-900">
                                 <Pagination links={orders.links} />
                             </div>
+                            <OdometerCheckInModal
+                                isOpen={odometerOrder !== null}
+                                onClose={() => setOdometerOrder(null)}
+                                onSuccess={handleOdometerSubmit}
+                            />
                         </>
                     ) : (
                         <EmptyState hasFilters={activeFiltersCount > 0} onReset={handleReset} />
