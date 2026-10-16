@@ -170,7 +170,13 @@ export default function Index({ orders, stats, mechanics, filters }) {
             {
                 preserveScroll: true,
                 onSuccess: () => toast.success('Status berhasil diperbarui!'),
-                onError: () => toast.error('Gagal memperbarui status!'),
+                onError: (errors) => {
+                    const firstError = Object.values(errors || {})
+                        .flat()
+                        .find((error) => typeof error === 'string' && error.trim());
+
+                    toast.error(firstError || 'Gagal memperbarui status!');
+                },
             }
         );
     };

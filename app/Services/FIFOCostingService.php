@@ -57,7 +57,8 @@ class FIFOCostingService
         if ($remainingQty > 0) {
             return [
                 'success' => false,
-                'allocations' => [],
+                'allocations' => $allocations,
+                'remaining_qty' => $remainingQty,
                 'message' => "Stok batch FIFO tidak mencukupi. Dibutuhkan {$quantityNeeded}, tersedia " . ($quantityNeeded - $remainingQty) . '.',
             ];
         }
@@ -65,6 +66,7 @@ class FIFOCostingService
         return [
             'success' => true,
             'allocations' => $allocations,
+            'remaining_qty' => 0,
             'message' => 'Stock allocated successfully',
         ];
     }
@@ -115,7 +117,8 @@ class FIFOCostingService
             }
 
             $fifoResult = self::allocateStock((int) $lockedPart->id, $quantity, true);
-            if (!$fifoResult['success']) {
+            $untrackedQty = (int) ($fifoResult['remaining_qty'] ?? 0);
+            if (!$fifoResult['success'] && $untrackedQty <= 0) {
                 throw ValidationException::withMessages(['items' => [$fifoResult['message']]]);
             }
 
@@ -139,6 +142,28 @@ class FIFOCostingService
                     'after_stock' => $afterStock,
                     'unit_price' => $fallbackUnitPrice ?? $allocation['selling_price'],
                     'notes' => $notes,
+                    'created_by' => $createdBy,
+                ]);
+
+                $runningStock = $afterStock;
+            }
+
+            if ($untrackedQty > 0) {
+                $afterStock = max(0, $runningStock - $untrackedQty);
+
+                PartStockMovement::create([
+                    'part_id' => $lockedPart->id,
+                    'part_purchase_detail_id' => null,
+                    'part_sale_detail_id' => $saleDetail?->id,
+                    'service_order_detail_id' => $serviceOrderDetail?->id,
+                    'reference_type' => $referenceType,
+                    'reference_id' => $referenceId,
+                    'type' => $movementType,
+                    'qty' => $untrackedQty,
+                    'before_stock' => $runningStock,
+                    'after_stock' => $afterStock,
+                    'unit_price' => $fallbackUnitPrice ?? (int) ($lockedPart->buy_price ?? 0),
+                    'notes' => $notes . ' (stok legacy tanpa batch FIFO)',
                     'created_by' => $createdBy,
                 ]);
 
@@ -191,7 +216,6 @@ class FIFOCostingService
             ->where('reference_type', $referenceType)
             ->where('reference_id', $referenceId)
             ->where('type', 'out')
-            ->whereNotNull('part_purchase_detail_id')
             ->when($partSaleDetailId, fn ($query) => $query->where('part_sale_detail_id', $partSaleDetailId))
             ->when($serviceOrderDetailId, fn ($query) => $query->where('service_order_detail_id', $serviceOrderDetailId))
             ->get();
@@ -209,17 +233,36 @@ class FIFOCostingService
             ->map(fn ($qty) => (int) $qty)
             ->all();
 
+        $releasedUntrackedQty = (int) PartStockMovement::query()
+            ->where('reference_type', $referenceType)
+            ->where('reference_id', $referenceId)
+            ->where('type', 'in')
+            ->whereNull('part_purchase_detail_id')
+            ->when($partSaleDetailId, fn ($query) => $query->where('part_sale_detail_id', $partSaleDetailId))
+            ->when($serviceOrderDetailId, fn ($query) => $query->where('service_order_detail_id', $serviceOrderDetailId))
+            ->sum('qty');
+
         foreach ($movements as $movement) {
             $batchId = (int) $movement->part_purchase_detail_id;
-            $alreadyReleased = (int) ($releasedByBatch[$batchId] ?? 0);
+            $alreadyReleased = $batchId > 0
+                ? (int) ($releasedByBatch[$batchId] ?? 0)
+                : $releasedUntrackedQty;
 
             if ($alreadyReleased >= (int) $movement->qty) {
-                $releasedByBatch[$batchId] = $alreadyReleased - (int) $movement->qty;
+                if ($batchId > 0) {
+                    $releasedByBatch[$batchId] = $alreadyReleased - (int) $movement->qty;
+                } else {
+                    $releasedUntrackedQty = $alreadyReleased - (int) $movement->qty;
+                }
                 continue;
             }
 
             $qtyToRelease = (int) $movement->qty - max(0, $alreadyReleased);
-            $releasedByBatch[$batchId] = 0;
+            if ($batchId > 0) {
+                $releasedByBatch[$batchId] = 0;
+            } else {
+                $releasedUntrackedQty = 0;
+            }
 
             $part = $movement->part;
             if (!$part) {
