@@ -39,7 +39,9 @@ class CashChangeSuggestionService
                 continue;
             }
 
-            for ($count = 0; $count < $qty; $count++) {
+            $maxCount = min($qty, intdiv($max, $value));
+
+            for ($count = 0; $count < $maxCount; $count++) {
                 for ($amount = $max; $amount >= $value; $amount--) {
                     if ($dp[$amount - $value] === $inf) {
                         continue;

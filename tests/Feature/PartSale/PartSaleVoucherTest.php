@@ -10,7 +10,7 @@ use App\Models\Supplier;
 use App\Models\User;
 use App\Models\Voucher;
 use App\Models\VoucherEligibility;
-use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Permission;
@@ -25,7 +25,7 @@ class PartSaleVoucherTest extends TestCase
     {
         parent::setUp();
 
-        $this->withoutMiddleware(ValidateCsrfToken::class);
+        $this->withoutMiddleware(PreventRequestForgery::class);
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Permission::firstOrCreate(['name' => 'part-sales-create', 'guard_name' => 'web']);
         Permission::firstOrCreate(['name' => 'part-sales-edit', 'guard_name' => 'web']);

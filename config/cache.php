@@ -102,6 +102,19 @@ return [
     |
     */
 
-    'prefix' => env('CACHE_PREFIX', Str::slug(env('APP_NAME', 'laravel'), '_').'_cache_'),
+    'prefix' => env('CACHE_PREFIX', Str::slug(env('APP_NAME', 'laravel')).'-cache-'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Serializable Classes
+    |--------------------------------------------------------------------------
+    |
+    | Prevent arbitrary objects from being unserialized from cache payloads.
+    | Applications that cache objects should explicitly allow-list their
+    | classes here.
+    |
+    */
+
+    'serializable_classes' => false,
 
 ];

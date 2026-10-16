@@ -32,7 +32,7 @@ use App\Http\Controllers\Apps\WhatsAppMessageController;
 use App\Http\Controllers\Apps\WhatsAppGoController;
 use App\Http\Controllers\Apps\WhatsAppDockerController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
-use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Http\Request;
 
 // Include authentication routes
@@ -180,7 +180,7 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
         ->middlewareFor(['edit', 'update'], 'permission:vouchers-edit')
         ->middlewareFor('destroy', 'permission:vouchers-delete');
     Route::post('vouchers/preview', [VoucherController::class, 'preview'])
-        ->withoutMiddleware([ValidateCsrfToken::class])
+        ->withoutMiddleware([PreventRequestForgery::class])
         ->name('vouchers.preview');
     Route::get('vouchers/{voucher}/usages', [VoucherController::class, 'usages'])
         ->middleware('permission:vouchers-access')
@@ -401,5 +401,5 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
 });
 
 Route::post('/webhooks/whatsapp', WhatsAppWebhookController::class)
-    ->withoutMiddleware([ValidateCsrfToken::class])
+    ->withoutMiddleware([PreventRequestForgery::class])
     ->name('webhooks.whatsapp');

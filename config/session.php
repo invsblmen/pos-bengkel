@@ -129,8 +129,20 @@ return [
 
     'cookie' => env(
         'SESSION_COOKIE',
-        Str::slug(env('APP_NAME', 'laravel'), '_').'_session'
+        Str::slug(env('APP_NAME', 'laravel')).'-session'
     ),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Session Serialization
+    |--------------------------------------------------------------------------
+    |
+    | JSON serialization avoids PHP object deserialization from session data.
+    | Existing sessions are invalidated when changing this value.
+    |
+    */
+
+    'serialization' => env('SESSION_SERIALIZATION', 'json'),
 
     /*
     |--------------------------------------------------------------------------
