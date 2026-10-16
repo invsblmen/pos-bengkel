@@ -255,8 +255,6 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
     const [createdPurchase, setCreatedPurchase] = useState(null);
     const [existingParts, setExistingParts] = useState({});
 
-    const isAuthenticated = Boolean(sdms && (sdms.access_token || sdms.id_token));
-
     const normalizeIdBilling = (value) => (value ?? '').toString().trim();
 
     const loadSpg = async (nextIdBilling = idBilling) => {
@@ -402,6 +400,7 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
     const [createSpareLoading, setCreateSpareLoading] = useState(false);
     const [createPurchaseLoading, setCreatePurchaseLoading] = useState(false);
     const [showLoginModal, setShowLoginModal] = useState(false);
+    const isAuthenticated = Boolean(sdms && (sdms.access_token || sdms.id_token));
 
     const handleOpenAddModal = (numberPart, name) => {
         setModalPart({ numberPart, name });
@@ -966,7 +965,7 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                             </div>
                         )}
 
-                        {(compareResult || compareError) && (
+                        {(showTechnicalDetails && (compareResult || compareError)) && (
                             <div className="mt-4 grid gap-3">
                                 <div className={`rounded-2xl border p-4 ${compareError ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300'}`}>
                                     <div className="flex items-center justify-between">
@@ -1088,9 +1087,7 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                                     </div>
                                 )}
 
-                                {showTechnicalDetails && (
-                                    <pre className="mt-3 overflow-auto rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs leading-6 text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">{JSON.stringify(compareResult || (compareError?.response?.data || { message: compareError?.message }), null, 2)}</pre>
-                                )}
+                                <pre className="mt-3 overflow-auto rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs leading-6 text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">{JSON.stringify(compareResult || (compareError?.response?.data || { message: compareError?.message }), null, 2)}</pre>
                             </div>
                         )}
 
@@ -1268,7 +1265,7 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                             </>
                         ) : (
                             <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-400">
-                                Detail teknis disembunyikan. Aktifkan tombol detail teknis bila perlu melihat raw JSON atau state draft.
+                                Detail teknis disembunyikan. Aktifkan tombol detail teknis bila perlu melihat raw JSON, state draft, atau hasil banding mentah.
                             </div>
                         )}
                     </CardBody>
