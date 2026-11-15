@@ -40,6 +40,9 @@ export default function Print({ purchase, businessProfile }) {
     const compactSocialInfo = getCompactBusinessSocialDisplay(businessProfile);
     const googleBusinessQrUrl = getGoogleBusinessQrUrl(businessProfile?.google_my_business, 108);
     const purchaseReferences = extractReferenceFromNotes(purchase?.notes);
+    const printPagePadding = printMode === 'invoice'
+        ? 'print:px-[8mm] print:py-[6mm]'
+        : 'print:p-0';
 
     const thermalPayload = useMemo(() => ({
         invoice: purchase?.purchase_number,
@@ -66,8 +69,8 @@ export default function Print({ purchase, businessProfile }) {
         <>
             <Head title={`Cetak Pembelian ${purchase?.purchase_number || ''}`} />
 
-            <div className="min-h-screen bg-slate-100 dark:bg-slate-950 py-8 px-4 print:bg-white print:p-0">
-                <div className="max-w-5xl mx-auto space-y-6 print:max-w-none">
+            <div className={`part-purchase-print-page ${printMode === 'invoice' ? 'part-purchase-print-invoice' : 'part-purchase-print-thermal'} min-h-screen bg-slate-100 dark:bg-slate-950 py-8 px-4 print:min-h-0 print:bg-white print:m-0 print:text-black ${printPagePadding}`}>
+                <div className="max-w-5xl mx-auto space-y-6 print:w-full print:max-w-none print:p-0 print:m-0">
                     <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
                         <Link
                             href={route('part-purchases.show', purchase?.id)}
@@ -141,6 +144,8 @@ export default function Print({ purchase, businessProfile }) {
                                         businessSocialInfo={compactSocialInfo}
                                         googleBusinessQrUrl={googleBusinessQrUrl}
                                         consumerNote={consumerNote}
+                                        signatureLabels={{ left: 'Supplier', right: 'Admin' }}
+                                        signatureNames={{ left: purchase?.supplier?.name, right: purchase?.creator?.name }}
                                     />
                                 ) : (
                                     <ThermalReceipt58mm
@@ -151,6 +156,8 @@ export default function Print({ purchase, businessProfile }) {
                                         businessSocialInfo={compactSocialInfo}
                                         googleBusinessQrUrl={googleBusinessQrUrl}
                                         consumerNote={consumerNote}
+                                        signatureLabels={{ left: 'Supplier', right: 'Admin' }}
+                                        signatureNames={{ left: purchase?.supplier?.name, right: purchase?.creator?.name }}
                                     />
                                 )}
                             </div>
@@ -158,8 +165,8 @@ export default function Print({ purchase, businessProfile }) {
                     )}
 
                     {printMode === 'invoice' && (
-                        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xl print:shadow-none print:border-slate-300">
-                            <div className="bg-gradient-to-r from-primary-500 to-primary-700 px-6 py-6 text-white print:bg-slate-100 print:text-slate-900">
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xl print:w-full print:max-w-none print:m-0 print:shadow-none print:border-0 print:rounded-none">
+                            <div className="bg-gradient-to-r from-primary-500 to-primary-700 px-6 py-6 text-white print:bg-none print:bg-white print:text-black print:border-b print:border-black print:px-4 print:py-2">
                                 <div className="flex flex-wrap items-start justify-between gap-4 print:flex-nowrap print:gap-3">
                                     <div>
                                         <div className="flex items-center gap-2 mb-2">
@@ -180,7 +187,7 @@ export default function Print({ purchase, businessProfile }) {
                                 </div>
                             </div>
 
-                            <div className="grid md:grid-cols-2 print:grid-cols-2 gap-6 px-6 py-6 border-b border-slate-100 dark:border-slate-800 print:gap-3 print:px-4 print:py-3">
+                            <div className="grid md:grid-cols-2 print:grid-cols-2 gap-6 px-6 py-6 border-b border-slate-100 dark:border-slate-800 print:gap-3 print:px-4 print:py-2">
                                 <div>
                                     <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Supplier</p>
                                     <p className="text-base font-semibold text-slate-900 dark:text-white">{purchase?.supplier?.name || '-'}</p>
@@ -202,7 +209,7 @@ export default function Print({ purchase, businessProfile }) {
                                 </div>
                             </div>
 
-                            <div className="px-6 py-6">
+                            <div className="px-6 py-6 print:px-4 print:py-2">
                                 <table className="w-full text-sm">
                                     <thead>
                                         <tr className="border-b border-slate-100 dark:border-slate-800">
@@ -215,13 +222,13 @@ export default function Print({ purchase, businessProfile }) {
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                         {(purchase?.details || []).map((detail) => (
                                             <tr key={detail.id}>
-                                                <td className="py-3">
+                                                <td className="py-3 print:py-1.5">
                                                     <p className="font-medium text-slate-900 dark:text-white">{detail.part?.name || '-'}</p>
                                                     {detail.part?.part_number && <p className="text-xs text-slate-500 dark:text-slate-400">Kode: {detail.part.part_number}</p>}
                                                 </td>
-                                                <td className="py-3 text-right text-slate-600 dark:text-slate-400">{formatCurrency(detail.unit_price)}</td>
-                                                <td className="py-3 text-center text-slate-600 dark:text-slate-400">{detail.quantity}</td>
-                                                <td className="py-3 text-right font-semibold text-slate-900 dark:text-white">{formatCurrency(detail.final_amount || detail.subtotal)}</td>
+                                                <td className="py-3 print:py-1.5 text-right text-slate-600 dark:text-slate-400">{formatCurrency(detail.unit_price)}</td>
+                                                <td className="py-3 print:py-1.5 text-center text-slate-600 dark:text-slate-400">{detail.quantity}</td>
+                                                <td className="py-3 print:py-1.5 text-right font-semibold text-slate-900 dark:text-white">{formatCurrency(detail.final_amount || detail.subtotal)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -295,12 +302,65 @@ export default function Print({ purchase, businessProfile }) {
                                             {purchaseReferences.psNumber && <div>PS: {purchaseReferences.psNumber}</div>}
                                         </div>
                                     )}
+
+                                    <div className="grid grid-cols-2 gap-8 px-6 pt-8 pb-6 text-center text-sm text-slate-700 dark:text-slate-300 print:break-inside-avoid print:gap-4 print:px-4 print:pt-4 print:pb-2 print:text-xs">
+                                        <div>
+                                            <div className="h-16 print:h-12" />
+                                            <div className="border-t border-slate-400 pt-1">
+                                                <p>Supplier</p>
+                                                <p className="font-semibold text-slate-900 dark:text-white">{purchase?.supplier?.name || '-'}</p>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div className="h-16 print:h-12" />
+                                            <div className="border-t border-slate-400 pt-1">
+                                                <p>Admin</p>
+                                                <p className="font-semibold text-slate-900 dark:text-white">{purchase?.creator?.name || '-'}</p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </div>
                     )}
                 </div>
             </div>
+
+            <style>{`
+                @media print {
+                    html,
+                    body,
+                    #app {
+                        background: #fff !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                    }
+
+                    .part-purchase-print-page,
+                    .part-purchase-print-page * {
+                        color: #000 !important;
+                        background-color: #fff !important;
+                        background-image: none !important;
+                        border-color: #000 !important;
+                        box-shadow: none !important;
+                        font-family: "Courier New", Courier, monospace !important;
+                    }
+
+                    .part-purchase-print-page .font-light {
+                        font-weight: 500 !important;
+                    }
+
+                    .part-purchase-print-page.part-purchase-print-invoice,
+                    .part-purchase-print-page.part-purchase-print-invoice * {
+                        font-size: 11pt !important;
+                        font-weight: 500;
+                    }
+
+                    @page {
+                        margin: 0;
+                    }
+                }
+            `}</style>
         </>
     );
 }

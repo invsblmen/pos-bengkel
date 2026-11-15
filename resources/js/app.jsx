@@ -14,6 +14,8 @@ const dashboardLayoutExclusions = new Set([
     'Dashboard/ServiceOrders/Create',
     'Dashboard/ServiceOrders/Edit',
     'Dashboard/ServiceOrders/Print',
+    'Dashboard/Parts/Sales/Print',
+    'Dashboard/PartPurchases/Print',
 ]);
 
 createInertiaApp({

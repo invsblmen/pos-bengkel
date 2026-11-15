@@ -131,6 +131,9 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
 
     const activePrintMode = printModeMeta[printMode] ? printMode : "invoice";
     const activePrintTitle = printModeMeta[activePrintMode].title;
+    const printPagePadding = activePrintMode === "invoice" || activePrintMode === "work_order"
+        ? "print:px-[8mm] print:py-[6mm]"
+        : "print:p-0";
     const workOrderNote =
         businessProfile?.receipt_note_service_order ||
         "Work order ini dipakai sebagai panduan pengerjaan mekanik berdasarkan keluhan dan permintaan konsumen.";
@@ -169,7 +172,7 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
         <>
             <Head title={`Cetak ${activePrintTitle} ${order?.order_number || ""}`} />
 
-            <div className={`service-order-print-page service-order-print-${activePrintMode} min-h-screen bg-slate-100 dark:bg-slate-950 py-8 px-4 print:min-h-0 print:bg-white print:p-0 print:text-[11px] print:leading-tight`}>
+            <div className={`service-order-print-page service-order-print-${activePrintMode} min-h-screen bg-slate-100 dark:bg-slate-950 py-8 px-4 print:min-h-0 print:bg-white print:m-0 print:text-black ${printPagePadding}`}>
                 <div className="max-w-5xl mx-auto space-y-6 print:max-w-none print:mx-0 print:space-y-0">
                     {/* Action Bar */}
                     <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
@@ -277,7 +280,7 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
                         <div
                             className="service-order-print-sheet work-order-sheet mx-auto max-w-5xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xl print:shadow-none print:border-0 print:rounded-none print:max-w-none"
                         >
-                            <div className="bg-gradient-to-r from-emerald-600 to-teal-700 px-6 py-6 text-white print:bg-transparent print:text-slate-900 print:px-0 print:py-0">
+                            <div className="bg-gradient-to-r from-emerald-600 to-teal-700 px-6 py-6 text-white print:bg-white print:text-black print:border-b print:border-black print:px-0 print:py-2">
                                 <div className="flex flex-wrap items-start justify-between gap-4 print:flex-nowrap print:gap-2">
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-2 mb-2 print:mb-1">
@@ -427,12 +430,12 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
                                     </div>
                                     <div className="grid grid-cols-2 gap-3 print:gap-2">
                                         <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 text-center print:p-2.5">
-                                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 print:text-[10px]">Diterima Konsumen</p>
-                                            <div className="mt-8 h-10 border-t border-slate-300 dark:border-slate-700 pt-2 text-xs text-slate-500 print:mt-6 print:h-8 print:text-[10px]">Tanda tangan</div>
+                                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 print:text-[10px]">SA</p>
+                                            <div className="mt-8 h-10 border-t border-slate-300 dark:border-slate-700 pt-2 text-xs text-slate-500 print:mt-3 print:h-12 print:text-[11px]">SA</div>
                                         </div>
                                         <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 text-center print:p-2.5">
-                                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 print:text-[10px]">Dikerjakan Mekanik</p>
-                                            <div className="mt-8 h-10 border-t border-slate-300 dark:border-slate-700 pt-2 text-xs text-slate-500 print:mt-6 print:h-8 print:text-[10px]">Tanda tangan</div>
+                                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 print:text-[10px]">Mekanik</p>
+                                            <div className="mt-8 h-10 border-t border-slate-300 dark:border-slate-700 pt-2 text-xs text-slate-500 print:mt-3 print:h-12 print:text-[11px]">Mekanik</div>
                                         </div>
                                     </div>
                                 </div>
@@ -441,9 +444,9 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
                     )}
 
                     {activePrintMode === "invoice" && (
-                        <div className="service-order-print-sheet service-order-invoice bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xl print:shadow-none print:border-slate-300 print:rounded-none">
+                        <div className="service-order-print-sheet service-order-invoice bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xl print:w-full print:max-w-none print:shadow-none print:border-0 print:rounded-none">
                             {/* Header */}
-                            <div className="bg-gradient-to-r from-primary-500 to-primary-700 px-6 py-6 text-white print:bg-slate-100 print:text-slate-900 print:px-3 print:py-2">
+                            <div className="bg-gradient-to-r from-primary-500 to-primary-700 px-6 py-6 text-white print:bg-white print:text-black print:border-b print:border-black print:px-3 print:py-2">
                                 <div className="flex flex-wrap items-start justify-between gap-4 print:flex-nowrap print:gap-2">
                                     <div>
                                         <div className="flex items-center gap-2 mb-2 print:mb-1">
@@ -646,6 +649,23 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
                                 </div>
                             </div>
 
+                            <div className="grid grid-cols-2 gap-8 px-6 pt-8 pb-6 text-center text-sm text-slate-700 dark:text-slate-300 print:break-inside-avoid print:gap-4 print:px-3 print:pt-4 print:pb-2 print:text-[11px]">
+                                <div>
+                                    <div className="h-16 print:h-12" />
+                                    <div className="border-t border-slate-400 pt-1">
+                                        <p>Pelanggan</p>
+                                        <p className="font-semibold text-slate-900 dark:text-white">{order?.customer?.name || "Umum"}</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="h-16 print:h-12" />
+                                    <div className="border-t border-slate-400 pt-1">
+                                        <p>Kasir</p>
+                                        <p className="font-semibold text-slate-900 dark:text-white">{order?.creator?.name || order?.mechanic?.name || "-"}</p>
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
                     )}
                 </div>
@@ -655,7 +675,7 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
                 @media print {
                     @page {
                         size: A4;
-                        margin: 6mm;
+                        margin: 0;
                     }
 
                     .service-order-work-order,
@@ -1090,6 +1110,38 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
                         color: #000 !important;
                         background: #fff !important;
                         box-shadow: none !important;
+                    }
+
+                    html,
+                    body,
+                    #app {
+                        background: #fff !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                    }
+
+                    .service-order-print-page,
+                    .service-order-print-page * {
+                        color: #000 !important;
+                        background-color: #fff !important;
+                        background-image: none !important;
+                        border-color: #000 !important;
+                        box-shadow: none !important;
+                        font-family: "Courier New", Courier, monospace !important;
+                    }
+
+                    .service-order-print-page .font-light {
+                        font-weight: 500 !important;
+                    }
+
+                    .service-order-print-page.service-order-print-invoice,
+                    .service-order-print-page.service-order-print-work_order {
+                        font-size: 11pt !important;
+                    }
+
+                    .service-order-print-page tr,
+                    .service-order-print-page .grid-cols-2 {
+                        break-inside: avoid;
                     }
                 }
             `}</style>

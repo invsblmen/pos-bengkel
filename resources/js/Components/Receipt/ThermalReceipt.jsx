@@ -20,6 +20,8 @@ export default function ThermalReceipt({
     businessSocialInfo = null,
     googleBusinessQrUrl = "",
     consumerNote = "Simpan nota ini sebagai bukti transaksi.",
+    signatureLabels = { left: "Pelanggan", right: "Hormat Kami / Kasir" },
+    signatureNames = {},
 }) {
     const formatPrice = (price = 0) => {
         return "Rp " + Number(price || 0).toLocaleString("id-ID");
@@ -188,6 +190,16 @@ export default function ThermalReceipt({
                     </div>
                 )}
                 <p className="text-xs mt-1">{consumerNote}</p>
+                <div className="grid grid-cols-2 gap-2 mt-4 text-[10px] leading-tight">
+                    <div className="pt-8 border-t border-black">
+                        <p>{signatureLabels.left}</p>
+                        <p className="font-bold truncate">{signatureNames.left || transaction?.customer?.name || '-'}</p>
+                    </div>
+                    <div className="pt-8 border-t border-black">
+                        <p>{signatureLabels.right}</p>
+                        <p className="font-bold truncate">{signatureNames.right || transaction?.cashier?.name || '-'}</p>
+                    </div>
+                </div>
                 <p className="text-xs">Terima kasih</p>
                 <p className="text-xs">Barang yang sudah dibeli</p>
                 <p className="text-xs">tidak dapat ditukar/dikembalikan</p>
@@ -223,6 +235,8 @@ export function ThermalReceipt58mm({
     businessSocialInfo = null,
     googleBusinessQrUrl = "",
     consumerNote = "Simpan nota sebagai bukti transaksi.",
+    signatureLabels = { left: "Pelanggan", right: "Kasir" },
+    signatureNames = {},
 }) {
     const formatPrice = (price = 0) => {
         return "Rp" + Number(price || 0).toLocaleString("id-ID");
@@ -322,6 +336,16 @@ export function ThermalReceipt58mm({
                 </div>
             )}
             <p className="text-center text-[9px]">{consumerNote}</p>
+            <div className="grid grid-cols-2 gap-1 mt-3 text-[9px] leading-tight">
+                <div className="pt-6 border-t border-black">
+                    <p>{signatureLabels.left}</p>
+                    <p className="font-bold truncate">{signatureNames.left || transaction?.customer?.name || '-'}</p>
+                </div>
+                <div className="pt-6 border-t border-black">
+                    <p>{signatureLabels.right}</p>
+                    <p className="font-bold truncate">{signatureNames.right || transaction?.cashier?.name || '-'}</p>
+                </div>
+            </div>
             <p className="text-center">Terima kasih!</p>
 
             <style>{`
