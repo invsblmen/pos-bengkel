@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Head, Link } from "@inertiajs/react";
+import { Head, Link, usePage } from "@inertiajs/react";
 import {
     IconArrowLeft,
     IconClipboardList,
@@ -21,6 +21,7 @@ import {
 
 export default function Print({ order, businessProfile, printMode: initialPrintMode = "invoice" }) {
     const [printMode, setPrintMode] = useState(initialPrintMode);
+    const { auth } = usePage().props;
 
     const formatPrice = (price = 0) =>
         Number(price || 0).toLocaleString("id-ID", {
@@ -131,6 +132,11 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
 
     const activePrintMode = printModeMeta[printMode] ? printMode : "invoice";
     const activePrintTitle = printModeMeta[activePrintMode].title;
+    const cashierName =
+        order?.cashier?.name ||
+        order?.creator?.name ||
+        auth?.user?.name ||
+        "-";
     const printPagePadding = activePrintMode === "invoice" || activePrintMode === "work_order"
         ? "print:px-[8mm] print:py-[6mm]"
         : "print:p-0";
@@ -143,7 +149,11 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
         return {
             invoice: order?.order_number,
             created_at: order?.created_at,
-            cashier: order?.mechanic ? { name: order.mechanic.name } : null,
+            cashier: {
+                name: activePrintMode === "work_order"
+                    ? order?.mechanic?.name || "-"
+                    : cashierName,
+            },
             customer: order?.customer ? { name: order.customer.name } : null,
             details: (order?.details || []).map((detail) => {
                 const qty = Number(detail.qty) || 1;
@@ -164,7 +174,7 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
             cash: grandTotal,
             change: 0,
         };
-    }, [order, subtotal, discount, roundingAdjustment, grandTotal]);
+    }, [activePrintMode, cashierName, order, subtotal, discount, roundingAdjustment, grandTotal]);
 
     const handlePrint = () => window.print();
 
@@ -660,8 +670,8 @@ export default function Print({ order, businessProfile, printMode: initialPrintM
                                 <div>
                                     <div className="h-16 print:h-12" />
                                     <div className="border-t border-slate-400 pt-1">
-                                        <p>Kasir</p>
-                                        <p className="font-semibold text-slate-900 dark:text-white">{order?.creator?.name || order?.mechanic?.name || "-"}</p>
+                                        <p>Hormat Kami / Kasir</p>
+                                        <p className="font-semibold text-slate-900 dark:text-white">{cashierName}</p>
                                     </div>
                                 </div>
                             </div>
