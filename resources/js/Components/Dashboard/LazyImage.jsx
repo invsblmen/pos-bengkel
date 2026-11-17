@@ -86,6 +86,8 @@ export default function LazyImage({
                 <img
                     src={src}
                     alt={alt}
+                    loading="lazy"
+                    decoding="async"
                     onLoad={handleLoad}
                     onError={handleError}
                     className={`w-full h-full object-cover transition-opacity duration-300 ${
