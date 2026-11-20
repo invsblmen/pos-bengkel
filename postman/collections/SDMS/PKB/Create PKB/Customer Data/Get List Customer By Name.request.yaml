@@ -1,0 +1,10 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/API/LOV/customername?name=SCOOPY
+method: GET
+headers:
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  name: SCOOPY
+settings: {}
+order: 1000

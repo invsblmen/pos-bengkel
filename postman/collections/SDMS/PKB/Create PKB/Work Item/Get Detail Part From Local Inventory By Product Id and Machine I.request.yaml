@@ -1,0 +1,16 @@
+$kind: http-request
+name: Get Detail Part From Local Inventory By Product Id and Machine Id
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/reception/part/detail?idproduct=08234M99K8LN9&idFacilityType=undefined&idFacility=undefined&nosin=KCA1E1012947&stsbrompitpart=true
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  idproduct: 08234M99K8LN9
+  idFacilityType: undefined
+  idFacility: undefined
+  nosin: KCA1E1012947
+  stsbrompitpart: "true"
+settings: {}
+order: 12000

@@ -1,0 +1,11 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/reception/GroupService?km=58713$dtpurchaseThu%20Feb%2007%202019%2007:00:00%20GMT+0700%20(Indochina%20Time)
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  km: 58713$dtpurchaseThu%20Feb%2007%202019%2007:00:00%20GMT+0700%20(Indochina%20Time)
+settings: {}
+order: 5000

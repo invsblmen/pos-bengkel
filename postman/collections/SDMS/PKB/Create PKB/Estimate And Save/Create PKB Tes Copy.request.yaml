@@ -1,0 +1,140 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/reception/pkb/create
+method: POST
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+body:
+  type: json
+  content: "{\r
+
+    \  \"IsDGI\": false,\r
+
+    \  \"NoWorkOrderDGI\": null,\r
+
+    \  \"IdPkb\": null,\r
+
+    \  \"IdTypePkb\": 1,\r
+
+    \  \"TabKendaraan\": {\r
+
+    \    \"noPolice\": \"AG4717VAA\",\r
+
+    \    \"noMachine\": \"AG4717VAA\",\r
+
+    \    \"noChasis\": \"AG4717VAA\",\r
+
+    \    \"idVehicleType\": \"DV2\",\r
+
+    \    \"nameVehicleType\": \"DV2 - H5C02R20S1 M/T - NEW CB150R STREETFIRE\",\r
+
+    \    \"idColor\": 134,\r
+
+    \    \"nameColor\": \"BLACK RED\",\r
+
+    \    \"yearManufactured\": \"2015\",\r
+
+    \    \"dealer\": \"KEDIRI\",\r
+
+    \    \"dateBuy\": \"2015-11-30\",\r
+
+    \    \"lastKilometer\": 0,\r
+
+    \    \"fuel\": \"0.75\",\r
+
+    \    \"kilometer\": \"1000\",\r
+
+    \    \"lastKilometerKpb\": 0,\r
+
+    \    \"isFormValid\": true,\r
+
+    \    \"isQRCodeInput\": false,\r
+
+    \    \"isdigital\": 0,\r
+
+    \    \"idkoreksi\": \"\"\r
+
+    \  },\r
+
+    \  \"TabDataKonsumen\": {\r
+
+    \    \"name1\": \"AG EMPAT TUJUH SATU TUJUH VAA\",\r
+
+    \    \"personalidnumber\": \"0130530052022001\",\r
+
+    \    \"document\": [],\r
+
+    \    \"pembawa\": {\r
+
+    \      \"idCarrier\": 0\r
+
+    \    }\r
+
+    \  },\r
+
+    \  \"TabPekerjaan\": {\r
+
+    \    \"IdBooking\": null,\r
+
+    \    \"services\": [\r
+
+    \      {\r
+
+    \        \"idproduct\": \"00000CM061\",\r
+
+    \        \"isSuggestedByMechanic\": false,\r
+
+    \        \"idGroupService\": 1217,\r
+
+    \        \"percent\": 0,\r
+
+    \        \"idHappyHour\": null,\r
+
+    \        \"parts\": [],\r
+
+    \        \"discount\": null\r
+
+    \      }\r
+
+    \    ],\r
+
+    \    \"idPkbJobReturn\": null\r
+
+    \  },\r
+
+    \  \"IdQueue\": null,\r
+
+    \  \"TabEstimasi\": {\r
+
+    \    \"DepositCust\": 0,\r
+
+    \    \"EstimatedPrice\": 65000,\r
+
+    \    \"IsAwaited\": true,\r
+
+    \    \"DurationEstimation\": 30,\r
+
+    \    \"RegisterTime\": 41340,\r
+
+    \    \"StartTimeEstimation\": 41340,\r
+
+    \    \"EndTimeEstimation\": 43140,\r
+
+    \    \"id_act_pro\": \"SVReguler\",\r
+
+    \    \"act_pro_desc\": \"Non Promotion\",\r
+
+    \    \"DiscountHeaderPart\": 0,\r
+
+    \    \"DiscountHeaderService\": 0\r
+
+    \  },\r
+
+    \  \"qrCode\": {},\r
+
+    \  \"isdigital\": 0\r
+
+    }"
+settings: {}
+order: 7000

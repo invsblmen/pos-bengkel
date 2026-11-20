@@ -1,0 +1,12 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/API/reception/customertab1/?idCustomer=DMS0000870/2022&idPembawa=590002a5-f891-4a6e-aec9-9bd96e33228c
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  idCustomer: DMS0000870/2022
+  idPembawa: 590002a5-f891-4a6e-aec9-9bd96e33228c
+settings: {}
+order: 7000

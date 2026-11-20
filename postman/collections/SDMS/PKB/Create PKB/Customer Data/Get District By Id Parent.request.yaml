@@ -1,0 +1,11 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/API/LOV/district?idparent=34d7aff3-2d97-2345-ac81-bf2b1279b182
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  idparent: 34d7aff3-2d97-2345-ac81-bf2b1279b182
+settings: {}
+order: 10000

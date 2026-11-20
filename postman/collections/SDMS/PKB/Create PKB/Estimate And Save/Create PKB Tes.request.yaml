@@ -1,0 +1,216 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/reception/pkb/create
+method: POST
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+body:
+  type: json
+  content: "{\r
+
+    \  \"IsDGI\": false,\r
+
+    \  \"NoWorkOrderDGI\": null,\r
+
+    \  \"IdPkb\": null,\r
+
+    \  \"IdTypePkb\": 1,\r
+
+    \  \"TabKendaraan\": {\r
+
+    \    \"noPolice\": \"AG2275UR\",\r
+
+    \    \"noMachine\": \"AG2275UR\",\r
+
+    \    \"noChasis\": \"AG2275UR\",\r
+
+    \    \"idVehicleType\": \"GR0\",\r
+
+    \    \"nameVehicleType\": \"GR0 - ACF1L21B06 A/T - SCOOPY\",\r
+
+    \    \"idColor\": 104,\r
+
+    \    \"nameColor\": \"KREM CHROME\",\r
+
+    \    \"yearManufactured\": \"2015\",\r
+
+    \    \"dealer\": \"KEDIRI\",\r
+
+    \    \"dateBuy\": \"2016-12-31\",\r
+
+    \    \"lastKilometer\": 0,\r
+
+    \    \"fuel\": \"0.75\",\r
+
+    \    \"kilometer\": \"1000\",\r
+
+    \    \"lastKilometerKpb\": 0,\r
+
+    \    \"isFormValid\": true,\r
+
+    \    \"isQRCodeInput\": false,\r
+
+    \    \"isdigital\": 0,\r
+
+    \    \"idkoreksi\": \"\"\r
+
+    \  },\r
+
+    \  \"TabDataKonsumen\": {\r
+
+    \    \"idCustomer\": \"DMS0006118/2021\",\r
+
+    \    \"name1\": \"SCOOPY\",\r
+
+    \    \"name2\": null,\r
+
+    \    \"dtob\": \"2021-06-29\",\r
+
+    \    \"taxIdNumber\": null,\r
+
+    \    \"cellphone1\": \"0\",\r
+
+    \    \"cellphone2\": null,\r
+
+    \    \"privatemail\": \"AHASS01305@PELITA.COM\",\r
+
+    \    \"status\": 0,\r
+
+    \    \"personalidnumber\": \"0130511112021012\",\r
+
+    \    \"CustType\": 18,\r
+
+    \    \"address1\": \"MOJOROTO\",\r
+
+    \    \"address2\": null,\r
+
+    \    \"province\": \"f7a417b0-0a02-694f-94f1-41d45def9b5e\",\r
+
+    \    \"city\": \"34d7aff3-2d97-2345-ac81-bf2b1279b182\",\r
+
+    \    \"district\": \"3c1b38ca-5bcb-b148-b020-907dd008a28b\",\r
+
+    \    \"village\": \"240b9bac-0d04-b842-864b-5e71202993c0\",\r
+
+    \    \"amount\": null,\r
+
+    \    \"idSosmed\": null,\r
+
+    \    \"typeParty\": 0,\r
+
+    \    \"npwp\": null,\r
+
+    \    \"username\": null,\r
+
+    \    \"Sosmed\": null,\r
+
+    \    \"isCarrierEqualsCustomer\": true,\r
+
+    \    \"isEdit\": false,\r
+
+    \    \"isPerson\": true,\r
+
+    \    \"pembawa\": {\r
+
+    \      \"idCarrier\": 1,\r
+
+    \      \"idParty\": null,\r
+
+    \      \"carrierName1\": \"SCOOPY\",\r
+
+    \      \"carrierName2\": null,\r
+
+    \      \"address1\": \"MOJOROTO\",\r
+
+    \      \"address2\": null,\r
+
+    \      \"cellphone1\": \"0\",\r
+
+    \      \"cellphone2\": null,\r
+
+    \      \"province\": \"f7a417b0-0a02-694f-94f1-41d45def9b5e\",\r
+
+    \      \"city\": \"34d7aff3-2d97-2345-ac81-bf2b1279b182\",\r
+
+    \      \"district\": \"3c1b38ca-5bcb-b148-b020-907dd008a28b\",\r
+
+    \      \"village\": \"240b9bac-0d04-b842-864b-5e71202993c0\",\r
+
+    \      \"idreltyp\": null,\r
+
+    \      \"idreason\": \"1\"\r
+
+    \    },\r
+
+    \    \"document\": [],\r
+
+    \    \"isChangePembawa\": false\r
+
+    \  },\r
+
+    \  \"TabPekerjaan\": {\r
+
+    \    \"IdBooking\": null,\r
+
+    \    \"services\": [\r
+
+    \      {\r
+
+    \        \"idproduct\": \"00000SK061\",\r
+
+    \        \"isSuggestedByMechanic\": false,\r
+
+    \        \"idGroupService\": 1217,\r
+
+    \        \"percent\": 0,\r
+
+    \        \"idHappyHour\": null,\r
+
+    \        \"parts\": [],\r
+
+    \        \"discount\": null\r
+
+    \      }\r
+
+    \    ],\r
+
+    \    \"idPkbJobReturn\": null\r
+
+    \  },\r
+
+    \  \"IdQueue\": null,\r
+
+    \  \"TabEstimasi\": {\r
+
+    \    \"DepositCust\": 0,\r
+
+    \    \"EstimatedPrice\": 60000,\r
+
+    \    \"IsAwaited\": true,\r
+
+    \    \"DurationEstimation\": 30,\r
+
+    \    \"RegisterTime\": 34320,\r
+
+    \    \"StartTimeEstimation\": 34320,\r
+
+    \    \"EndTimeEstimation\": 36120,\r
+
+    \    \"id_act_pro\": \"SVReguler\",\r
+
+    \    \"act_pro_desc\": \"Non Promotion\",\r
+
+    \    \"DiscountHeaderPart\": 0,\r
+
+    \    \"DiscountHeaderService\": 0\r
+
+    \  },\r
+
+    \  \"qrCode\": {},\r
+
+    \  \"isdigital\": 0\r
+
+    }"
+settings: {}
+order: 6000

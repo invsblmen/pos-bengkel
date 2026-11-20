@@ -1,0 +1,3 @@
+$kind: collection
+description: Contains endpoints for retrieving and validating vehicle-related data during the PKB (service order) creation process. This includes looking up vehicles by type, machine number, frame number, or vehicle plate number, scanning a QR code to fetch vehicle data, retrieving the vehicle's purchase date, and getting available color options by vehicle type. These endpoints support the reception workflow by identifying the correct vehicle before a service job is opened.
+order: 1000

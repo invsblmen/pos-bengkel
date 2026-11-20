@@ -1,0 +1,13 @@
+# Use this workspace to collaborate
+workspace:
+  id: ce2bf3ee-35ed-4f0d-87ba-30851a34fc97
+
+localResources:
+  specs:
+    - ../public/api-docs/openapi.yaml
+
+# Each entry here maps a local resource to one or more corresponding objects in Postman Cloud
+
+cloudResources:
+  collections:
+    ../postman/collections/SDMS: 4098514-ed4d6671-ee3a-4f00-beb7-ee403a882d63

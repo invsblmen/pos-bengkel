@@ -1,0 +1,12 @@
+$kind: http-request
+url: "{{basedURL}}/api/part/GoodPartDetail/cs?idPart=34901KFVB51&idCustomer=undefined"
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  idPart: 34901KFVB51
+  idCustomer: undefined
+settings: {}
+order: 5000

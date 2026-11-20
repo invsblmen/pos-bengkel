@@ -1,0 +1,20 @@
+$kind: collection
+description: |-
+  **Pembuatan PKB**
+
+  Dalam pembuatan PKB ada beberapa langkah :
+
+  1. Mengisi data kendaraan
+      
+  2. Data Konsumen
+      
+  3. LCR (Skipped)
+      
+  4. View Riwayat Service
+      
+  5. Suggest Pekerjaan (jarang muncul)
+      
+  6. CAD (Condition And Diagnose)
+      
+  7. Input Pekerjaan
+order: 1000

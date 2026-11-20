@@ -1,0 +1,11 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/reception/ProductCategory/Services/Lov/1215?filterData={%22product.name%22:%22ASS%22,%22vehicleType%22:%22LVA %22}
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  filterData: "{%22product.name%22:%22ASS%22,%22vehicleType%22:%22LVA %22}"
+settings: {}
+order: 7000

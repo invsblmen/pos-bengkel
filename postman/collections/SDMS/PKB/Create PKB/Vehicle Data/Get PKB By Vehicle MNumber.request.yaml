@@ -1,0 +1,96 @@
+$kind: http-request
+url: "{{basedUrl}}/api/reception/vehicleidentification/?page=1&size=5&filterData={%22vehicle.idmachine%22:%22KF81E1127096%22,%22SearchType%22:%22SSU%22,%22IdTypePkb%22:1}"
+method: GET
+headers:
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  page: "1"
+  size: "5"
+  filterData: "{%22vehicle.idmachine%22:%22KF81E1127096%22,%22SearchType%22:%22SSU%22,%22IdTypePkb%22:1}"
+scripts:
+  - type: afterResponse
+    code: "var template = `\r
+
+      <style type=\"text/css\">\r
+
+      \    .tftable {font-size:14px;color:#333333;width:100%;border-width: 1px;border-color: #87ceeb;border-collapse: collapse;}\r
+
+      \    .tftable th {font-size:18px;background-color:#87ceeb;border-width: 1px;padding: 8px;border-style: solid;border-color: #87ceeb;text-align:left;}\r
+
+      \    .tftable tr {background-color:#ffffff;}\r
+
+      \    .tftable td {font-size:14px;border-width: 1px;padding: 8px;border-style: solid;border-color: #87ceeb;}\r
+
+      \    .tftable tr:hover {background-color:#e0ffff;}\r
+
+      </style>\r
+
+      \r
+
+      <table class=\"tftable\" border=\"1\">\r
+
+      \    <tr>\r
+
+      \        <th>ID Vehicle</th>\r
+
+      \        <th>ID Customer</th>\r
+
+      \        <th>No Police</th>\r
+
+      \        <th>No Machine</th>\r
+
+      \        <th>No Chasis</th>\r
+
+      \        <th>Year Manufactured</th>\r
+
+      \        <th>Date Buy</th>\r
+
+      \        <th>Last Kilometer</th>\r
+
+      \    </tr>\r
+
+      \    \r
+
+      \    {{#each response.Result}}\r
+
+      \        <tr>\r
+
+      \            <td>{{idVehicle}}</td>\r
+
+      \            <td>{{idcustomer}}</td>\r
+
+      \            <td>{{noPolice}}</td>\r
+
+      \            <td>{{noMachine}}</td>\r
+
+      \            <td>{{noChasis}}</td>\r
+
+      \            <td>{{yearManufactured}}</td>\r
+
+      \            <td>{{dateBuy}}</td>\r
+
+      \            <td>{{lastKilometer}}</td>\r
+
+      \        </tr>\r
+
+      \    {{/each}}\r
+
+      </table>\r
+
+      `;\r
+
+      \r
+
+      function constructVisualizerPayload() {\r
+
+      \    return {response: pm.response.json()}\r
+
+      }\r
+
+      \r
+
+      pm.visualizer.set(template, constructVisualizerPayload());"
+    language: text/javascript
+settings: {}
+order: 2000

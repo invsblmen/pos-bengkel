@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{basedURL}}/api/production/Pkb/Approve/145531"
+method: PUT
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+body:
+  type: urlencoded
+  content:
+    JobSuggest: ""
+    NextServiceDate: ""
+settings: {}
+order: 1000

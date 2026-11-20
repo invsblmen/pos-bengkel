@@ -1,0 +1,12 @@
+$kind: http-request
+url: "{{basedUrl}}/api/reception/vehicleidentification/?page=1&size=5&filterData={%22vehicle.idframe%22:%22JM0218LK054857%22,%22SearchType%22:%22SSU%22,%22IdTypePkb%22:1}"
+method: GET
+headers:
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  page: "1"
+  size: "5"
+  filterData: "{%22vehicle.idframe%22:%22JM0218LK054857%22,%22SearchType%22:%22SSU%22,%22IdTypePkb%22:1}"
+settings: {}
+order: 3000

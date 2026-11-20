@@ -1,0 +1,39 @@
+$kind: http-request
+description: |-
+  ## Autentikasi
+
+  Endpoint ini digunakan untuk mengautentikasi pengguna dan mengembalikan token JWT yang dapat digunakan pada request-request berikutnya.
+
+  ## Metode & URL
+
+  **POST** `{{basedUrl}}/api/authenticate`
+
+  ## Body Request
+
+  Content-Type: `application/x-www-form-urlencoded`
+
+  | Field | Tipe | Keterangan |
+  | --- | --- | --- |
+  | `idInternal` | string | **Wajib.** ID internal perusahaan/cabang. Contoh: `C1002` |
+  | `password` | string | **Wajib.** Kata sandi pengguna. |
+  | `username` | string | **Wajib.** Username login pengguna. |
+
+  ## Response
+
+  Mengembalikan objek JSON yang berisi `id_token`. Token ini secara otomatis disimpan ke variabel environment `token` untuk digunakan pada request-request berikutnya yang memerlukan autentikasi.
+url: "{{basedUrl}}/api/authenticate"
+method: POST
+body:
+  type: urlencoded
+  content:
+    idInternal: C1002
+    password: pelitamotor0202
+    username: jajang.sukmana
+scripts:
+  - type: afterResponse
+    code: "const res = pm.response.json();\r
+
+      pm.collectionVariables.set(\"token\", res.id_token);"
+    language: text/javascript
+settings: {}
+order: 3000

@@ -1,0 +1,23 @@
+$kind: http-request
+url: "{{basedUrl}}/api/reception/qrcode/checkQrCode"
+method: POST
+headers:
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+body:
+  type: urlencoded
+  content:
+    activitydescription: PKB
+    agentfrom: C1002
+    agentto: C1002
+    code: 93ee54e9d38c4a32227926287fab93a1
+    datetime: 2022-05-25T12:23:58.827Z
+    documentno: PKB
+    flag: IN
+    funloccode: C1002
+    funloccodeto: C1002
+    lat: "-7.8241484"
+    lng: "111.9880316"
+    usertype: '"Front Desk PKB"'
+settings: {}
+order: 6000

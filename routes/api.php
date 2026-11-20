@@ -76,4 +76,7 @@ Route::post('/spg/existing-parts', [\App\Http\Controllers\Apps\SDMSAuthControlle
 Route::post('/spg/part-purchase', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'storePartPurchaseFromSPG'])->middleware(['web', 'auth']);
 
 // Generic proxy: /api/docs-proxy/{path} -> forwards to {SDMS_API_BASE}/{path}
-Route::any('/docs-proxy/{path}', [ApiProxyController::class, 'proxy'])->where('path', '.*');
+Route::any('/docs-proxy/{path}', function (Request $request, string $path) {
+    $controller = app(ApiProxyController::class);
+    return $controller->proxy($request, 'api/' . ltrim($path, '/'));
+})->where('path', '.*');

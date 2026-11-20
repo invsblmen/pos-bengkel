@@ -1,0 +1,17 @@
+$kind: collection
+description: |-
+  **PKB (Perintah Kerja Bengkel)** adalah alur yang digunakan untuk membuat permintaan pengerjaan kendaraan SMH (Sepeda Motor Honda) dari konsumen ke pihak Bengkel. Semua dimulai dari pendatan kendaraan, hingga pembuatan nota atau kwitansi untuk usecase biasa.  
+  Jika diambil dari Menu yang kita lakukan terlebih dahulu adalah :
+
+  1. Create PKB
+      
+  2. Call Job Mekanik
+      
+  3. Keluarkan permintaan part jika ada
+      
+  4. Selesaikan Pekerjaan
+      
+  5. Final Inspection
+      
+  6. Technical Complete
+order: 2000

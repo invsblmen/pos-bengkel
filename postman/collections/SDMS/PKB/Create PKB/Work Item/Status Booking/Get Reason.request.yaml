@@ -1,0 +1,11 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/booking/BookingSlot/GetReason?idvehicle=016e9bec-2a2f-44db-b39b-4c467a488b3d
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  idvehicle: 016e9bec-2a2f-44db-b39b-4c467a488b3d
+settings: {}
+order: 4000

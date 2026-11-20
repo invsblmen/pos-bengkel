@@ -1,0 +1,12 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/reception/part/?idService=00000CD061&idFacility=undefined
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  idService: 00000CD061
+  idFacility: undefined
+settings: {}
+order: 9000

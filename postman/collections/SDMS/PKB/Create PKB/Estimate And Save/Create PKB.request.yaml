@@ -1,0 +1,288 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/reception/pkb/create
+method: POST
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+body:
+  type: json
+  content: "{\r
+
+    \  \"IsDGI\": false,\r
+
+    \  \"NoWorkOrderDGI\": null,\r
+
+    \  \"IdPkb\": null,\r
+
+    \  \"IdTypePkb\": 1,\r
+
+    \  \"idcustomer\": \"DMS0000870/2022\",\r
+
+    \  \"idvehicle\": \"016e9bec-2a2f-44db-b39b-4c467a488b3d\",\r
+
+    \  \"TabKendaraan\": {\r
+
+    \    \"idVehicle\": \"016e9bec-2a2f-44db-b39b-4c467a488b3d\",\r
+
+    \    \"noPolice\": \"AG2843AX\",\r
+
+    \    \"noMachine\": \"KCA1E1012947\",\r
+
+    \    \"noChasis\": \"KCA116KK014046\",\r
+
+    \    \"idVehicleType\": \"EVJ\",\r
+
+    \    \"nameVehicleType\": \"EVJ - A5C02R37M2J M/T - CB150R STREETFIRE JKT\",\r
+
+    \    \"idColor\": 139,\r
+
+    \    \"nameColor\": \"BLACK YELLOW\",\r
+
+    \    \"yearManufactured\": 2019,\r
+
+    \    \"dealer\": \"KEDIRI\",\r
+
+    \    \"dateBuy\": \"2019-02-07\",\r
+
+    \    \"noServiceBook\": null,\r
+
+    \    \"lastKilometer\": 10822,\r
+
+    \    \"fuel\": \"0.75\",\r
+
+    \    \"kilometer\": \"58713\",\r
+
+    \    \"lastKilometerKpb\": 0,\r
+
+    \    \"idPembawa\": \"590002a5-f891-4a6e-aec9-9bd96e33228c\",\r
+
+    \    \"customerType\": \"Old\",\r
+
+    \    \"idcustomer\": \"DMS0000870/2022\",\r
+
+    \    \"isFormValid\": true,\r
+
+    \    \"IdTwoDigitMotor\": \"CD\",\r
+
+    \    \"name1\": \"HARDHONI TRICAHYA DESEMBER\",\r
+
+    \    \"name2\": null,\r
+
+    \    \"personalidnumber\": \"0130502022022004\",\r
+
+    \    \"isMarketTreatment\": false,\r
+
+    \    \"isEdit\": false,\r
+
+    \    \"isQRCodeInput\": false,\r
+
+    \    \"isdigital\": 0,\r
+
+    \    \"idkoreksi\": \"\",\r
+
+    \    \"idparrol\": null,\r
+
+    \    \"dealerObj\": {\r
+
+    \      \"id\": null,\r
+
+    \      \"name\": null,\r
+
+    \      \"Key\": null,\r
+
+    \      \"Value\": null\r
+
+    \    },\r
+
+    \    \"description\": \"A5C02R37M2J M/T\",\r
+
+    \    \"marketName\": \"CB150R STREETFIRE JKT\"\r
+
+    \  },\r
+
+    \  \"TabDataKonsumen\": {\r
+
+    \    \"idCustomer\": \"DMS0000870/2022\",\r
+
+    \    \"name1\": \"HARDHONI TRICAHYA DESEMBER\",\r
+
+    \    \"name2\": null,\r
+
+    \    \"dtob\": \"2021-06-29\",\r
+
+    \    \"taxIdNumber\": null,\r
+
+    \    \"cellphone1\": \"0\",\r
+
+    \    \"cellphone2\": null,\r
+
+    \    \"privatemail\": \"AHASS01305@PELITA.COM\",\r
+
+    \    \"status\": 0,\r
+
+    \    \"personalidnumber\": \"0130502022022004\",\r
+
+    \    \"CustType\": 18,\r
+
+    \    \"address1\": \"BANARAN RW04 RT12 DS BANARAN KEC PESANTREN KEDIRI\",\r
+
+    \    \"address2\": null,\r
+
+    \    \"province\": \"f7a417b0-0a02-694f-94f1-41d45def9b5e\",\r
+
+    \    \"city\": \"34d7aff3-2d97-2345-ac81-bf2b1279b182\",\r
+
+    \    \"district\": \"cdfe7b81-78ce-294d-8b62-53e8b1cd0277\",\r
+
+    \    \"village\": \"3b2a9d5f-4ef7-d943-bb5c-f4deb63efe50\",\r
+
+    \    \"amount\": null,\r
+
+    \    \"idSosmed\": null,\r
+
+    \    \"typeParty\": 0,\r
+
+    \    \"npwp\": null,\r
+
+    \    \"username\": null,\r
+
+    \    \"Sosmed\": null,\r
+
+    \    \"isCarrierEqualsCustomer\": true,\r
+
+    \    \"isEdit\": false,\r
+
+    \    \"isPerson\": true,\r
+
+    \    \"pembawa\": {\r
+
+    \      \"idCarrier\": 1,\r
+
+    \      \"idParty\": \"590002a5-f891-4a6e-aec9-9bd96e33228c\",\r
+
+    \      \"carrierName1\": \"HARDHONI TRICAHYA DESEMBER\",\r
+
+    \      \"carrierName2\": null,\r
+
+    \      \"address1\": \"BANARAN RW04 RT12 DS BANARAN KEC PESANTREN KEDIRI\",\r
+
+    \      \"address2\": null,\r
+
+    \      \"cellphone1\": \"0\",\r
+
+    \      \"cellphone2\": null,\r
+
+    \      \"province\": \"f7a417b0-0a02-694f-94f1-41d45def9b5e\",\r
+
+    \      \"city\": \"34d7aff3-2d97-2345-ac81-bf2b1279b182\",\r
+
+    \      \"district\": \"cdfe7b81-78ce-294d-8b62-53e8b1cd0277\",\r
+
+    \      \"village\": \"3b2a9d5f-4ef7-d943-bb5c-f4deb63efe50\",\r
+
+    \      \"idreltyp\": null,\r
+
+    \      \"idreason\": 1\r
+
+    \    },\r
+
+    \    \"document\": [],\r
+
+    \    \"isChangePembawa\": false,\r
+
+    \    \"customerType\": \"Old\"\r
+
+    \  },\r
+
+    \  \"TabPekerjaan\": {\r
+
+    \    \"IdBooking\": null,\r
+
+    \    \"Lamentation\": null,\r
+
+    \    \"services\": [\r
+
+    \      {\r
+
+    \        \"idproduct\": \"00000CD061\",\r
+
+    \        \"isSuggestedByMechanic\": false,\r
+
+    \        \"idGroupService\": 1217,\r
+
+    \        \"percent\": 0,\r
+
+    \        \"idHappyHour\": null,\r
+
+    \        \"parts\": [\r
+
+    \          {\r
+
+    \            \"idproduct\": \"082342MAK8LZ0\",\r
+
+    \            \"idPkbService\": null,\r
+
+    \            \"IdPkbPart\": null,\r
+
+    \            \"percent\": 0,\r
+
+    \            \"qty\": 1,\r
+
+    \            \"isClaimHotline\": false,\r
+
+    \            \"isMarketTreatment\": null,\r
+
+    \            \"isDefaultPart\": false,\r
+
+    \            \"discount\": null\r
+
+    \          }\r
+
+    \        ],\r
+
+    \        \"discount\": null\r
+
+    \      }\r
+
+    \    ],\r
+
+    \    \"idPkbJobReturn\": null\r
+
+    \  },\r
+
+    \  \"IdQueue\": null,\r
+
+    \  \"TabEstimasi\": {\r
+
+    \    \"DepositCust\": 0,\r
+
+    \    \"EstimatedPrice\": 149500,\r
+
+    \    \"IsAwaited\": true,\r
+
+    \    \"DurationEstimation\": 30,\r
+
+    \    \"RegisterTime\": 78480,\r
+
+    \    \"StartTimeEstimation\": 78480,\r
+
+    \    \"EndTimeEstimation\": 80280,\r
+
+    \    \"id_act_pro\": \"SVReguler\",\r
+
+    \    \"act_pro_desc\": \"Non Promotion\",\r
+
+    \    \"DiscountHeaderPart\": 0,\r
+
+    \    \"DiscountHeaderService\": 0\r
+
+    \  },\r
+
+    \  \"qrCode\": {},\r
+
+    \  \"isdigital\": 0\r
+
+    }"
+settings: {}
+order: 5000

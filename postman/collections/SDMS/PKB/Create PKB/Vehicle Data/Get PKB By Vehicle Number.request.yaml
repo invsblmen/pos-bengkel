@@ -1,0 +1,16 @@
+$kind: http-request
+url: "{{basedUrl}}/api/reception/vehicleidentification/?page=1&size=5&filterData={%22vehiclenumber%22:%22AG_3034_AAS%22,%22SearchType%22:%22Old%22,%22IdTypePkb%22:1}"
+method: GET
+headers:
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  page: "1"
+  size: "5"
+  filterData: "{%22vehiclenumber%22:%22AG_3034_AAS%22,%22SearchType%22:%22Old%22,%22IdTypePkb%22:1}"
+auth:
+  type: bearer
+  credentials:
+    token: "{{token}}"
+settings: {}
+order: 1000

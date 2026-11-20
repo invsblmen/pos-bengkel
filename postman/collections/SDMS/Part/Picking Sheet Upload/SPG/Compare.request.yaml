@@ -1,0 +1,57 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/part/ComparePartReceive
+method: PUT
+headers:
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+body:
+  type: json
+  content: "{\r
+
+    \  \"idBilling\": \"1866fc7b-135e-4e32-9235-8d8a58b726db\",\r
+
+    \  \"nomorPs\": \"M2Z/PS/P/04/2026/00170774\",\r
+
+    \  \"idVendor\": \"M0002\",\r
+
+    \  \"dtCreated\": \"2026-04-27T00:00:00\",\r
+
+    \  \"vendorName\": \"PT Mitra Pinasthika Mulia\",\r
+
+    \  \"documentNumber\": \"MPM/SL/SD1/26/04/00012407\",\r
+
+    \  \"checkboxDocumentNumber\": false,\r
+
+    \  \"dtStatus\": \"2026-04-27T21:25:16.937\",\r
+
+    \  \"items\": [\r
+
+    \    {\r
+
+    \      \"numberPart\": \"80104K59A10\",\r
+
+    \      \"name\": \"GUARD, SPLASH\",\r
+
+    \      \"qtyReceive\": 1,\r
+
+    \      \"qtyRejected\": 0,\r
+
+    \      \"itemdescription\": \"Pieces\",\r
+
+    \      \"containerName\": \"C1002-A1000\",\r
+
+    \      \"idfacility\": \"81bf3b47-e53d-43b8-aac6-625dc030541e\",\r
+
+    \      \"idcontainer\": \"e798961a-9354-47a0-ac41-572070823592\",\r
+
+    \      \"location\": \"GUDANG LANTAI ATAS\",\r
+
+    \      \"serialnumber\": null\r
+
+    \    }\r
+
+    \  ]\r
+
+    }"
+settings: {}
+order: 3000

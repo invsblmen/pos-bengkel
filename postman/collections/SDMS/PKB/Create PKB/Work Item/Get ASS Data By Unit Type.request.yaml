@@ -1,0 +1,11 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/master/MasterServiceKpbDigital/service/getdata?unittype=EVJ
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  unittype: EVJ
+settings: {}
+order: 4000

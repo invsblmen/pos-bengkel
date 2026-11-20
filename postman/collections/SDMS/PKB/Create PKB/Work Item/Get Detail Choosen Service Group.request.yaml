@@ -1,0 +1,15 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/reception/ProductCategory/Services/Detail?idGroupService=1215&idproduct=00000VO031&nopol=AG2843AX&nosin=KCA1E1012947&stsbrompit=true
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  idGroupService: "1215"
+  idproduct: 00000VO031
+  nopol: AG2843AX
+  nosin: KCA1E1012947
+  stsbrompit: "true"
+settings: {}
+order: 8000

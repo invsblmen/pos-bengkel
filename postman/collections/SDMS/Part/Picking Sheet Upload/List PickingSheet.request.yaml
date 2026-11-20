@@ -1,0 +1,83 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/part/ShipmentPackage?page=1&size=100
+method: GET
+headers:
+  - key: username
+    value: "{{username}}"
+    $type: |-
+      {
+        "type": "",
+        "format": "",
+        "required": false,
+        "deprecated": false,
+        "default": "",
+        "enum": [],
+        "pattern": "",
+        "minLength": "",
+        "maxLength": "",
+        "minItems": "",
+        "maxItems": "",
+        "minimum": "",
+        "maximum": "",
+        "uniqueItems": false
+      }
+  - key: idInternal
+    value: "{{idInternal}}"
+    $type: |-
+      {
+        "type": "",
+        "format": "",
+        "required": false,
+        "deprecated": false,
+        "default": "",
+        "enum": [],
+        "pattern": "",
+        "minLength": "",
+        "maxLength": "",
+        "minItems": "",
+        "maxItems": "",
+        "minimum": "",
+        "maximum": "",
+        "uniqueItems": false
+      }
+queryParams:
+  - key: page
+    value: "1"
+    $type: |-
+      {
+        "type": "",
+        "format": "",
+        "required": false,
+        "deprecated": false,
+        "default": "",
+        "enum": [],
+        "pattern": "",
+        "minLength": "",
+        "maxLength": "",
+        "minItems": "",
+        "maxItems": "",
+        "minimum": "",
+        "maximum": "",
+        "uniqueItems": false
+      }
+  - key: size
+    value: "100"
+    $type: |-
+      {
+        "type": "",
+        "format": "",
+        "required": false,
+        "deprecated": false,
+        "default": "",
+        "enum": [],
+        "pattern": "",
+        "minLength": "",
+        "maxLength": "",
+        "minItems": "",
+        "maxItems": "",
+        "minimum": "",
+        "maximum": "",
+        "uniqueItems": false
+      }
+settings: {}
+order: 2000

@@ -1,0 +1,9 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/booking/brompit/GetDataBookingAmount/KCA1E1012947
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+settings: {}
+order: 1000

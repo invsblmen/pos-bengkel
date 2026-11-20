@@ -219,6 +219,14 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
         ->middleware('permission:reports-access')
         ->name('sdms.pkb.index');
 
+    Route::get('/sdms/pkb/create', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'createPkb'])
+        ->middleware('permission:reports-access')
+        ->name('sdms.pkb.create');
+
+    Route::get('/sdms/pkb/{id}/edit', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'editPkb'])
+        ->middleware('permission:reports-access')
+        ->name('sdms.pkb.edit');
+
     // SDMS Delivery Orders (List Pemesanan) - Inertia page
     Route::get('/sdms/delivery-orders', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'deliveryOrders'])
         ->middleware('permission:reports-access')

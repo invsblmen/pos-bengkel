@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{basedURL}}/api/lov/goodPartNum?numbPart=34901"
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  numbPart: "34901"
+auth:
+  type: noauth
+settings: {}
+order: 4000

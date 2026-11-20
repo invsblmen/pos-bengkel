@@ -1,0 +1,64 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/part/ShipmentPackageNonMulia?idbilling=1866fc7b-135e-4e32-9235-8d8a58b726db
+method: GET
+headers:
+  - key: username
+    value: "{{username}}"
+    $type: |-
+      {
+        "type": "",
+        "format": "",
+        "required": false,
+        "deprecated": false,
+        "default": "",
+        "enum": [],
+        "pattern": "",
+        "minLength": "",
+        "maxLength": "",
+        "minItems": "",
+        "maxItems": "",
+        "minimum": "",
+        "maximum": "",
+        "uniqueItems": false
+      }
+  - key: idInternal
+    value: "{{idInternal}}"
+    $type: |-
+      {
+        "type": "",
+        "format": "",
+        "required": false,
+        "deprecated": false,
+        "default": "",
+        "enum": [],
+        "pattern": "",
+        "minLength": "",
+        "maxLength": "",
+        "minItems": "",
+        "maxItems": "",
+        "minimum": "",
+        "maximum": "",
+        "uniqueItems": false
+      }
+queryParams:
+  - key: idbilling
+    value: 1866fc7b-135e-4e32-9235-8d8a58b726db
+    $type: |-
+      {
+        "type": "",
+        "format": "",
+        "required": false,
+        "deprecated": false,
+        "default": "",
+        "enum": [],
+        "pattern": "",
+        "minLength": "",
+        "maxLength": "",
+        "minItems": "",
+        "maxItems": "",
+        "minimum": "",
+        "maximum": "",
+        "uniqueItems": false
+      }
+settings: {}
+order: 1000

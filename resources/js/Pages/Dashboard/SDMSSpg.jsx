@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
-import { IconArrowLeft, IconRefresh, IconSearch, IconTruckDelivery, IconPlus, IconCheck, IconSend } from '@tabler/icons-react';
+import { IconArrowLeft, IconRefresh, IconSearch, IconPlus, IconCheck, IconSend } from '@tabler/icons-react';
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/Card';
 import axios from 'axios';
 import SDMSAuthModal from '@/Components/Dashboard/SDMSAuthModal';
@@ -8,6 +8,25 @@ import SDMSSessionStatus from '@/Components/Dashboard/SDMSSessionStatus';
 import { toDisplayDateTime } from '@/Utils/datetime';
 
 const normalizeText = (value) => (value ?? '').toString().toLowerCase();
+
+const isDuplicateInvoiceResponse = (response) => {
+    const data = response?.data ?? response;
+    const message = [
+        data?.message,
+        data?.error,
+        data?.title,
+        data?.detail,
+        ...(Array.isArray(data?.errors) ? data.errors : []),
+    ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+    return response?.status === 409
+        || data?.code === 'DUPLICATE_INVOICE'
+        || data?.code === 'INVOICE_ALREADY_EXISTS'
+        || /duplicate|already exists|already submitted|sudah ada|sudah pernah|nomor invoice.*(sama|ada)/i.test(message);
+};
 
 const unwrapList = (payload) => {
     if (Array.isArray(payload)) return payload;
@@ -254,6 +273,7 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
     const [purchaseReference, setPurchaseReference] = useState({ billingNumber: '', psNumber: '' });
     const [createdPurchase, setCreatedPurchase] = useState(null);
     const [existingParts, setExistingParts] = useState({});
+    const isAuthenticated = Boolean(sdms && (sdms.access_token || sdms.id_token));
 
     const normalizeIdBilling = (value) => (value ?? '').toString().trim();
 
@@ -400,7 +420,6 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
     const [createSpareLoading, setCreateSpareLoading] = useState(false);
     const [createPurchaseLoading, setCreatePurchaseLoading] = useState(false);
     const [showLoginModal, setShowLoginModal] = useState(false);
-    const isAuthenticated = Boolean(sdms && (sdms.access_token || sdms.id_token));
 
     const handleOpenAddModal = (numberPart, name) => {
         setModalPart({ numberPart, name });
@@ -679,8 +698,22 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
             items: itemsToSend,
         };
 
+        payload.documentNumber = String(payload.documentNumber ?? '').trim();
+        if (!payload.documentNumber) {
+            alert('Nomor invoice/surat jalan wajib diisi sebelum submit SPG.');
+            setSubmitLoading(false);
+            return;
+        }
+
         try {
             const response = await axios.post('/api/part/ShipmentReceipt', payload);
+
+            if (isDuplicateInvoiceResponse(response)) {
+                alert(`Nomor invoice ${payload.documentNumber} sudah pernah disubmit.`);
+                setSubmitResult(response.data || null);
+                return;
+            }
+
             setSubmitResult(response.data || null);
             const received = (response.data && Array.isArray(response.data.partDalamPS)) ? response.data.partDalamPS : (itemsToSend || []);
             setReceivedParts(received);
@@ -689,8 +722,13 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
             alert('Submit SPG berhasil. Received list ditampilkan.');
         } catch (err) {
             console.error(err);
-            alert('Gagal submit SPG: ' + (err?.response?.data?.message || err.message || 'Unknown'));
-            setSubmitResult(err?.response?.data || null);
+            const errorResponse = err?.response;
+            if (isDuplicateInvoiceResponse(errorResponse)) {
+                alert(`Nomor invoice ${payload.documentNumber} sudah pernah disubmit.`);
+            } else {
+                alert('Gagal submit SPG: ' + (err?.response?.data?.message || err.message || 'Unknown'));
+            }
+            setSubmitResult(errorResponse?.data || null);
         } finally {
             setSubmitLoading(false);
         }
@@ -726,7 +764,13 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                         <div className="max-w-2xl space-y-2">
                             <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                                <IconTruckDelivery size={14} /> SPG
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                    <path d="M3 17h13V6H3v11Z" />
+                                    <path d="M16 10h3l2 3v4h-5v-7Z" />
+                                    <circle cx="7" cy="18" r="2" />
+                                    <circle cx="18" cy="18" r="2" />
+                                </svg>
+                                SPG
                             </div>
                             <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Detail Shipment Package</h1>
                             <p className="text-sm leading-6 text-slate-600 dark:text-slate-400">
@@ -965,7 +1009,7 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                             </div>
                         )}
 
-                        {(showTechnicalDetails && (compareResult || compareError)) && (
+                        {(compareResult || compareError) && (
                             <div className="mt-4 grid gap-3">
                                 <div className={`rounded-2xl border p-4 ${compareError ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300'}`}>
                                     <div className="flex items-center justify-between">
@@ -1087,7 +1131,6 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                                     </div>
                                 )}
 
-                                <pre className="mt-3 overflow-auto rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs leading-6 text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">{JSON.stringify(compareResult || (compareError?.response?.data || { message: compareError?.message }), null, 2)}</pre>
                             </div>
                         )}
 
@@ -1191,6 +1234,14 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                                     <div><strong>Number:</strong> {createdPurchase.purchase_number || createdPurchase.purchase_number}</div>
                                     <div className="mt-1"><strong>Notes:</strong> {createdPurchase.notes || '-'}</div>
                                 </div>
+                                {createdPurchase.id && (
+                                    <Link
+                                        href={route('part-purchases.show', createdPurchase.id)}
+                                        className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                                    >
+                                        Lihat Detail Pembelian
+                                    </Link>
+                                )}
                             </div>
                         )}
 
@@ -1262,6 +1313,15 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
                                     <summary className="cursor-pointer text-sm font-semibold text-slate-700 dark:text-slate-200">State Draft</summary>
                                     <pre className="mt-3 overflow-auto text-xs leading-6 text-slate-700 dark:text-slate-300">{JSON.stringify({ suratJalan, draftRows }, null, 2)}</pre>
                                 </details>
+
+                                {(compareResult || compareError) && (
+                                    <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                                        <summary className="cursor-pointer text-sm font-semibold text-slate-700 dark:text-slate-200">Raw JSON Hasil Bandingkan</summary>
+                                        <pre className="mt-3 overflow-auto text-xs leading-6 text-slate-700 dark:text-slate-300">
+                                            {JSON.stringify(compareResult || (compareError?.response?.data || { message: compareError?.message }), null, 2)}
+                                        </pre>
+                                    </details>
+                                )}
                             </>
                         ) : (
                             <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-400">

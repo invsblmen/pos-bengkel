@@ -1,0 +1,10 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/API/reception/customertab1/?idCustomer=DMS0002262/2025
+method: GET
+headers:
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  idCustomer: DMS0002262/2025
+settings: {}
+order: 3000

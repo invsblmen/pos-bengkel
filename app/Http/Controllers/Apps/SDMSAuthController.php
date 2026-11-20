@@ -122,6 +122,28 @@ class SDMSAuthController extends Controller
         ]);
     }
 
+    public function createPkb(Request $request)
+    {
+        $sdms = session('sdms', null);
+
+        return Inertia::render('Dashboard/SDMSPkbCreate', [
+            'sdms' => $sdms,
+            'pkb' => null,
+            'localContext' => [],
+        ]);
+    }
+
+    public function editPkb(Request $request, string $id)
+    {
+        $sdms = session('sdms', null);
+
+        return Inertia::render('Dashboard/SDMSPkbCreate', [
+            'sdms' => $sdms,
+            'pkb' => ['id' => $id],
+            'localContext' => [],
+        ]);
+    }
+
     public function deliveryOrders()
     {
         $sdms = session('sdms', null);

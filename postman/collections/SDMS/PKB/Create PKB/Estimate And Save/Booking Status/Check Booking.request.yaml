@@ -1,0 +1,11 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/booking/brompit/lamentation?idmachine=KCA1E1012947
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  idmachine: KCA1E1012947
+settings: {}
+order: 2000

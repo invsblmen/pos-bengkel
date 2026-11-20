@@ -1,0 +1,12 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/API/reception/service/JobSuggestService?idVehicle=EVJ&kilometer=58713
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  idVehicle: EVJ
+  kilometer: "58713"
+settings: {}
+order: 6000

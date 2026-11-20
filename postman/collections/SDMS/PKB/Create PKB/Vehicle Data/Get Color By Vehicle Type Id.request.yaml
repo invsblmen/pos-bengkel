@@ -1,0 +1,10 @@
+$kind: http-request
+url: "{{basedUrl}}/api/lov/color?idVehicleType=FD1"
+method: GET
+headers:
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  idVehicleType: FD1
+settings: {}
+order: 5000

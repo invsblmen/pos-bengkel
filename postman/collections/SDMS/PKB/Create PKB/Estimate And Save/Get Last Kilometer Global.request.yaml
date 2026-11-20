@@ -1,0 +1,20 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/reception/vehicleservicehistory/dwh/history
+method: POST
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+body:
+  type: json
+  content: "{\r
+
+    \  \"noMachine\": \"KCA1E1012947\",\r
+
+    \  \"noChasis\": \"KCA116KK014046\",\r
+
+    \  \"KPB\": []\r
+
+    }"
+settings: {}
+order: 2000

@@ -1,0 +1,74 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/reception/vehicleidentification/validate
+method: PUT
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+body:
+  type: json
+  content: "{\r
+
+    \            \"idVehicle\": \"016e9bec-2a2f-44db-b39b-4c467a488b3d\",\r
+
+    \            \"idcustomer\": \"DMS0000870/2022\",\r
+
+    \            \"idparrol\": null,\r
+
+    \            \"noPolice\": \"AG2843AX\",\r
+
+    \            \"noMachine\": \"KCA1E1012947\",\r
+
+    \            \"noChasis\": \"KCA116KK014046\",\r
+
+    \            \"idVehicleType\": \"EVJ\",\r
+
+    \            \"nameVehicleType\": \"EVJ - A5C02R37M2J M/T - CB150R STREETFIRE JKT\",\r
+
+    \            \"idColor\": 139,\r
+
+    \            \"nameColor\": \"BLACK YELLOW\",\r
+
+    \            \"yearManufactured\": 2019,\r
+
+    \            \"dateBuy\": \"2019-02-07T00:00:00\",\r
+
+    \            \"noServiceBook\": null,\r
+
+    \            \"lastKilometer\": 10822.00,\r
+
+    \            \"dealerObj\": {\r
+
+    \                \"id\": null,\r
+
+    \                \"name\": null,\r
+
+    \                \"Key\": null,\r
+
+    \                \"Value\": null\r
+
+    \            },\r
+
+    \            \"dealer\": \"KEDIRI\",\r
+
+    \            \"idPembawa\": \"590002a5-f891-4a6e-aec9-9bd96e33228c\",\r
+
+    \            \"customerType\": \"Old\",\r
+
+    \            \"name1\": \"HARDHONI TRICAHYA DESEMBER\",\r
+
+    \            \"name2\": null,\r
+
+    \            \"personalidnumber\": \"0130502022022004\",\r
+
+    \            \"isEdit\": false,\r
+
+    \            \"description\": \"A5C02R37M2J M/T\",\r
+
+    \            \"marketName\": \"CB150R STREETFIRE JKT\",\r
+
+    \            \"IdTwoDigitMotor\": \"CD\"\r
+
+    \        }"
+settings: {}
+order: 8000

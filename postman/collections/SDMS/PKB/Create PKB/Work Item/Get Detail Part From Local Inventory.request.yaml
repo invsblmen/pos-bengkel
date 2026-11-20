@@ -1,0 +1,13 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/reception/part/detail?idproduct=08234M99K8LN9&idFacilityType=undefined&idFacility=undefined
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  idproduct: 08234M99K8LN9
+  idFacilityType: undefined
+  idFacility: undefined
+settings: {}
+order: 11000

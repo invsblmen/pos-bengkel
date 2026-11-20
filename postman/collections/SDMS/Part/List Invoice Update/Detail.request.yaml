@@ -1,0 +1,64 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/part/orderitemdo?fill=1fcb1c5a-76a6-42c5-9ad1-157bc7964b74
+method: GET
+headers:
+  - key: username
+    value: "{{username}}"
+    $type: |-
+      {
+        "type": "",
+        "format": "",
+        "required": false,
+        "deprecated": false,
+        "default": "",
+        "enum": [],
+        "pattern": "",
+        "minLength": "",
+        "maxLength": "",
+        "minItems": "",
+        "maxItems": "",
+        "minimum": "",
+        "maximum": "",
+        "uniqueItems": false
+      }
+  - key: idInternal
+    value: "{{idInternal}}"
+    $type: |-
+      {
+        "type": "",
+        "format": "",
+        "required": false,
+        "deprecated": false,
+        "default": "",
+        "enum": [],
+        "pattern": "",
+        "minLength": "",
+        "maxLength": "",
+        "minItems": "",
+        "maxItems": "",
+        "minimum": "",
+        "maximum": "",
+        "uniqueItems": false
+      }
+queryParams:
+  - key: fill
+    value: 1fcb1c5a-76a6-42c5-9ad1-157bc7964b74
+    $type: |-
+      {
+        "type": "",
+        "format": "",
+        "required": false,
+        "deprecated": false,
+        "default": "",
+        "enum": [],
+        "pattern": "",
+        "minLength": "",
+        "maxLength": "",
+        "minItems": "",
+        "maxItems": "",
+        "minimum": "",
+        "maximum": "",
+        "uniqueItems": false
+      }
+settings: {}
+order: 2000

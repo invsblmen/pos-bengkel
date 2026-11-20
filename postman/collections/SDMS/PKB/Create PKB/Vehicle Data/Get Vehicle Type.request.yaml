@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{basedUrl}}/api/reception/vehicleidentification/?page=1&size=5&filterData={%22vehicle.good.product.name%22:%22vario%22,%22SearchType%22:%22New%22,%22IdTypePkb%22:1}"
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  page: "1"
+  size: "5"
+  filterData: "{%22vehicle.good.product.name%22:%22vario%22,%22SearchType%22:%22New%22,%22IdTypePkb%22:1}"
+settings: {}
+order: 4000

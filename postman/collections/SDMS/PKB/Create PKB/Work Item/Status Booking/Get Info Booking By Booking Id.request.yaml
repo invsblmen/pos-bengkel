@@ -1,0 +1,11 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/booking/BookingSlot/InfoBookEst?idbooking=00000000-0000-0000-0000-000000000000
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  idbooking: 00000000-0000-0000-0000-000000000000
+settings: {}
+order: 7000

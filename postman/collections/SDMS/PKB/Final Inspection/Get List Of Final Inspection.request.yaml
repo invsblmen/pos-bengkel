@@ -1,0 +1,19 @@
+$kind: http-request
+url: "{{basedURL}}/api/production/Pkb?page=1&size=20&filterData=%7B%22job.IdJobStatus%22:5,%20%22IdStatusPkbInternal%22:%203%7D&sort=IdPkb,desc"
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  - key: page
+    value: "1"
+  - key: size
+    value: "20"
+  - key: filterData
+    value: "%7B%22job.IdJobStatus%22:5,%20%22IdStatusPkbInternal%22:%203%7D"
+    description: Mengambil PKB yang memiliki status belum di approve
+  - key: sort
+    value: IdPkb,desc
+settings: {}
+order: 2000

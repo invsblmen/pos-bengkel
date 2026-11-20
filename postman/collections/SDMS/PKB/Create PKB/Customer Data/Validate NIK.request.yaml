@@ -1,0 +1,12 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/reception/pkb/validateNik?nik=0130502022022004&idcustomer=DMS0000870/2022
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  nik: "0130502022022004"
+  idcustomer: DMS0000870/2022
+settings: {}
+order: 12000

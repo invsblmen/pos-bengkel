@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
-import { IconFileDescription, IconRefresh, IconSearch, IconTruck } from '@tabler/icons-react';
+import { IconFileDescription, IconPlus, IconRefresh, IconSearch, IconTruck } from '@tabler/icons-react';
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/Card';
 import axios from 'axios';
 import Modal from '@/Components/Dashboard/Modal';
@@ -161,6 +161,14 @@ export default function SDMSPkb({ sdms }) {
                                     Login SDMS
                                 </button>
                             )}
+                            {isAuthenticated && (
+                                <Link
+                                    href={route('sdms.pkb.create')}
+                                    className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                                >
+                                    Create PKB
+                                </Link>
+                            )}
                             <div className="grid gap-3 sm:grid-cols-3">
                                 <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/60">
                                     <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total PKB</p>
@@ -184,6 +192,13 @@ export default function SDMSPkb({ sdms }) {
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                             <CardTitle>PKB</CardTitle>
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                                <Link
+                                    href={route('sdms.pkb.create')}
+                                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+                                >
+                                    <IconPlus size={17} />
+                                    Buat PKB
+                                </Link>
                                 <div className="relative min-w-0 sm:w-[320px]">
                                     <IconSearch size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                                     <input

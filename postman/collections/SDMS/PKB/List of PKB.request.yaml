@@ -1,0 +1,13 @@
+$kind: http-request
+description: |-
+  Get Request list with condition :
+
+  *   Same day as current time
+  *   Not Complete until Waiting Payment
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/reception/Pkb
+method: GET
+headers:
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+settings: {}
+order: 4000

@@ -1,0 +1,12 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/setting/isactive?idsetting1=brompit&idsetting2=isactivebrompitkm
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  idsetting1: brompit
+  idsetting2: isactivebrompitkm
+settings: {}
+order: 2000

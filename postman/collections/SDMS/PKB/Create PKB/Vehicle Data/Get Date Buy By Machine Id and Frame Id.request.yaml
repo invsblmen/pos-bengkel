@@ -1,0 +1,12 @@
+$kind: http-request
+url: "{{basedURL}}/api/reception/vehicleidentification/GetDateBuy?idmachine=KCA1E1012947&idframe=KCA116KK014046"
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+queryParams:
+  idmachine: KCA1E1012947
+  idframe: KCA116KK014046
+settings: {}
+order: 7000

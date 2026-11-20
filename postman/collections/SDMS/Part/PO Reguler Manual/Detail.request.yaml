@@ -1,0 +1,8 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/part/PurcheseOrder/ded98087-a0ff-4150-aac2-471c57ff378c
+method: GET
+headers:
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+settings: {}
+order: 1000

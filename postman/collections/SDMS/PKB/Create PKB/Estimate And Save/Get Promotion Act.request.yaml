@@ -1,0 +1,9 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/master/ActPromotion/getActProm
+method: GET
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+settings: {}
+order: 4000

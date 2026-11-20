@@ -1,0 +1,22 @@
+$kind: http-request
+url: https://sdmsdealer-h23.mpm-motor.com:22000/api/reception/pkb/jadwalservice
+method: POST
+headers:
+  Authorization: "{{idToken}}"
+  username: "{{username}}"
+  idInternal: "{{idInternal}}"
+body:
+  type: json
+  content: "{\r
+
+    \  \"kpb\": 1,\r
+
+    \  \"km\": 1111,\r
+
+    \  \"tanggalbeli\": \"2022-03-30T00:00:00\",\r
+
+    \  \"unittype\": \"GFM\"\r
+
+    }"
+settings: {}
+order: 1000
