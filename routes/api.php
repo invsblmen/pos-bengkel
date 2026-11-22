@@ -79,4 +79,4 @@ Route::post('/spg/part-purchase', [\App\Http\Controllers\Apps\SDMSAuthController
 Route::any('/docs-proxy/{path}', function (Request $request, string $path) {
     $controller = app(ApiProxyController::class);
     return $controller->proxy($request, 'api/' . ltrim($path, '/'));
-})->where('path', '.*');
+})->where('path', '.*')->middleware(['web', 'auth']);
