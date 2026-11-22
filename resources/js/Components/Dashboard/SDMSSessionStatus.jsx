@@ -7,7 +7,7 @@ import {
 } from '@tabler/icons-react';
 
 export default function SDMSSessionStatus({ sdms = null, compact = false, className = '' }) {
-    const isAuthenticated = Boolean(sdms && (sdms.access_token || sdms.id_token));
+    const isAuthenticated = Boolean(sdms?.authenticated);
 
     if (compact) {
         return (

@@ -6,7 +6,7 @@ import SDMSSessionStatus from '@/Components/Dashboard/SDMSSessionStatus';
 
 export default function SDMSAuth({ sdms }) {
     const [showLoginModal, setShowLoginModal] = useState(true);
-    const isAuthenticated = Boolean(sdms && (sdms.access_token || sdms.id_token));
+    const isAuthenticated = Boolean(sdms?.authenticated);
 
     return (
         <>

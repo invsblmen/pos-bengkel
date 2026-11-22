@@ -13,11 +13,33 @@ use Inertia\Inertia;
 
 class SDMSAuthController extends Controller
 {
+    /**
+     * Bentuk aman data sesi SDMS untuk dikirim ke browser sebagai prop Inertia.
+     * Token (access_token / id_token) dan respons login mentah tidak pernah
+     * meninggalkan server; browser hanya menerima status login dan identitas
+     * tampilan. Token asli tetap di session server dan disuntikkan oleh
+     * ApiProxyController saat meneruskan request ke SDMS.
+     */
+    private function publicSdms(?array $sdms): ?array
+    {
+        if (!$sdms) {
+            return null;
+        }
+
+        return [
+            'authenticated' => !empty($sdms['access_token'] ?? null) || !empty($sdms['id_token'] ?? null),
+            'username' => $sdms['username'] ?? null,
+            'idInternal' => $sdms['idInternal'] ?? null,
+            'token_type' => $sdms['token_type'] ?? null,
+            'expires_in' => $sdms['expires_in'] ?? null,
+        ];
+    }
+
     public function index()
     {
         $sdms = session('sdms', null);
         return Inertia::render('Dashboard/SDMSAuth', [
-            'sdms' => $sdms,
+            'sdms' => $this->publicSdms($sdms),
         ]);
     }
 
@@ -78,7 +100,6 @@ class SDMSAuthController extends Controller
                 'idInternal' => $data['idInternal'] ?? null,
                 'token_type' => Arr::get($body, 'token_type') ?? Arr::get($body, 'data.token_type'),
                 'expires_in' => Arr::get($body, 'expires_in') ?? Arr::get($body, 'data.expires_in'),
-                'raw' => $body,
             ];
 
             session(['sdms' => $sdms]);
@@ -110,7 +131,7 @@ class SDMSAuthController extends Controller
     {
         $sdms = session('sdms', null);
         return Inertia::render('Dashboard/SDMSDashboard', [
-            'sdms' => $sdms,
+            'sdms' => $this->publicSdms($sdms),
         ]);
     }
 
@@ -118,7 +139,7 @@ class SDMSAuthController extends Controller
     {
         $sdms = session('sdms', null);
         return Inertia::render('Dashboard/SDMSPkb', [
-            'sdms' => $sdms,
+            'sdms' => $this->publicSdms($sdms),
         ]);
     }
 
@@ -127,7 +148,7 @@ class SDMSAuthController extends Controller
         $sdms = session('sdms', null);
 
         return Inertia::render('Dashboard/SDMSPkbCreate', [
-            'sdms' => $sdms,
+            'sdms' => $this->publicSdms($sdms),
             'pkb' => null,
             'localContext' => [],
         ]);
@@ -138,7 +159,7 @@ class SDMSAuthController extends Controller
         $sdms = session('sdms', null);
 
         return Inertia::render('Dashboard/SDMSPkbCreate', [
-            'sdms' => $sdms,
+            'sdms' => $this->publicSdms($sdms),
             'pkb' => ['id' => $id],
             'localContext' => [],
         ]);
@@ -162,7 +183,7 @@ class SDMSAuthController extends Controller
         $defaultId = $default?->id;
 
         return Inertia::render('Dashboard/SDMSDelivery', [
-            'sdms' => $sdms,
+            'sdms' => $this->publicSdms($sdms),
             'defaultSupplierId' => $defaultId,
             'defaultSupplierName' => $defaultName,
         ]);
@@ -173,7 +194,7 @@ class SDMSAuthController extends Controller
         $sdms = session('sdms', null);
 
         return Inertia::render('Dashboard/SDMSSpg', [
-            'sdms' => $sdms,
+            'sdms' => $this->publicSdms($sdms),
             'initialIdBilling' => $request->query('idbilling') ?? $request->query('idBilling') ?? null,
             'initialSupplierId' => $request->query('supplier_id') ?? $request->query('supplierId') ?? null,
         ]);

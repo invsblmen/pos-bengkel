@@ -6,7 +6,7 @@ import SDMSSessionStatus from '@/Components/Dashboard/SDMSSessionStatus';
 
 export default function SDMSDashboard({ sdms }) {
     const [showLoginModal, setShowLoginModal] = useState(false);
-    const isAuthenticated = Boolean(sdms && (sdms.access_token || sdms.id_token));
+    const isAuthenticated = Boolean(sdms?.authenticated);
 
     return (
         <>
@@ -47,8 +47,7 @@ export default function SDMSDashboard({ sdms }) {
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                <p className="text-sm text-gray-600">Token aktif (tersimpan di session):</p>
-                                <pre className="p-3 bg-gray-50 rounded overflow-auto text-xs">{sdms.access_token ?? sdms.id_token}</pre>
+                                <p className="text-sm text-gray-600">Sesi SDMS aktif. Token tersimpan di session server dan tidak dikirim ke browser.</p>
                                 {sdms.token_type && <p className="text-xs text-gray-500">Type: {sdms.token_type}</p>}
                                 {sdms.expires_in && <p className="text-xs text-gray-500">Expires in: {sdms.expires_in} seconds</p>}
                                 <div className="flex gap-3">
@@ -63,12 +62,6 @@ export default function SDMSDashboard({ sdms }) {
                                         Login Ulang / Ganti Kredensial
                                     </button>
                                 </div>
-                                {sdms.raw && (
-                                    <details className="mt-4 p-3 border rounded bg-gray-50">
-                                        <summary className="cursor-pointer text-sm text-gray-700">Raw response (debug)</summary>
-                                        <pre className="text-xs mt-2 overflow-auto">{JSON.stringify(sdms.raw, null, 2)}</pre>
-                                    </details>
-                                )}
                             </div>
                         )}
                     </CardBody>

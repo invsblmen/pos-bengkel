@@ -104,7 +104,7 @@ export default function SDMSAuthModal({ show, onClose, sdms = null, redirectTo =
                             </p>
                         </div>
 
-                        {sdms && (sdms.access_token || sdms.id_token) && (
+                        {sdms?.authenticated && (
                             <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-50">
                                 <div className="flex items-center gap-2 font-semibold">
                                     <IconCheck size={16} /> Sesi aktif terdeteksi

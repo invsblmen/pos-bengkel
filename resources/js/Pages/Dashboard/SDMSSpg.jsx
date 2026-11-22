@@ -273,7 +273,7 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
     const [purchaseReference, setPurchaseReference] = useState({ billingNumber: '', psNumber: '' });
     const [createdPurchase, setCreatedPurchase] = useState(null);
     const [existingParts, setExistingParts] = useState({});
-    const isAuthenticated = Boolean(sdms && (sdms.access_token || sdms.id_token));
+    const isAuthenticated = Boolean(sdms?.authenticated);
 
     const normalizeIdBilling = (value) => (value ?? '').toString().trim();
 
@@ -302,19 +302,11 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
         setCreatedPurchase(null);
 
         try {
-            const headers = sdms
-                ? {
-                      Authorization: `Bearer ${sdms.access_token ?? sdms.id_token}`,
-                      username: sdms.username,
-                      idInternal: sdms.idInternal,
-                  }
-                : {};
-
             const [detailResult, itemsResult, orderResult, deliveryResult] = await Promise.allSettled([
-                axios.get('/api/part/ShipmentPackageNonMulia', { params: { idbilling: billingId }, headers }),
-                axios.get('/api/part/goodPartDetail/getpartspg', { params: { idbilling: billingId }, headers }),
-                axios.get('/api/part/orderitemdo', { params: { fill: billingId }, headers }),
-                axios.get('/api/part/deliveryorderitem', { params: { page: 1, size: 1000, filterData: JSON.stringify({ idbilling: billingId }) }, headers }),
+                axios.get('/api/part/ShipmentPackageNonMulia', { params: { idbilling: billingId } }),
+                axios.get('/api/part/goodPartDetail/getpartspg', { params: { idbilling: billingId } }),
+                axios.get('/api/part/orderitemdo', { params: { fill: billingId } }),
+                axios.get('/api/part/deliveryorderitem', { params: { page: 1, size: 1000, filterData: JSON.stringify({ idbilling: billingId }) } }),
             ]);
 
             if (detailResult.status === 'fulfilled') {
@@ -577,21 +569,13 @@ export default function SDMSSpg({ initialIdBilling, initialSupplierId, sdms }) {
             ].filter(Boolean).join(' | ');
 
             // Call create purchase endpoint
-            const headers = sdms
-                ? {
-                      Authorization: `Bearer ${sdms.access_token ?? sdms.id_token}`,
-                      username: sdms.username,
-                      idInternal: sdms.idInternal,
-                  }
-                : {};
-
             const response = await axios.post('/api/spg/part-purchase', {
                 supplier_id: vendorId,
                 items: items,
                 discount_type: orderDiscountValue > 0 ? 'fixed' : getComparePurchaseDiscountType(sourceForTransactionDiscount),
                 discount_value: orderDiscountValue > 0 ? orderDiscountValue : getComparePurchaseDiscountValue(sourceForTransactionDiscount),
                 notes: purchaseNotes,
-            }, { headers });
+            });
 
             if (response.data && response.data.success) {
                 const purchase = response.data.purchase || null;

@@ -47,7 +47,7 @@ export default function SDMSDelivery({ sdms, defaultSupplierId = '', defaultSupp
     const [query, setQuery] = useState('');
     const [appliedQuery, setAppliedQuery] = useState('');
     const [showLoginModal, setShowLoginModal] = useState(false);
-    const isAuthenticated = Boolean(sdms && (sdms.access_token || sdms.id_token));
+    const isAuthenticated = Boolean(sdms?.authenticated);
 
 
     const [showDetail, setShowDetail] = useState(false);
@@ -281,15 +281,8 @@ export default function SDMSDelivery({ sdms, defaultSupplierId = '', defaultSupp
         setOrderItemsLoading(true);
         setDebugData(null);
         try {
-            const headers = sdms
-                ? {
-                      Authorization: `Bearer ${sdms.access_token ?? sdms.id_token}`,
-                      username: sdms.username,
-                      idInternal: sdms.idInternal,
-                  }
-                : {};
-
-            const res = await axios.get('/api/part/orderitemdo', { params: { fill }, headers });
+            // Token SDMS disuntikkan ApiProxyController dari session server; browser tidak lagi mengirim header Authorization.
+            const res = await axios.get('/api/part/orderitemdo', { params: { fill } });
             let d = res.data;
 
             // unwrap proxy debug wrapper if present
@@ -347,15 +340,7 @@ export default function SDMSDelivery({ sdms, defaultSupplierId = '', defaultSupp
 
         setDebugLoading(true);
         try {
-            const headers = sdms
-                ? {
-                      Authorization: `Bearer ${sdms.access_token ?? sdms.id_token}`,
-                      username: sdms.username,
-                      idInternal: sdms.idInternal,
-                  }
-                : {};
-
-            const res = await axios.get('/api/part/orderitemdo', { params: { fill, _proxy_debug: 1 }, headers });
+            const res = await axios.get('/api/part/orderitemdo', { params: { fill, _proxy_debug: 1 } });
             setDebugData(res.data);
         } catch (err) {
             setDebugError(err.response?.data?.message || err.message || 'Gagal memanggil _proxy_debug');

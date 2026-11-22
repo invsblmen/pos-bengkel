@@ -47,7 +47,7 @@ export default function SDMSPkb({ sdms }) {
     const [selected, setSelected] = useState(null);
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
-    const isAuthenticated = Boolean(sdms && (sdms.access_token || sdms.id_token));
+    const isAuthenticated = Boolean(sdms?.authenticated);
 
     const fetchPkb = async () => {
         if (!isAuthenticated) {
