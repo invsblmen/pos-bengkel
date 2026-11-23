@@ -18,9 +18,11 @@ class ApiProxyController extends Controller
         $targetBase = config('services.sdms.base_url') ?? env('SDMS_API_BASE', 'https://sdmsdealer-h23.mpm-motor.com:22000');
         $targetUrl = rtrim($targetBase, '/') . '/' . ltrim($path, '/');
 
-        // Forward safe headers and allow username/idInternal
+        // Only forward safe headers. Authorization, username and idInternal
+        // must never come from the client: they are filled from the server
+        // session / token claims in the blocks below.
         $forwardHeaders = [];
-        $allowed = ['Authorization', 'Accept', 'Accept-Language', 'Content-Type', 'User-Agent', 'username', 'idInternal'];
+        $allowed = ['Accept', 'Accept-Language', 'Content-Type', 'User-Agent'];
         foreach ($allowed as $h) {
             $val = $request->header($h);
             if (!is_null($val) && $val !== '') {
