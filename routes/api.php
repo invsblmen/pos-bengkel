@@ -20,7 +20,7 @@ Route::get('/reception/Pkb', function (Request $request) {
     $controller = app(\App\Http\Controllers\ApiProxyController::class);
     // forward to external path that includes /api prefix
     return $controller->proxy($request, 'api/reception/Pkb');
-})->middleware('web');
+})->middleware(['web', 'auth', 'permission:sdms-pkb-manage']);
 
 // Proxy specific DeliveryOrder endpoint so frontend can call local /api/part/DeliveryOrder
 Route::get('/part/DeliveryOrder', function (Request $request) {
@@ -75,8 +75,15 @@ Route::post('/spg/sparepart', [\App\Http\Controllers\Apps\SDMSAuthController::cl
 Route::post('/spg/existing-parts', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'checkExistingSparepartsFromSPG'])->middleware(['web', 'auth']);
 Route::post('/spg/part-purchase', [\App\Http\Controllers\Apps\SDMSAuthController::class, 'storePartPurchaseFromSPG'])->middleware(['web', 'auth']);
 
-// Generic proxy: /api/docs-proxy/{path} -> forwards to {SDMS_API_BASE}/{path}
-Route::any('/docs-proxy/{path}', function (Request $request, string $path) {
+// SDMS proxy untuk fitur PKB: hanya dua endpoint yang benar-benar dipakai
+// aplikasi yang boleh diteruskan (allowlist). Rute generik docs-proxy
+// dihapus - endpoint SDMS lain tidak lagi bisa dijangkau lewat aplikasi.
+Route::get('/docs-proxy/reception/VehicleLookup', function (Request $request) {
     $controller = app(ApiProxyController::class);
-    return $controller->proxy($request, 'api/' . ltrim($path, '/'));
-})->where('path', '.*')->middleware(['web', 'auth']);
+    return $controller->proxy($request, 'api/reception/VehicleLookup');
+})->middleware(['web', 'auth', 'permission:sdms-pkb-manage']);
+
+Route::post('/docs-proxy/reception/Pkb', function (Request $request) {
+    $controller = app(ApiProxyController::class);
+    return $controller->proxy($request, 'api/reception/Pkb');
+})->middleware(['web', 'auth', 'permission:sdms-pkb-manage']);

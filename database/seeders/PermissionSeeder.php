@@ -32,6 +32,9 @@ class PermissionSeeder extends Seeder
             // reports
             'reports-access',
 
+            // sdms
+            'sdms-pkb-manage',
+
             // payment settings
             'payment-settings-access',
 

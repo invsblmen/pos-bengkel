@@ -324,7 +324,7 @@ export default function Menu() {
                     href: route("sdms.pkb.index"),
                     active: url.startsWith("/dashboard/sdms/pkb"),
                     icon: <IconFileDescription size={20} strokeWidth={1.5} />,
-                    permissions: hasAnyPermission(["reports-access"]),
+                    permissions: hasAnyPermission(["sdms-pkb-manage"]),
                 },
                 {
                     title: "List Pemesanan",
