@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 import { IconArrowLeft, IconArrowRight, IconCalendarEvent, IconCheck, IconChevronRight, IconDeviceFloppy, IconPlus, IconPrinter, IconTrash } from '@tabler/icons-react';
 
 const formatRupiah = (value) => new Intl.NumberFormat('id-ID', {
@@ -151,6 +152,10 @@ export function VehicleStep({ data, setData, errors }) {
                     odometer: payload.odometer ?? payload.kilometer ?? current.vehicle.odometer,
                 },
             }));
+        } catch (error) {
+            // Temuan 9.5 — lookup yang gagal (mis. sesi SDMS kedaluwarsa)
+            // sebelumnya diam saja karena hanya ada try/finally tanpa catch.
+            toast.error(error.response?.data?.message || 'Gagal mengambil data kendaraan dari SDMS');
         } finally {
             setLookupLoading(false);
         }
@@ -302,7 +307,7 @@ export function SuggestionStep({ data, setData }) {
     );
 }
 
-export function CadStep({ data, setData, onSavePrint }) {
+export function CadStep({ data, setData, onSavePrint, saving = false }) {
     const setCad = (index, key, value) => setData((current) => ({
         ...current,
         cad: current.cad.map((row, rowIndex) => rowIndex === index ? { ...row, [key]: value } : row),
@@ -316,7 +321,7 @@ export function CadStep({ data, setData, onSavePrint }) {
                     ))}</tbody>
                 </table>
             </div>
-            <button type="button" onClick={onSavePrint} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold dark:border-slate-700"><IconPrinter size={17} /> Save and Print CAD</button>
+            <button type="button" onClick={onSavePrint} disabled={saving} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold disabled:opacity-60 dark:border-slate-700"><IconPrinter size={17} /> {saving ? 'Menyimpan...' : 'Save and Print CAD'}</button>
         </div>
     );
 }
@@ -465,6 +470,7 @@ export function BookingStep({ data, setData }) {
 export default function PkbCreateForm({
     initialValue = {},
     mode = 'create',
+    saving = false,
     onSave,
     onSaveAndPrint,
     onPrint,
@@ -509,7 +515,7 @@ export default function PkbCreateForm({
         { title: 'Info Booking', component: BookingStep },
     ];
 
-    const validateStep = (step) => {
+    const collectErrors = (step) => {
         const nextErrors = {};
         (requiredFields[step] || []).forEach(([path, label]) => {
             if (getPath(data, path) === '' || getPath(data, path) === null || getPath(data, path) === undefined) {
@@ -521,8 +527,30 @@ export default function PkbCreateForm({
             if (!data.lcr.rejectionReason) nextErrors['lcr.rejectionReason'] = 'Alasan Tidak Bersedia wajib dipilih';
             if (!data.lcr.inspectionResult) nextErrors['lcr.inspectionResult'] = 'Hasil Pengecekan wajib dipilih';
         }
+        return nextErrors;
+    };
+
+    const validateStep = (step) => {
+        const nextErrors = collectErrors(step);
         setErrors(nextErrors);
         return Object.keys(nextErrors).length === 0;
+    };
+
+    // Temuan 9.2 — saat submit, validasi semua langkah yang punya field
+    // wajib (0 kendaraan, 1 pemilik/pembawa, 2 LCR), bukan hanya langkah
+    // yang sedang aktif. Kalau ada yang kosong, lompat ke langkah pertama
+    // yang bermasalah supaya user langsung melihat field-nya.
+    const validateAllSteps = () => {
+        const allErrors = {};
+        let firstInvalidStep = null;
+        [0, 1, 2].forEach((step) => {
+            const stepErrors = collectErrors(step);
+            if (Object.keys(stepErrors).length > 0 && firstInvalidStep === null) firstInvalidStep = step;
+            Object.assign(allErrors, stepErrors);
+        });
+        setErrors(allErrors);
+        if (firstInvalidStep !== null) setActiveStep(firstInvalidStep);
+        return Object.keys(allErrors).length === 0;
     };
 
     const applySuggestionsToJobs = () => {
@@ -554,7 +582,8 @@ export default function PkbCreateForm({
     };
 
     const submitPkb = () => {
-        if (!validateStep(activeStep)) return;
+        if (saving) return;
+        if (!validateAllSteps()) return;
         onSave?.(data, mode);
     };
 
@@ -579,21 +608,22 @@ export default function PkbCreateForm({
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
                 <div className="mb-5 flex items-center justify-between">
                     <div><p className="text-xs font-semibold uppercase tracking-wider text-emerald-600">Langkah {activeStep + 1}</p><h2 className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{mode === 'edit' ? 'Edit' : 'Create'} PKB - {steps[activeStep].title}</h2></div>
-                    {activeStep === 5 && <button type="button" onClick={() => onSaveAndPrint?.(data)} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700"><IconPrinter size={16} /> Save and Print CAD</button>}
-                    {activeStep === 7 && <div className="flex gap-2"><button type="button" onClick={() => onSaveAndPrint?.(data)} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold dark:border-slate-700"><IconPrinter size={15} /> Save And Print Estimasi</button><button type="button" onClick={() => onSaveAndPrint?.(data, 'pkb')} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white"><IconDeviceFloppy size={15} /> Save and Print PKB</button><button type="button" onClick={() => onPrint?.(data)} className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold dark:border-slate-700"><IconPrinter size={15} /></button></div>}
+                    {activeStep === 5 && <button type="button" onClick={() => onSaveAndPrint?.(data, mode)} disabled={saving} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-60 dark:border-slate-700"><IconPrinter size={16} /> {saving ? 'Menyimpan...' : 'Save and Print CAD'}</button>}
+                    {activeStep === 7 && <div className="flex gap-2"><button type="button" onClick={() => onSaveAndPrint?.(data, mode)} disabled={saving} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold disabled:opacity-60 dark:border-slate-700"><IconPrinter size={15} /> {saving ? 'Menyimpan...' : 'Save And Print Estimasi'}</button><button type="button" onClick={() => onSaveAndPrint?.(data, mode)} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"><IconDeviceFloppy size={15} /> {saving ? 'Menyimpan...' : 'Save and Print PKB'}</button><button type="button" onClick={() => onPrint?.(data)} className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold dark:border-slate-700"><IconPrinter size={15} /></button></div>}
                 </div>
 
                 <ActiveComponent
                     data={data}
                     setData={setData}
                     errors={errors}
-                    onSavePrint={() => onSaveAndPrint?.(data)}
+                    saving={saving}
+                    onSavePrint={() => onSaveAndPrint?.(data, mode)}
                 />
 
                 {activeStep === 8 ? (
                     <div className="mt-6 flex items-center justify-between border-t border-slate-200 pt-4 dark:border-slate-800">
                         <button type="button" onClick={() => setActiveStep((current) => Math.max(0, current - 1))} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold dark:border-slate-700"><IconArrowLeft size={17} /> Back</button>
-                        <button type="button" onClick={submitPkb} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white"><IconCheck size={17} /> Simpan / Selesai PKB</button>
+                        <button type="button" onClick={submitPkb} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"><IconCheck size={17} /> {saving ? 'Menyimpan...' : 'Simpan / Selesai PKB'}</button>
                     </div>
                 ) : (
                     <StepNavigation step={activeStep} total={steps.length} onBack={() => setActiveStep((current) => Math.max(0, current - 1))} onNext={goNext} />
