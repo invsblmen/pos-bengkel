@@ -28,6 +28,10 @@ return [
         'key' => env('RESEND_KEY'),
     ],
 
+    'sdms' => [
+        'base_url' => env('SDMS_API_BASE', 'https://sdmsdealer-h23.mpm-motor.com:22000'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

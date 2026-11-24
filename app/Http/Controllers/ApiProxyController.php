@@ -77,7 +77,7 @@ class ApiProxyController extends Controller
                 }
 
                 if (app()->environment('local') || config('app.debug')) {
-                    Log::debug('ApiProxy - token claims extracted', ['idInternal_from_token' => $forwardHeaders['idInternal'] ?? null, 'claims' => $claims]);
+                    Log::debug('ApiProxy - token claims extracted', ['idInternal_from_token' => $forwardHeaders['idInternal'] ?? null, 'username_from_token' => isset($forwardHeaders['username'])]);
                 }
             } catch (\Throwable $e) {
                 Log::debug('ApiProxy - token parse failed', ['error' => $e->getMessage()]);
@@ -99,10 +99,16 @@ class ApiProxyController extends Controller
 
         // Log proxied request info (local/debug only)
         if (app()->environment('local') || config('app.debug')) {
+            // Never log the Bearer token: a shared laravel.log would leak
+            // the active head-of-workshop SDMS session.
+            $logHeaders = $forwardHeaders;
+            if (isset($logHeaders['Authorization'])) {
+                $logHeaders['Authorization'] = 'Bearer ***';
+            }
             Log::debug('ApiProxy - forwarding request', [
                 'method' => $request->method(),
                 'targetUrl' => $targetUrl,
-                'forwardHeaders' => $forwardHeaders,
+                'forwardHeaders' => $logHeaders,
                 'query' => $options['query'] ?? null,
             ]);
         }
@@ -132,14 +138,18 @@ class ApiProxyController extends Controller
         $contentTypeResp = $response->header('Content-Type');
 
         if (app()->environment('local') || config('app.debug')) {
+            // Log only status + size, never the full upstream body:
+            // it contains customer data (NIK/NPWP/phone) from lookup/PKB.
             Log::debug('ApiProxy - upstream response', [
                 'status' => $status,
-                'headers' => $response->headers(),
-                'body' => $body,
+                'content_type' => $contentTypeResp,
+                'body_length' => strlen($body),
             ]);
         }
 
         // If caller requested debug info, return structured debug JSON (local only)
+        // Kept intentionally: SDMSDelivery.jsx uses ?_proxy_debug=1 behind its
+        // "Tampilkan Detail Teknis" toggle. It already only runs in local/debug.
         if ((app()->environment('local') || config('app.debug')) && $request->query('_proxy_debug')) {
             $decoded = json_decode($body, true);
             return response()->json([
