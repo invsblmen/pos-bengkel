@@ -4,10 +4,10 @@ return [
     'enabled' => env('WHATSAPP_ENABLED', false),
     'go_dashboard_url' => env('WHATSAPP_GO_DASHBOARD_URL', env('WHATSAPP_API_BASE_URL', 'http://127.0.0.1:3000')),
     'go_backend' => [
-        'base_url' => env('GO_BACKEND_BASE_URL', 'http://127.0.0.1:8081'),
+        'base_url' => env('GO_WHATSAPP_BASE_URL', 'http://127.0.0.1:8081'),
         'use_webhook' => env('WHATSAPP_WEBHOOK_USE_GO', false),
         'use_health_check' => env('WHATSAPP_HEALTHCHECK_USE_GO', false),
-        'timeout_seconds' => (int) env('GO_BACKEND_TIMEOUT_SECONDS', 5),
+        'timeout_seconds' => (int) env('GO_WHATSAPP_TIMEOUT_SECONDS', 5),
     ],
 
     'api' => [
