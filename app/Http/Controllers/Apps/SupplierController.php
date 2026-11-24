@@ -10,9 +10,6 @@ use App\Events\SupplierDeleted;
 use App\Support\DispatchesBroadcastSafely;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Concerns\RespondsWithJsonOrRedirect;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Facades\Log;
 
 class SupplierController extends Controller
 {
@@ -22,20 +19,6 @@ class SupplierController extends Controller
     public function index(Request $request)
     {
         $q = $request->query('q', '');
-
-        // Proxy to GO backend when enabled
-        if (config('go_backend.features.supplier_index', false)) {
-            $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
-            try {
-                $resp = Http::timeout((int) config('go_backend.timeout_seconds', 5))->get($baseUrl . '/api/v1/suppliers', $request->query());
-                $json = $resp->json();
-                if (is_array($json)) {
-                    return inertia('Dashboard/Suppliers/Index', $json);
-                }
-            } catch (\Throwable $e) {
-                Log::error('Supplier index proxy error: ' . $e->getMessage());
-            }
-        }
 
         $query = Supplier::orderBy('name');
         if ($q) {
@@ -69,28 +52,6 @@ class SupplierController extends Controller
             'address' => 'nullable|string',
             'contact_person' => 'nullable|string|max:255',
         ]);
-
-        // Proxy to GO backend when enabled
-        if (config('go_backend.features.supplier_store', false)) {
-            $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
-            try {
-                $resp = Http::timeout((int) config('go_backend.timeout_seconds', 5))->post($baseUrl . '/api/v1/suppliers', $data);
-                if ($resp->status() === 422) {
-                    $errors = $resp->json('errors') ?? [];
-                    throw ValidationException::withMessages($errors);
-                }
-
-                $json = $resp->json();
-                $message = $json['message'] ?? null;
-                $supplierData = $json['supplier'] ?? null;
-                $flashData = $supplierData ? ['supplier' => ['id' => $supplierData['id']]] : null;
-                return $this->jsonOrRedirect('suppliers.index', [], $message, $flashData, $resp->status());
-            } catch (ValidationException $ve) {
-                throw $ve;
-            } catch (\Throwable $e) {
-                Log::error('Supplier store proxy error: ' . $e->getMessage());
-            }
-        }
 
         $supplier = Supplier::create($data);
 
@@ -130,28 +91,6 @@ class SupplierController extends Controller
             'contact_person' => 'nullable|string|max:255',
         ]);
 
-        // Proxy to GO backend when enabled
-        if (config('go_backend.features.supplier_update', false)) {
-            $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
-            try {
-                $resp = Http::timeout((int) config('go_backend.timeout_seconds', 5))->put($baseUrl . '/api/v1/suppliers/' . $id, $data);
-                if ($resp->status() === 422) {
-                    $errors = $resp->json('errors') ?? [];
-                    throw ValidationException::withMessages($errors);
-                }
-
-                $json = $resp->json();
-                $message = $json['message'] ?? null;
-                $supplierData = $json['supplier'] ?? null;
-                $flashData = $supplierData ? ['supplier' => ['id' => $supplierData['id']]] : null;
-                return $this->jsonOrRedirect('suppliers.index', [], $message, $flashData, $resp->status());
-            } catch (ValidationException $ve) {
-                throw $ve;
-            } catch (\Throwable $e) {
-                Log::error('Supplier update proxy error: ' . $e->getMessage());
-            }
-        }
-
         $supplier->update($data);
 
         $this->dispatchBroadcastSafely(
@@ -171,19 +110,6 @@ class SupplierController extends Controller
 
     public function destroy($id)
     {
-        // Proxy to GO backend when enabled
-        if (config('go_backend.features.supplier_destroy', false)) {
-            $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
-            try {
-                $resp = Http::timeout((int) config('go_backend.timeout_seconds', 5))->delete($baseUrl . '/api/v1/suppliers/' . $id);
-                $json = $resp->json();
-                $message = $json['message'] ?? 'Supplier deleted successfully.';
-                return $this->jsonOrRedirect(null, [], $message, null, $resp->status());
-            } catch (\Throwable $e) {
-                Log::error('Supplier destroy proxy error: ' . $e->getMessage());
-            }
-        }
-
         $supplier = Supplier::findOrFail($id);
         $supplierId = $supplier->id;
         $supplier->delete();
@@ -208,18 +134,6 @@ class SupplierController extends Controller
             'email' => 'nullable|email|max:255',
             'address' => 'nullable|string',
         ]);
-
-        // Proxy to GO backend when enabled
-        if (config('go_backend.features.supplier_store_ajax', false)) {
-            $baseUrl = rtrim((string) config('go_backend.base_url', 'http://127.0.0.1:8081'), '/');
-            try {
-                $resp = Http::timeout((int) config('go_backend.timeout_seconds', 5))->post($baseUrl . '/api/v1/suppliers/store-ajax', $validated);
-                return response()->json($resp->json(), $resp->status());
-            } catch (\Throwable $e) {
-                Log::error('Supplier storeAjax proxy error: ' . $e->getMessage());
-                return response()->json(['success' => false, 'message' => 'Gagal menambahkan supplier via bridge'], 500);
-            }
-        }
 
         try {
             $supplier = Supplier::create($validated);
