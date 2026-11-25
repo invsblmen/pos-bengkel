@@ -1,16 +1,14 @@
 import React, { useMemo, useState } from "react";
-import { Head, Link, router } from "@inertiajs/react";
+import { Head, router } from "@inertiajs/react";
+import PageHeader from "@/Components/WhatsApp/PageHeader";
 import {
-    IconArrowLeft,
     IconBellRinging,
     IconBrandWhatsapp,
     IconCalendar,
-    IconCheck,
     IconGift,
     IconPhone,
     IconSearch,
     IconSend,
-    IconUsers,
 } from "@tabler/icons-react";
 import toast from "react-hot-toast";
 import { toDisplayDateTime } from "@/Utils/datetime";
@@ -114,34 +112,14 @@ export default function Manage({ summary = {}, customers = [], appointments = []
 
     return (
         <>
-            <Head title="Manajemen Pesan WhatsApp" />
+            <Head title="Kirim Pesan WhatsApp" />
 
             <div className="space-y-6">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                        <Link
-                            href={route("whatsapp.logs.index")}
-                            className="mb-3 inline-flex items-center gap-2 text-sm text-slate-500 hover:text-primary-600"
-                        >
-                            <IconArrowLeft size={16} />
-                            Kembali ke Logs
-                        </Link>
-                        <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900 dark:text-white">
-                            <IconBrandWhatsapp size={26} className="text-emerald-600" />
-                            Manajemen Pesan WhatsApp
-                        </h1>
-                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                            Kirim reminder servis dan broadcast promo langsung dari Laravel.
-                        </p>
-                    </div>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-4">
-                    <StatCard title="Pelanggan Siap Kirim" value={summary.customers ?? 0} tone="emerald" icon={<IconUsers size={18} />} />
-                    <StatCard title="Reminder Mendatang" value={summary.appointments ?? 0} tone="blue" icon={<IconBellRinging size={18} />} />
-                    <StatCard title="Queue" value={summary.outbound_queued ?? 0} tone="amber" icon={<IconSend size={18} />} />
-                    <StatCard title="Terkirim" value={summary.outbound_sent ?? 0} tone="slate" icon={<IconCheck size={18} />} />
-                </div>
+                <PageHeader
+                    title="Kirim Pesan"
+                    description="Kirim reminder servis dan broadcast promo langsung dari Laravel."
+                    icon={<IconBrandWhatsapp size={26} className="text-emerald-600" />}
+                />
 
                 <div className="grid gap-6 xl:grid-cols-5">
                     <div className="xl:col-span-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -318,24 +296,5 @@ export default function Manage({ summary = {}, customers = [], appointments = []
                 </div>
             </div>
         </>
-    );
-}
-
-function StatCard({ title, value, icon, tone = "slate" }) {
-    const toneClass = {
-        slate: "bg-slate-50 border-slate-200 text-slate-700",
-        amber: "bg-amber-50 border-amber-200 text-amber-700",
-        emerald: "bg-emerald-50 border-emerald-200 text-emerald-700",
-        blue: "bg-blue-50 border-blue-200 text-blue-700",
-    };
-
-    return (
-        <div className={`rounded-2xl border p-4 ${toneClass[tone] ?? toneClass.slate}`}>
-            <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-medium">{title}</p>
-                {icon}
-            </div>
-            <p className="text-2xl font-bold">{value ?? 0}</p>
-        </div>
     );
 }

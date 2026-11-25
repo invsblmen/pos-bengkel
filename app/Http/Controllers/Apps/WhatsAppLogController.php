@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Apps;
 use App\Http\Controllers\Controller;
 use App\Events\WhatsAppOutboundUpdated;
 use App\Jobs\SendWhatsAppMessageJob;
+use App\Models\Appointment;
+use App\Models\Customer;
 use App\Models\WhatsAppOutboundMessage;
 use App\Models\WhatsAppWebhookEvent;
 use Carbon\Carbon;
@@ -113,6 +115,49 @@ class WhatsAppLogController extends Controller
             'outboundLogs' => $outboundLogs,
             'webhookLogs' => $webhookLogs,
         ]);
+    }
+
+    public function overview()
+    {
+        $monitoring = $this->buildMonitoringSnapshot();
+
+        $recentFailed = WhatsAppOutboundMessage::query()
+            ->where('status', 'failed')
+            ->latest()
+            ->limit(8)
+            ->get([
+                'id',
+                'event_type',
+                'phone',
+                'status',
+                'error_message',
+                'created_at',
+                'failed_at',
+            ]);
+
+        return inertia('Dashboard/WhatsApp/Overview', [
+            'summary' => [
+                'outbound_total' => WhatsAppOutboundMessage::count(),
+                'outbound_queued' => WhatsAppOutboundMessage::where('status', 'queued')->count(),
+                'outbound_sent' => WhatsAppOutboundMessage::where('status', 'sent')->count(),
+                'outbound_failed' => WhatsAppOutboundMessage::where('status', 'failed')->count(),
+                'queue_pending' => $monitoring['queue_pending'],
+                'queue_failed' => $monitoring['queue_failed'],
+                'customers' => Customer::query()->where('phone', '!=', '')->count(),
+                'appointments' => Appointment::query()
+                    ->whereIn('status', ['scheduled', 'confirmed'])
+                    ->whereDate('scheduled_at', '>=', now()->toDateString())
+                    ->whereDate('scheduled_at', '<=', now()->addDays(7)->toDateString())
+                    ->count(),
+            ],
+            'monitoring' => $monitoring,
+            'recentFailed' => $recentFailed,
+        ]);
+    }
+
+    public function device()
+    {
+        return inertia('Dashboard/WhatsApp/Device');
     }
 
     public function queueMonitor()

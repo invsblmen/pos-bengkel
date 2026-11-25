@@ -29,6 +29,9 @@ import {
     IconBrandWhatsapp,
     IconExternalLink,
     IconSettings,
+    IconSend,
+    IconDeviceMobile,
+    IconLayoutDashboard,
 } from "@tabler/icons-react";
 import hasAnyPermission from "./Permission";
 import React from "react";
@@ -284,26 +287,38 @@ export default function Menu() {
                     permissions: hasAnyPermission(["reports-access"]),
                     subdetails: [
                         {
-                            title: "WhatsApp Go",
-                            href: route("whatsapp.go.index"),
-                            active: url.startsWith("/dashboard/whatsapp/go"),
-                            icon: <IconExternalLink size={20} strokeWidth={1.5} />,
+                            title: "Ringkasan",
+                            href: route("whatsapp.overview"),
+                            active: url.startsWith("/dashboard/whatsapp/overview"),
+                            icon: <IconLayoutDashboard size={20} strokeWidth={1.5} />,
                             permissions: hasAnyPermission(["reports-access"]),
-                            target: "_blank",
-                            rel: "noopener noreferrer",
                         },
                         {
-                            title: "Log WhatsApp",
+                            title: "Kirim Pesan",
+                            href: route("whatsapp.messages.index"),
+                            active: url.startsWith("/dashboard/whatsapp/messages"),
+                            icon: <IconSend size={20} strokeWidth={1.5} />,
+                            permissions: hasAnyPermission(["reports-access"]),
+                        },
+                        {
+                            title: "Log Pesan",
                             href: route("whatsapp.logs.index"),
                             active: url.startsWith("/dashboard/whatsapp/logs"),
-                            icon: <IconBrandWhatsapp size={20} strokeWidth={1.5} />,
+                            icon: <IconHistory size={20} strokeWidth={1.5} />,
                             permissions: hasAnyPermission(["reports-access"]),
                         },
                         {
-                            title: "Queue Monitor",
+                            title: "Antrean & Worker",
                             href: route("whatsapp.queue-monitor.index"),
                             active: url.startsWith("/dashboard/whatsapp/queue-monitor"),
                             icon: <IconChartInfographic size={20} strokeWidth={1.5} />,
+                            permissions: hasAnyPermission(["reports-access"]),
+                        },
+                        {
+                            title: "Perangkat GOWA",
+                            href: route("whatsapp.device"),
+                            active: url.startsWith("/dashboard/whatsapp/device"),
+                            icon: <IconDeviceMobile size={20} strokeWidth={1.5} />,
                             permissions: hasAnyPermission(["reports-access"]),
                         },
                         {

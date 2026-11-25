@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Head, useForm, usePage } from "@inertiajs/react";
 import Input from "@/Components/Dashboard/Input";
 import Checkbox from "@/Components/Dashboard/Checkbox";
+import PageHeader from "@/Components/WhatsApp/PageHeader";
 import {
     IconBell,
     IconBrandWhatsapp,
@@ -117,35 +118,28 @@ export default function Settings({ setting }) {
         <>
             <Head title="Konfigurasi WhatsApp" />
 
-            <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <IconBrandWhatsapp size={28} className="text-primary-500" />
-                        Konfigurasi WhatsApp
-                    </h1>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                        Koneksi GOWA dan notifikasi otomatis. Nilai di halaman ini menimpa nilai .env; kolom yang dikosongkan kembali memakai nilai .env.
-                    </p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <span
-                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${healthPill.className}`}
-                        title={health?.message || ""}
-                    >
-                        <span className={`w-2 h-2 rounded-full ${healthPill.dot}`} />
-                        {healthPill.label}
-                    </span>
-                    <button
-                        type="button"
-                        onClick={checkHealth}
-                        disabled={checkingHealth}
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-all disabled:opacity-50"
-                        title="Periksa ulang koneksi"
-                    >
-                        <IconRefresh size={16} className={checkingHealth ? "animate-spin" : ""} />
-                    </button>
-                </div>
-            </div>
+            <PageHeader
+                title="Konfigurasi WhatsApp"
+                description="Koneksi GOWA dan notifikasi otomatis. Nilai di halaman ini menimpa nilai .env; kolom yang dikosongkan kembali memakai nilai .env."
+                icon={<IconBrandWhatsapp size={28} className="text-primary-500" />}
+            >
+                <span
+                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${healthPill.className}`}
+                    title={health?.message || ""}
+                >
+                    <span className={`w-2 h-2 rounded-full ${healthPill.dot}`} />
+                    {healthPill.label}
+                </span>
+                <button
+                    type="button"
+                    onClick={checkHealth}
+                    disabled={checkingHealth}
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-all disabled:opacity-50"
+                    title="Periksa ulang koneksi"
+                >
+                    <IconRefresh size={16} className={checkingHealth ? "animate-spin" : ""} />
+                </button>
+            </PageHeader>
 
             <form onSubmit={handleSubmit} className="max-w-3xl space-y-6 pb-24">
                 {/* Koneksi GOWA */}

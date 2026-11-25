@@ -86,6 +86,8 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::post('/whatsapp/go/local/start', [WhatsAppDockerController::class, 'localStart'])->middleware('permission:reports-access')->name('whatsapp.go.local.start');
     Route::post('/whatsapp/go/local/stop', [WhatsAppDockerController::class, 'localStop'])->middleware('permission:reports-access')->name('whatsapp.go.local.stop');
     Route::get('/whatsapp/go/local/status', [WhatsAppDockerController::class, 'localStatus'])->middleware('permission:reports-access')->name('whatsapp.go.local.status');
+    Route::get('/whatsapp/overview', [WhatsAppLogController::class, 'overview'])->middleware('permission:reports-access')->name('whatsapp.overview');
+    Route::get('/whatsapp/device', [WhatsAppLogController::class, 'device'])->middleware('permission:reports-access')->name('whatsapp.device');
     Route::get('/whatsapp/logs', [WhatsAppLogController::class, 'index'])->middleware('permission:reports-access')->name('whatsapp.logs.index');
     Route::get('/whatsapp/queue-monitor', [WhatsAppLogController::class, 'queueMonitor'])->middleware('permission:reports-access')->name('whatsapp.queue-monitor.index');
     Route::get('/whatsapp/settings', [WhatsAppSettingController::class, 'edit'])->middleware('permission:whatsapp-settings-access')->name('whatsapp.settings.edit');

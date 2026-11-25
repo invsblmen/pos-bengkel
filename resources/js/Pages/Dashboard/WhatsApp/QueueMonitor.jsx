@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Head, Link, router } from "@inertiajs/react";
+import PageHeader from "@/Components/WhatsApp/PageHeader";
+import StatCard from "@/Components/WhatsApp/StatCard";
+import HealthBadge from "@/Components/WhatsApp/HealthBadge";
 import { toDisplayDateTime } from "@/Utils/datetime";
 import {
     IconAlertTriangle,
@@ -10,29 +13,6 @@ import {
     IconSend,
     IconShieldX,
 } from "@tabler/icons-react";
-
-function SummaryCard({ title, value, icon, tone = "slate", helper }) {
-    const toneClass = {
-        slate: "bg-slate-50 border-slate-200 text-slate-700",
-        amber: "bg-amber-50 border-amber-200 text-amber-700",
-        emerald: "bg-emerald-50 border-emerald-200 text-emerald-700",
-        red: "bg-red-50 border-red-200 text-red-700",
-        blue: "bg-blue-50 border-blue-200 text-blue-700",
-    };
-
-    return (
-        <div className={`rounded-2xl border p-4 ${toneClass[tone] ?? toneClass.slate}`}>
-            <div className="flex items-start justify-between gap-3">
-                <div>
-                    <p className="text-sm font-medium">{title}</p>
-                    <p className="mt-1 text-2xl font-bold">{value ?? 0}</p>
-                    {helper ? <p className="mt-1 text-xs opacity-80">{helper}</p> : null}
-                </div>
-                {icon}
-            </div>
-        </div>
-    );
-}
 
 export default function QueueMonitor({ summary = {}, monitoring = {}, recentOutbound = [], refreshIntervalSeconds = 15 }) {
     const [refreshing, setRefreshing] = useState(false);
@@ -166,7 +146,7 @@ export default function QueueMonitor({ summary = {}, monitoring = {}, recentOutb
 
     return (
         <>
-            <Head title="WhatsApp Queue Monitor" />
+            <Head title="Antrean & Worker WhatsApp" />
 
             {toast ? (
                 <div className="fixed top-4 right-4 z-50 w-full max-w-sm">
@@ -187,26 +167,23 @@ export default function QueueMonitor({ summary = {}, monitoring = {}, recentOutb
                 </div>
             ) : null}
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">WhatsApp Queue Monitor</h1>
-                    <p className="text-sm text-slate-500">Pantau worker queue, heartbeat, dan antrean pesan WhatsApp secara real time.</p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
+            <PageHeader
+                title="Antrean & Worker"
+                description="Pantau worker queue, heartbeat, dan antrean pesan WhatsApp secara real time."
+            >
                     <Link
                         href={route("whatsapp.logs.index")}
                         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                     >
                         <IconSend size={16} />
-                        Log WhatsApp
+                        Log Pesan
                     </Link>
                     <Link
                         href={route("whatsapp.messages.index")}
                         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                     >
                         <IconBrandWhatsapp size={16} />
-                        Manajemen Pesan
+                        Kirim Pesan
                     </Link>
                     <button
                         type="button"
@@ -278,8 +255,7 @@ export default function QueueMonitor({ summary = {}, monitoring = {}, recentOutb
                     >
                         Restart worker
                     </button>
-                </div>
-            </div>
+            </PageHeader>
 
             <div className={`mb-6 rounded-2xl border px-4 py-3 text-sm ${queueAlert.tone === "emerald" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : queueAlert.tone === "amber" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-red-200 bg-red-50 text-red-700"}`}>
                 <div className="flex items-center gap-2 font-semibold">
@@ -292,17 +268,22 @@ export default function QueueMonitor({ summary = {}, monitoring = {}, recentOutb
                 </div>
             </div>
 
+            <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <h2 className="text-lg font-semibold text-slate-900 mb-3">Kesehatan Service Go</h2>
+                <HealthBadge detail />
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-                <SummaryCard
+                <StatCard
                     title="Worker Status"
                     value={monitoring?.worker_active ? "Aktif" : "Tidak Aktif"}
                     icon={<span className={`h-3 w-3 rounded-full ${workerBadge.dotClassName}`}></span>}
                     tone={monitoring?.worker_active ? "emerald" : "red"}
                     helper={monitoring?.worker_active ? `Heartbeat terakhir ${monitoring?.worker_last_heartbeat || "-"}` : "Tidak ada heartbeat baru."}
                 />
-                <SummaryCard title="Queue Pending" value={summary?.queue_pending} icon={<IconClockHour4 size={18} />} tone="amber" helper="Job masih antre di tabel jobs" />
-                <SummaryCard title="Queue Failed" value={summary?.queue_failed} icon={<IconShieldX size={18} />} tone="red" helper="Job yang gagal diproses worker" />
-                <SummaryCard title="Outbound Queued" value={summary?.outbound_queued} icon={<IconSend size={18} />} tone="blue" helper="Pesan WhatsApp yang menunggu kirim" />
+                <StatCard title="Queue Pending" value={summary?.queue_pending} icon={<IconClockHour4 size={18} />} tone="amber" helper="Job masih antre di tabel jobs" />
+                <StatCard title="Queue Failed" value={summary?.queue_failed} icon={<IconShieldX size={18} />} tone="red" helper="Job yang gagal diproses worker" />
+                <StatCard title="Outbound Queued" value={summary?.outbound_queued} icon={<IconSend size={18} />} tone="blue" helper="Pesan WhatsApp yang menunggu kirim" />
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">

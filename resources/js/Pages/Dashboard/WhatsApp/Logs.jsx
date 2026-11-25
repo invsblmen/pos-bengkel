@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Head, Link, router, usePage } from "@inertiajs/react";
 import Pagination from "@/Components/Dashboard/Pagination";
+import PageHeader from "@/Components/WhatsApp/PageHeader";
+import StatCard from "@/Components/WhatsApp/StatCard";
 import { toDisplayDateTime } from "@/Utils/datetime";
 import { useRealtimeEvents } from "@/Hooks/useRealtimeEvents";
 import {
-    IconBrandWhatsapp,
     IconClockHour4,
     IconSend,
     IconAlertTriangle,
@@ -19,40 +20,9 @@ const statusClassName = {
     failed: "bg-red-100 text-red-700",
 };
 
-function SummaryCard({ title, value, icon, tone = "slate" }) {
-    const toneClass = {
-        slate: "bg-slate-50 border-slate-200 text-slate-700",
-        amber: "bg-amber-50 border-amber-200 text-amber-700",
-        emerald: "bg-emerald-50 border-emerald-200 text-emerald-700",
-        red: "bg-red-50 border-red-200 text-red-700",
-        blue: "bg-blue-50 border-blue-200 text-blue-700",
-    };
-
-    return (
-        <div className={`rounded-2xl border p-4 ${toneClass[tone] ?? toneClass.slate}`}>
-            <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium">{title}</p>
-                {icon}
-            </div>
-            <p className="text-2xl font-bold">{value ?? 0}</p>
-        </div>
-    );
-}
-
 export default function Logs({ filters, summary, outboundStatuses, webhookEvents, outboundLogs, webhookLogs }) {
     const { props } = usePage();
     const flash = props?.flash || {};
-    const monitoring = props?.monitoring || {};
-    const [serviceHealth, setServiceHealth] = useState({
-        status: "unknown",
-        message: "Belum dicek",
-        http_status: null,
-        latency_ms: null,
-    });
-    const [isCheckingHealth, setIsCheckingHealth] = useState(false);
-    const [isManagingService, setIsManagingService] = useState(false);
-    const [lastHealthCheckedAt, setLastHealthCheckedAt] = useState(null);
-    const [healthToast, setHealthToast] = useState(null);
 
     const [outboundQueryText, setOutboundQueryText] = useState(filters?.outbound_q || "");
     const [webhookQueryText, setWebhookQueryText] = useState(filters?.webhook_q || "");
@@ -64,42 +34,6 @@ export default function Logs({ filters, summary, outboundStatuses, webhookEvents
 
     const debounceRef = useRef(null);
     const fallbackPollingRef = useRef(null);
-    const previousServiceHealthStatusRef = useRef("unknown");
-    const toastTimeoutRef = useRef(null);
-    const prevWorkerActive = useRef(monitoring?.worker_active ?? false);
-    const [workerToast, setWorkerToast] = useState(null);
-
-    const playDownAlertBeep = useCallback(() => {
-        try {
-            const AudioCtx = window.AudioContext || window.webkitAudioContext;
-            if (!AudioCtx) return;
-
-            const ctx = new AudioCtx();
-            const oscillator = ctx.createOscillator();
-            const gain = ctx.createGain();
-
-            oscillator.type = "sine";
-            oscillator.frequency.setValueAtTime(880, ctx.currentTime);
-
-            gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.01);
-            gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
-
-            oscillator.connect(gain);
-            gain.connect(ctx.destination);
-
-            oscillator.start(ctx.currentTime);
-            oscillator.stop(ctx.currentTime + 0.25);
-
-            oscillator.onended = () => {
-                if (typeof ctx.close === "function") {
-                    ctx.close();
-                }
-            };
-        } catch (_) {
-            // Ignore browser autoplay/audio restrictions.
-        }
-    }, []);
 
     const outboundCountLabel = useMemo(() => {
         if (!outboundLogs?.total) return "0 data";
@@ -252,317 +186,26 @@ export default function Logs({ filters, summary, outboundStatuses, webhookEvents
         });
     };
 
-    const checkWhatsAppGoHealth = useCallback(async () => {
-        setIsCheckingHealth(true);
-
-        try {
-            const response = await window.axios.get(route("whatsapp.health.check"));
-            const data = response?.data || {};
-
-            setServiceHealth({
-                status: data.status || "unknown",
-                message: data.message || "Tidak ada respons dari endpoint health-check.",
-                http_status: data.http_status ?? null,
-                latency_ms: data.latency_ms ?? null,
-            });
-            setLastHealthCheckedAt(new Date());
-        } catch (error) {
-            setServiceHealth({
-                status: "down",
-                message: error?.response?.data?.message || error?.message || "Gagal cek status service WhatsApp Go.",
-                http_status: null,
-                latency_ms: null,
-            });
-            setLastHealthCheckedAt(new Date());
-        } finally {
-            setIsCheckingHealth(false);
-        }
-    }, []);
-
-    const manageGoService = useCallback(async (action) => {
-        setIsManagingService(true);
-        try {
-            // Prefer local binary endpoints if available
-            let useLocal = false;
-            try {
-                const s = await window.axios.get(route('whatsapp.go.local.status'));
-                if (s?.status === 200) useLocal = true;
-            } catch (e) {
-                // 404 or not found -> fallback to docker
-                useLocal = false;
-            }
-
-            let response;
-            if (useLocal) {
-                if (action === 'status') response = await window.axios.get(route('whatsapp.go.local.status'));
-                if (action === 'start') response = await window.axios.post(route('whatsapp.go.local.start'));
-                if (action === 'stop') response = await window.axios.post(route('whatsapp.go.local.stop'));
-                if (action === 'restart') {
-                    await window.axios.post(route('whatsapp.go.local.stop'));
-                    response = await window.axios.post(route('whatsapp.go.local.start'));
-                }
-            } else {
-                if (action === 'status') response = await window.axios.get(route('whatsapp.go.docker.status'));
-                if (action === 'start') response = await window.axios.post(route('whatsapp.go.docker.start'));
-                if (action === 'stop') response = await window.axios.post(route('whatsapp.go.docker.stop'));
-                if (action === 'restart') response = await window.axios.post(route('whatsapp.go.docker.restart'));
-            }
-
-            setHealthToast({ tone: 'success', message: `Perintah ${action} dikirim.` });
-            setTimeout(() => setHealthToast(null), 4000);
-            // refresh health after action
-            setTimeout(() => checkWhatsAppGoHealth(), 1500);
-            return response?.data;
-        } catch (error) {
-            setHealthToast({ tone: 'danger', message: `Gagal menjalankan ${action}: ${error?.response?.data?.error || error?.message}` });
-            setTimeout(() => setHealthToast(null), 6000);
-            throw error;
-        } finally {
-            setIsManagingService(false);
-        }
-    }, [checkWhatsAppGoHealth]);
-
-    useEffect(() => {
-        checkWhatsAppGoHealth();
-    }, [checkWhatsAppGoHealth]);
-
-    useEffect(() => {
-        const intervalId = setInterval(() => {
-            checkWhatsAppGoHealth();
-        }, 30000);
-
-        return () => clearInterval(intervalId);
-    }, [checkWhatsAppGoHealth]);
-
-    useEffect(() => {
-        const previousStatus = previousServiceHealthStatusRef.current;
-        const currentStatus = serviceHealth.status;
-
-        if (previousStatus !== currentStatus && (currentStatus === "up" || currentStatus === "down")) {
-            setHealthToast({
-                tone: currentStatus === "up" ? "success" : "danger",
-                message: currentStatus === "up"
-                    ? "Service WhatsApp Go kembali normal."
-                    : "Service WhatsApp Go terdeteksi down.",
-            });
-
-            if (toastTimeoutRef.current) {
-                clearTimeout(toastTimeoutRef.current);
-            }
-
-            if (currentStatus === "down") {
-                playDownAlertBeep();
-            }
-
-            toastTimeoutRef.current = setTimeout(() => {
-                setHealthToast(null);
-            }, 5000);
-        }
-
-        previousServiceHealthStatusRef.current = currentStatus;
-    }, [serviceHealth.status, playDownAlertBeep]);
-
-    // Visual notification when worker becomes inactive (align with QueueMonitor)
-    useEffect(() => {
-        const currentlyActive = !!monitoring?.worker_active;
-        const previouslyActive = !!prevWorkerActive.current;
-
-        if (previouslyActive && !currentlyActive) {
-            const message = "Worker queue terdeteksi tidak aktif. Periksa proses php artisan queue:work.";
-            setWorkerToast({ message, tone: "red" });
-
-            // Try browser notification
-            try {
-                if ("Notification" in window) {
-                    if (Notification.permission === "granted") {
-                        new Notification("WhatsApp Queue - Worker Down", { body: message });
-                    } else if (Notification.permission !== "denied") {
-                        Notification.requestPermission().then((perm) => {
-                            if (perm === "granted") new Notification("WhatsApp Queue - Worker Down", { body: message });
-                        });
-                    }
-                }
-            } catch (e) {
-                // ignore
-            }
-
-            // Short beep via WebAudio
-            try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const o = ctx.createOscillator();
-                const g = ctx.createGain();
-                o.type = "sine";
-                o.frequency.value = 880;
-                g.gain.value = 0.03;
-                o.connect(g);
-                g.connect(ctx.destination);
-                o.start();
-                setTimeout(() => {
-                    o.stop();
-                    try { ctx.close(); } catch (e) {}
-                }, 250);
-            } catch (e) {
-                // ignore audio errors
-            }
-
-            // auto-hide toast
-            setTimeout(() => setWorkerToast(null), 10000);
-        }
-
-        prevWorkerActive.current = currentlyActive;
-    }, [monitoring?.worker_active]);
-
-    useEffect(() => {
-        return () => {
-            if (toastTimeoutRef.current) {
-                clearTimeout(toastTimeoutRef.current);
-            }
-        };
-    }, []);
-
-    const serviceHealthBadge = {
-        up: {
-            label: "Go Service Up",
-            className: "border-emerald-200 bg-emerald-50 text-emerald-700",
-            dotClassName: "bg-emerald-500",
-        },
-        auth_required: {
-            label: "Go Service Auth Required",
-            className: "border-amber-200 bg-amber-50 text-amber-700",
-            dotClassName: "bg-amber-500",
-        },
-        down: {
-            label: "Go Service Down",
-            className: "border-red-200 bg-red-50 text-red-700",
-            dotClassName: "bg-red-500",
-        },
-        unknown: {
-            label: "Go Service Unknown",
-            className: "border-slate-200 bg-slate-50 text-slate-700",
-            dotClassName: "bg-slate-500",
-        },
-    };
-
-    const activeServiceHealthBadge = serviceHealthBadge[serviceHealth.status] || serviceHealthBadge.unknown;
-
-    const workerBadge = monitoring?.worker_active
-        ? {
-            label: "Worker Aktif",
-            className: "border-emerald-200 bg-emerald-50 text-emerald-700",
-            dotClassName: "bg-emerald-500",
-        }
-        : {
-            label: "Worker Tidak Aktif",
-            className: "border-red-200 bg-red-50 text-red-700",
-            dotClassName: "bg-red-500",
-        };
-
-    const toastClassName = healthToast?.tone === "success"
-        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-        : "border-red-200 bg-red-50 text-red-700";
-
     return (
         <>
-            <Head title="WhatsApp Logs" />
+            <Head title="Log Pesan WhatsApp" />
 
-            {healthToast && (
-                <div className={`fixed top-5 right-5 z-50 rounded-xl border px-4 py-3 text-sm shadow-lg ${toastClassName}`}>
-                    {healthToast.message}
+            <PageHeader
+                title="Log Pesan"
+                description="Pantau pengiriman outbound dan event webhook dari service Go."
+            >
+                <Link
+                    href={route("whatsapp.messages.index")}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                    <IconSend size={16} />
+                    Kirim Pesan
+                </Link>
+                <div className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${activeRealtimeBadge.className}`}>
+                    <span className={`h-2 w-2 rounded-full ${activeRealtimeBadge.dotClassName}`}></span>
+                    <span>{activeRealtimeBadge.label}</span>
                 </div>
-            )}
-
-            {workerToast && (
-                <div className="fixed top-5 right-5 z-50 rounded-xl border px-4 py-3 text-sm shadow-lg border-red-200 bg-red-50 text-red-700">
-                    {workerToast.message}
-                </div>
-            )}
-
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">WhatsApp Monitor</h1>
-                    <p className="text-sm text-slate-500">Pantau pengiriman outbound dan event webhook dari service Go.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <Link
-                        href={route("whatsapp.messages.index")}
-                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                    >
-                        <IconSend size={16} />
-                        Manajemen Pesan
-                    </Link>
-                    <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-700 text-sm">
-                        <IconBrandWhatsapp size={18} />
-                        <span>Realtime-ready log dashboard</span>
-                    </div>
-                    <div className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${activeRealtimeBadge.className}`}>
-                        <span className={`h-2 w-2 rounded-full ${activeRealtimeBadge.dotClassName}`}></span>
-                        <span>{activeRealtimeBadge.label}</span>
-                    </div>
-                    <div className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${activeServiceHealthBadge.className}`}>
-                        <span className={`h-2 w-2 rounded-full ${activeServiceHealthBadge.dotClassName}`}></span>
-                        <span>{activeServiceHealthBadge.label}</span>
-                    </div>
-                    <div className="inline-flex items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={() => manageGoService('start')}
-                            disabled={isManagingService}
-                            className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
-                        >
-                            Start
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => manageGoService('stop')}
-                            disabled={isManagingService}
-                            className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 hover:bg-red-100 disabled:opacity-60"
-                        >
-                            Stop
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => manageGoService('restart')}
-                            disabled={isManagingService}
-                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                        >
-                            Restart
-                        </button>
-                    </div>
-                    <div className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${workerBadge.className}`}>
-                        <span className={`h-2 w-2 rounded-full ${workerBadge.dotClassName}`}></span>
-                        <span>{workerBadge.label}</span>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={checkWhatsAppGoHealth}
-                        disabled={isCheckingHealth}
-                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                    >
-                        <IconRefresh size={16} className={isCheckingHealth ? "animate-spin" : ""} />
-                        <span>{isCheckingHealth ? "Mengecek..." : "Cek Kesehatan Go"}</span>
-                    </button>
-                </div>
-            </div>
-
-            <div className="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
-                <div className="font-medium">Status WhatsApp Go: {serviceHealth.message}</div>
-                <div className="text-xs text-slate-500 mt-1">
-                    HTTP: {serviceHealth.http_status ?? "-"} | Latency: {serviceHealth.latency_ms ?? "-"} ms
-                    {lastHealthCheckedAt ? ` | Last Check: ${lastHealthCheckedAt.toLocaleTimeString()}` : ""}
-                </div>
-            </div>
-
-            {serviceHealth.status === "down" && (
-                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    <div className="flex items-center gap-2 font-semibold">
-                        <IconAlertTriangle size={16} />
-                        Service WhatsApp Go sedang tidak sehat
-                    </div>
-                    <div className="mt-1 text-xs text-red-600">
-                        Auto-check berjalan setiap 30 detik. Kamu juga bisa klik tombol Cek Kesehatan Go untuk cek manual.
-                    </div>
-                </div>
-            )}
+            </PageHeader>
 
             {flash?.success && (
                 <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
@@ -625,14 +268,14 @@ export default function Logs({ filters, summary, outboundStatuses, webhookEvents
             </form>
 
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                <SummaryCard title="Total Outbound" value={summary?.outbound_total} icon={<IconSend size={18} />} tone="blue" />
-                <SummaryCard title="Queued" value={summary?.outbound_queued} icon={<IconClockHour4 size={18} />} tone="amber" />
-                <SummaryCard title="Sent" value={summary?.outbound_sent} icon={<IconSend size={18} />} tone="emerald" />
-                <SummaryCard title="Failed" value={summary?.outbound_failed} icon={<IconAlertTriangle size={18} />} tone="red" />
-                <SummaryCard title="Queue Pending" value={summary?.queue_pending} icon={<IconClockHour4 size={18} />} tone="amber" />
-                <SummaryCard title="Queue Failed Jobs" value={summary?.queue_failed} icon={<IconShieldX size={18} />} tone="red" />
-                <SummaryCard title="Total Webhook" value={summary?.webhook_total} icon={<IconWebhook size={18} />} tone="slate" />
-                <SummaryCard title="Invalid Signature" value={summary?.webhook_invalid_signature} icon={<IconShieldX size={18} />} tone="red" />
+                <StatCard title="Total Outbound" value={summary?.outbound_total} icon={<IconSend size={18} />} tone="blue" />
+                <StatCard title="Queued" value={summary?.outbound_queued} icon={<IconClockHour4 size={18} />} tone="amber" />
+                <StatCard title="Sent" value={summary?.outbound_sent} icon={<IconSend size={18} />} tone="emerald" />
+                <StatCard title="Failed" value={summary?.outbound_failed} icon={<IconAlertTriangle size={18} />} tone="red" />
+                <StatCard title="Queue Pending" value={summary?.queue_pending} icon={<IconClockHour4 size={18} />} tone="amber" />
+                <StatCard title="Queue Failed Jobs" value={summary?.queue_failed} icon={<IconShieldX size={18} />} tone="red" />
+                <StatCard title="Total Webhook" value={summary?.webhook_total} icon={<IconWebhook size={18} />} tone="slate" />
+                <StatCard title="Invalid Signature" value={summary?.webhook_invalid_signature} icon={<IconShieldX size={18} />} tone="red" />
             </div>
 
             {(summary?.queue_pending ?? 0) > 0 && (
