@@ -196,7 +196,7 @@ class WhatsAppLogController extends Controller
         ]);
     }
 
-    public function retry(WhatsAppOutboundMessage $outbound): \Illuminate\Http\RedirectResponse
+    public function retry(WhatsAppOutboundMessage $outbound): \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse
     {
         if ($outbound->status === 'sent') {
             throw ValidationException::withMessages([
