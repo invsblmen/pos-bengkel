@@ -6,6 +6,7 @@ use App\Events\WhatsAppOutboundUpdated;
 use App\Jobs\SendWhatsAppMessageJob;
 use App\Models\Appointment;
 use App\Models\Customer;
+use App\Models\PartSale;
 use App\Models\ServiceOrder;
 use App\Models\WhatsAppOutboundMessage;
 use Carbon\Carbon;
@@ -101,6 +102,23 @@ class WhatsAppMessageService
             'appointment.reminder',
             'appointment',
             $appointment->id
+        );
+    }
+
+    public function sendPartSaleReadyNotification(PartSale $sale, ?string $note = null): ?WhatsAppOutboundMessage
+    {
+        $customer = $sale->customer;
+
+        if (!$customer || trim((string) $customer->phone) === '') {
+            return null;
+        }
+
+        return $this->queueCustomerMessage(
+            $customer,
+            $this->buildPartSaleReadyMessage($sale, $note),
+            'part_sale.order_ready',
+            'part_sale',
+            $sale->id
         );
     }
 
@@ -287,6 +305,64 @@ class WhatsAppMessageService
         }
 
         $lines[] = 'Silakan datang tepat waktu agar pelayanan berjalan lancar.';
+
+        return implode("\n", $lines);
+    }
+
+    public function buildPartSaleReadyMessage(PartSale $sale, ?string $note = null): string
+    {
+        $customerName = $sale->customer?->name ?? 'Pelanggan';
+        $workshopName = (string) config('app.name');
+        $grandTotal = (int) ($sale->grand_total ?? 0);
+        $paidAmount = (int) ($sale->paid_amount ?? 0);
+        $remainingAmount = (int) ($sale->remaining_amount ?? max(0, $grandTotal - $paidAmount));
+
+        $details = $sale->details->map(function ($detail) {
+            $itemName = $detail->part?->name ?? '-';
+            $qty = max(1, (int) ($detail->quantity ?? 1));
+            $subtotal = (int) ($detail->final_amount ?? $detail->subtotal ?? 0);
+
+            return sprintf(
+                '- %s x%d = Rp%s',
+                $itemName,
+                $qty,
+                number_format($subtotal, 0, ',', '.')
+            );
+        })->implode("\n");
+
+        $lines = [
+            "Halo {$customerName},",
+            '',
+            'Kabar baik, pesanan sparepart Anda sudah datang dan siap diambil.',
+            '',
+            "No. Penjualan: {$sale->sale_number}",
+        ];
+
+        if ($details !== '') {
+            $lines[] = 'Rincian pesanan:';
+            $lines[] = $details;
+        }
+
+        $lines[] = '';
+        $lines[] = 'Total: Rp' . number_format($grandTotal, 0, ',', '.');
+        $lines[] = 'Sudah dibayar: Rp' . number_format($paidAmount, 0, ',', '.');
+
+        if ($remainingAmount > 0) {
+            $lines[] = 'Sisa pembayaran: Rp' . number_format($remainingAmount, 0, ',', '.');
+        } else {
+            $lines[] = 'Status pembayaran: LUNAS';
+        }
+
+        $lines[] = '';
+        $lines[] = 'Silakan datang ke bengkel untuk mengambil pesanan Anda. Tunjukkan nomor penjualan di atas saat pengambilan.';
+        $lines[] = '';
+        $lines[] = "Bengkel: {$workshopName}";
+
+        if ($note) {
+            $lines[] = '';
+            $lines[] = 'Catatan:';
+            $lines[] = $note;
+        }
 
         return implode("\n", $lines);
     }

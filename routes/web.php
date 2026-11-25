@@ -28,6 +28,7 @@ use App\Http\Controllers\Apps\CashManagementController;
 use App\Http\Controllers\Apps\VoucherController;
 use App\Http\Controllers\Apps\DataImportController;
 use App\Http\Controllers\Apps\WhatsAppLogController;
+use App\Http\Controllers\Apps\WhatsAppSettingController;
 use App\Http\Controllers\Apps\WhatsAppMessageController;
 use App\Http\Controllers\Apps\WhatsAppGoController;
 use App\Http\Controllers\Apps\WhatsAppDockerController;
@@ -87,6 +88,8 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::get('/whatsapp/go/local/status', [WhatsAppDockerController::class, 'localStatus'])->middleware('permission:reports-access')->name('whatsapp.go.local.status');
     Route::get('/whatsapp/logs', [WhatsAppLogController::class, 'index'])->middleware('permission:reports-access')->name('whatsapp.logs.index');
     Route::get('/whatsapp/queue-monitor', [WhatsAppLogController::class, 'queueMonitor'])->middleware('permission:reports-access')->name('whatsapp.queue-monitor.index');
+    Route::get('/whatsapp/settings', [WhatsAppSettingController::class, 'edit'])->middleware('permission:whatsapp-settings-access')->name('whatsapp.settings.edit');
+    Route::put('/whatsapp/settings', [WhatsAppSettingController::class, 'update'])->middleware('permission:whatsapp-settings-access')->name('whatsapp.settings.update');
     Route::get('/whatsapp/health/check', [WhatsAppLogController::class, 'healthCheck'])->middleware('permission:reports-access')->name('whatsapp.health.check');
     Route::post('/whatsapp/worker/run-once', [WhatsAppLogController::class, 'runWorkerOnce'])->middleware('permission:reports-access')->name('whatsapp.worker.run-once');
     Route::post('/whatsapp/worker/restart', [WhatsAppLogController::class, 'restartWorkers'])->middleware('permission:reports-access')->name('whatsapp.worker.restart');
@@ -294,6 +297,7 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth']], function () {
     Route::delete('/part-sales/{partSale}', [PartSaleController::class, 'destroy'])->middleware('permission:part-sales-delete')->name('part-sales.destroy');
     Route::post('/part-sales/{partSale}/update-payment', [PartSaleController::class, 'updatePayment'])->middleware('permission:part-sales-edit')->name('part-sales.update-payment');
     Route::post('/part-sales/{partSale}/update-status', [PartSaleController::class, 'updateStatus'])->middleware('permission:part-sales-edit')->name('part-sales.update-status');
+    Route::post('/part-sales/{id}/whatsapp/notify-ready', [PartSaleController::class, 'sendWhatsAppReadyNotification'])->middleware('permission:part-sales-access')->name('part-sales.whatsapp.notify-ready');
     Route::post('/part-sales/{partSale}/details/{detail}/claim-warranty', [PartSaleController::class, 'claimWarranty'])->middleware('permission:part-sales-warranty-claim')->name('part-sales.details.claim-warranty');
     Route::post('/part-sales/create-from-order', [PartSaleController::class, 'createFromOrder'])->middleware('permission:part-sales-create')->name('part-sales.create-from-order');
 

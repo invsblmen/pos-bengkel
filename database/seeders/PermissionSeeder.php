@@ -38,6 +38,9 @@ class PermissionSeeder extends Seeder
             // payment settings
             'payment-settings-access',
 
+            // whatsapp settings
+            'whatsapp-settings-access',
+
             // vehicles
             'vehicles-access', 'vehicles-create', 'vehicles-edit', 'vehicles-delete',
 

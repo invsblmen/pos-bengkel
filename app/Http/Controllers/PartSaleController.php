@@ -25,11 +25,13 @@ use App\Services\FIFOCostingService;
 use App\Services\VoucherService;
 use App\Services\VoucherApplier;
 use App\Services\WarrantyRegistrationService;
+use App\Services\WhatsAppMessageService;
 use App\Support\DispatchesBroadcastSafely;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -1191,7 +1193,62 @@ class PartSaleController extends Controller
             foreach ($users as $user) {
                 $user->notify(new PartSaleOrderReadyNotification($sale));
             }
+
+            $this->notifyCustomerPartSaleReady($sale);
         }
+    }
+
+    /**
+     * Antrekan WhatsApp "pesanan siap" ke konsumen. Dijalankan otomatis
+     * saat penjualan menjadi ready_to_notify; kegagalan apa pun hanya
+     * dicatat di log agar tidak menggagalkan pemuatan halaman penjualan.
+     */
+    private function notifyCustomerPartSaleReady(PartSale $sale): void
+    {
+        try {
+            if (!config('whatsapp.enabled')) {
+                return;
+            }
+
+            if (!config('whatsapp.notifications.part_sale_order_ready', true)) {
+                return;
+            }
+
+            $sale->loadMissing('details.part', 'customer');
+
+            $outbound = app(WhatsAppMessageService::class)->sendPartSaleReadyNotification($sale);
+
+            if ($outbound && config('whatsapp.notifications.part_sale_auto_waiting_pickup', true)) {
+                $sale->update(['status' => 'waiting_pickup']);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Gagal mengirim notifikasi WhatsApp pesanan siap.', [
+                'part_sale_id' => $sale->id,
+                'sale_number' => $sale->sale_number,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Kirim/ulang WhatsApp "pesanan siap" secara manual dari halaman
+     * detail penjualan. Meniru ServiceOrderController::sendWhatsAppSummary.
+     */
+    public function sendWhatsAppReadyNotification($id, WhatsAppMessageService $whatsAppMessageService)
+    {
+        $sale = PartSale::with('customer', 'details.part')->findOrFail($id);
+
+        $outbound = $whatsAppMessageService->sendPartSaleReadyNotification($sale);
+
+        if (!$outbound) {
+            return $this->errorResponse('Pelanggan belum memiliki nomor WhatsApp yang valid.', ['phone' => ['Nomor pelanggan kosong.']], 422);
+        }
+
+        if ($sale->status === 'ready_to_notify' && config('whatsapp.notifications.part_sale_auto_waiting_pickup', true)) {
+            $sale->update(['status' => 'waiting_pickup']);
+        }
+
+        return $this->jsonOrRedirect('part-sales.show', [$sale->id], 'Pesan WhatsApp berhasil di-queue ke konsumen.');
     }
 
     private function reserveAllDetailsOrFail(PartSale $sale, string $notePrefix): void

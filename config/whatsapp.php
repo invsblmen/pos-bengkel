@@ -29,6 +29,8 @@ return [
         'queue' => env('WHATSAPP_QUEUE', 'default'),
         'service_order_created' => env('WHATSAPP_NOTIFY_SERVICE_ORDER_CREATED', true),
         'service_order_updated' => env('WHATSAPP_NOTIFY_SERVICE_ORDER_UPDATED', false),
+        'part_sale_order_ready' => env('WHATSAPP_NOTIFY_PART_SALE_ORDER_READY', true),
+        'part_sale_auto_waiting_pickup' => env('WHATSAPP_NOTIFY_PART_SALE_AUTO_WAITING_PICKUP', true),
     ],
 
     'monitoring' => [

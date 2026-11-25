@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\PartSale;
+use App\Models\WhatsAppSetting;
 use App\Observers\PartSaleObserver;
 use App\Listeners\FlushReportCaches;
 use App\Listeners\SendServiceOrderWhatsAppNotification;
@@ -35,6 +36,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Timpa config WhatsApp dengan nilai dari UI Konfigurasi (database)
+        // bila ada; nilai null tetap memakai config/.env.
+        $this->registerWhatsAppSettingsOverride();
+
         PartSale::observe(PartSaleObserver::class);
 
         // Register event listeners for report cache invalidation
@@ -83,6 +88,45 @@ class AppServiceProvider extends ServiceProvider
             [PartSaleCreated::class, PartSaleUpdated::class, PartSaleDeleted::class],
             [$listener, 'handlePartSaleEvent']
         );
+    }
+
+    /**
+     * Muat pengaturan WhatsApp dari database (UI Konfigurasi WhatsApp)
+     * menimpa config. Semua konsumen membaca config('whatsapp.*'),
+     * jadi override di sini cukup tanpa mengubah titik pemakaian.
+     * Kegagalan apa pun (tabel belum dimigrasi, DB belum siap) diabaikan
+     * agar boot aplikasi tidak pernah gagal karenanya.
+     */
+    private function registerWhatsAppSettingsOverride(): void
+    {
+        try {
+            $setting = WhatsAppSetting::current();
+
+            if (!$setting) {
+                return;
+            }
+
+            $overrides = [
+                'whatsapp.enabled' => $setting->enabled,
+                'whatsapp.api.base_url' => $setting->api_base_url,
+                'whatsapp.api.timeout_seconds' => $setting->api_timeout_seconds,
+                'whatsapp.api.device_id' => $setting->api_device_id,
+                'whatsapp.api.username' => $setting->api_username,
+                'whatsapp.api.password' => $setting->api_password,
+                'whatsapp.notifications.service_order_created' => $setting->notify_service_order_created,
+                'whatsapp.notifications.service_order_updated' => $setting->notify_service_order_updated,
+                'whatsapp.notifications.part_sale_order_ready' => $setting->notify_part_sale_order_ready,
+                'whatsapp.notifications.part_sale_auto_waiting_pickup' => $setting->part_sale_auto_waiting_pickup,
+            ];
+
+            foreach ($overrides as $key => $value) {
+                if ($value !== null) {
+                    config([$key => $value]);
+                }
+            }
+        } catch (\Throwable $e) {
+            // Abaikan: fallback ke config/.env.
+        }
     }
 
     private function registerQueueHeartbeat(): void

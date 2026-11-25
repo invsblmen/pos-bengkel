@@ -37,6 +37,7 @@ export default function Show({ sale, businessProfile, cashDenominations = [] }) 
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [newStatus, setNewStatus] = useState(sale.status || 'draft');
     const [updatingStatus, setUpdatingStatus] = useState(false);
+    const [notifyingWhatsApp, setNotifyingWhatsApp] = useState(false);
     const [showPrintModal, setShowPrintModal] = useState(false);
     const [printMode, setPrintMode] = useState('invoice');
     const [paperSize, setPaperSize] = useState('a4');
@@ -196,6 +197,25 @@ export default function Show({ sale, businessProfile, cashDenominations = [] }) 
                     toast.error(errors?.error || 'Gagal memperbarui status');
                 },
                 onFinish: () => setUpdatingStatus(false),
+            }
+        );
+    };
+
+    const notifyWhatsApp = () => {
+        setNotifyingWhatsApp(true);
+        router.post(
+            route('part-sales.whatsapp.notify-ready', sale.id),
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.success('Pesan WhatsApp berhasil di-queue ke konsumen');
+                    router.reload();
+                },
+                onError: (errors) => {
+                    toast.error(errors?.phone || errors?.error || 'Gagal mengirim WhatsApp ke konsumen');
+                },
+                onFinish: () => setNotifyingWhatsApp(false),
             }
         );
     };
@@ -370,6 +390,15 @@ export default function Show({ sale, businessProfile, cashDenominations = [] }) 
                                             className="inline-flex items-center gap-2 rounded-xl bg-white/10 border-2 border-white/20 px-5 py-2.5 text-sm font-bold text-white hover:bg-white/20 backdrop-blur-sm transition-all"
                                         >
                                             <IconEdit size={18} /> Update Status
+                                        </button>
+                                    )}
+                                    {['ready_to_notify', 'waiting_pickup'].includes(sale.status) && (
+                                        <button
+                                            onClick={notifyWhatsApp}
+                                            disabled={notifyingWhatsApp}
+                                            className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-emerald-700 shadow-xl hover:shadow-2xl hover:scale-105 transition-all disabled:opacity-50"
+                                        >
+                                            📲 {notifyingWhatsApp ? 'Mengirim...' : 'Beritahu Konsumen (WhatsApp)'}
                                         </button>
                                     )}
                                 </div>
